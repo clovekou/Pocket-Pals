@@ -1,5 +1,5 @@
 // Offline cache for Pocket Pal
-const CACHE = 'pocketpal-v25';
+const CACHE = 'pocketpal-v26';
 const FILES = ['./', './index.html', './style.css', './pixelart.js', './backgrounds.js', './sprites.js', './species.js', './creatures.js', './game.js', './online-config.js', './online.js', './talk.js', './ui.js', './icon.svg', './assets/egg.png', './manifest.webmanifest'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

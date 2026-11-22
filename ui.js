@@ -355,7 +355,11 @@
   }
   function stepPals(t, dt) {
     const pals = V.pals;
+    const P = Game.pet(), mainAsleep = !!(P && !P.egg && P.asleep);
     pals.forEach((p, i) => {
+      // lights out: when the main Pokémon sleeps, the whole party curls up too
+      if (mainAsleep) { if (p.act !== 'sleep' || !p.napWithMain) { p.act = 'sleep'; p.napWithMain = true; p.t0 = t; } p.moving = false; p.until = t + 1 + Math.random() * 3; return; }
+      if (p.napWithMain) { p.napWithMain = false; p.until = t + Math.random() * 1.5; } // wake up a moment after the main
       if (t > p.until) {                                  // pick a new activity
         p.act = PAL_ACTS[Math.floor(Math.random() * PAL_ACTS.length)];
         p.until = t + 7 + Math.random() * 9; p.t0 = t;
