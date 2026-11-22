@@ -59,13 +59,28 @@ function _img(src, onload) {
   let im = _imgs[src];
   if (!im) {
     im = new Image(); im._cbs = [];
+    im.crossOrigin = 'anonymous'; // so remote sprites can still be measured
     im.onload = im.onerror = () => { const cbs = im._cbs; im._cbs = []; cbs.forEach(f => f()); };
     im.src = src; _imgs[src] = im;
   }
   if (onload) { if (im.complete) onload(); else im._cbs.push(onload); }
   return im;
 }
-function _variantPath(shiny) { return shiny ? 'sprite/0000/Shiny/' : 'sprite/'; }
+// Where sprites come from: the local Pokemon-Sprites/ folder, or — when the game is hosted
+// somewhere without that folder (e.g. GitHub Pages) — straight from the PMD SpriteCollab repo.
+const SPRITECOLLAB = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/';
+const REMOTE_SPRITES = typeof location !== 'undefined' && /\.github\.io$/i.test(location.hostname);
+function _pad4(id) { return String(id).padStart(4, '0'); }
+function _spriteUrl(id, sd, shiny, file) {
+  return REMOTE_SPRITES
+    ? `${SPRITECOLLAB}sprite/${_pad4(id)}/${shiny ? '0000/0001/' : ''}${file}`
+    : `Pokemon-Sprites/${sd.f}/sprite/${shiny ? '0000/Shiny/' : ''}${file}?v=${sd.v}`;
+}
+function _portraitUrl(id, sd, shiny, emo) {
+  return REMOTE_SPRITES
+    ? `${SPRITECOLLAB}portrait/${_pad4(id)}/${shiny ? '0000/0001/' : ''}${emo}.png`
+    : `Pokemon-Sprites/${sd.f}/portrait/${shiny ? '0000/Shiny/' : ''}${emo}.png?v=${sd.v}`;
+}
 
 // PMD direction rows: 0 Down, 1 DownRight, 2 Right, 3 UpRight, 4 Up, 5 UpLeft, 6 Left, 7 DownLeft
 const DIR_ROW = { front: 0, downright: 1, right: 2, left: 6, downleft: 7 };
@@ -87,7 +102,7 @@ function spriteAnim(id, shiny, name) {
       const guess = Math.min(fh - 1, Math.round(fh / 2 + Math.min(10, fh / 4)));
       _animCache[key] = {
         name: n, fw, fh, frames, rows, dur,
-        src: `Pokemon-Sprites/${sd.f}/${_variantPath(useShiny)}${file || n}-Anim.png?v=${sd.v}`,
+        src: _spriteUrl(id, sd, useShiny, `${file || n}-Anim.png`),
         feet: new Array(rows).fill(guess), top: new Array(rows).fill(0), measured: false,
       };
     }
@@ -134,7 +149,7 @@ function portraitUrl(id, shiny, emo) {
   if (!mask) return null;
   let i = EMOTIONS.indexOf(emo);
   if (i < 0 || !(mask & (1 << i))) i = mask & 1 ? 0 : Math.log2(mask & -mask);
-  return `Pokemon-Sprites/${sd.f}/portrait/${useShiny ? '0000/Shiny/' : ''}${EMOTIONS[i]}.png?v=${sd.v}`;
+  return _portraitUrl(id, sd, useShiny, EMOTIONS[i]);
 }
 /** length of a one-shot animation, in seconds */
 function animLength(id, name) {

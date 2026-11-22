@@ -6,8 +6,14 @@ with animations right now). It runs in any browser, and there's nothing to insta
 > The sprites come from PMD SpriteCollab (CC BY-NC); Pokémon © Nintendo / Game Freak.
 > Personal use only. Don't publish or sell this.
 
+## Play online
+**https://clovekou.github.io/Pocket-Pals/** works on phones and computers. On GitHub Pages the
+sprites and portraits load straight from the public
+[PMD SpriteCollab](https://github.com/PMDCollab/SpriteCollab) repository, so you don't need to
+download anything. (The sprite dashboard only works locally, through `server.py`.)
+
 ## Getting the sprites
-The sprites aren't in this repository. Before playing, create a `Pokemon-Sprites/` folder
+The sprites aren't in this repository. To play locally, create a `Pokemon-Sprites/` folder
 here with one folder per Pokémon named `NNNN_Name` (for example `0025_Pikachu`), each in the
 [PMD SpriteCollab](https://sprites.pmdcollab.org/) layout:
 ```
