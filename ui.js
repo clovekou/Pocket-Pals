@@ -385,8 +385,9 @@
     });
   }
   function drawPal(p, t) {
-    const fy = H * p.depth - V.lift * .5;
-    const size = baseSize() * .55 * stageScale(p.sp), x = p.x * W;
+    const tall = H > W * 1.1;                        // phone / portrait: party sits higher and a bit smaller
+    const fy = H * (tall ? p.depth - .1 : p.depth) - V.lift * .5;
+    const size = baseSize() * (tall ? .44 : .55) * stageScale(p.sp), x = p.x * W;
     cx.fillStyle = 'rgba(0,0,0,.14)'; cx.beginPath(); cx.ellipse(x, fy, size * .8, size * .16, 0, 0, Math.PI * 2); cx.fill();
     const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
     const pos = drawCreature(cx, p.sp, {
