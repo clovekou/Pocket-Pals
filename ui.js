@@ -503,14 +503,13 @@
 
   // ======================= HUD =======================
   const els = {
-    name: $('#petName'), lv: $('#petLevel'), streak: $('#streakNum'), cer: $('#cerBtns'), hint: $('#hint'),
+    name: $('#petName'), lv: $('#petLevel'), cer: $('#cerBtns'), hint: $('#hint'),
     lightIcon: $('#lightIcon'), lightLbl: $('#lightLbl'), sub: $('#petSub'), avatar: $('#avatar'),
     bars: [...document.querySelectorAll('.bar')].map(b => ({ k: b.dataset.k, el: b, fill: b.querySelector('i'), val: b.querySelector('.bv') })),
   };
   let cerSig = '';
   function hud() {
     const p = Game.pet(), S = ST();
-    els.streak.textContent = S.player.streak;
     if (!p) { els.name.textContent = 'Pocket Pal'; els.name.dataset.sig = ''; els.sub.textContent = 'Choose a partner'; els.avatar.className = 'egg'; els.avatar.src = PX.url('egg_rare_0'); els.lv.textContent = ''; els.lv.classList.add('hidden'); return; }
     const nameSig = petName() + p.shiny + p.egg + p.sp;
     if (els.name.dataset.sig !== nameSig) {
@@ -1030,7 +1029,6 @@
   }));
   $('#nameBtn').addEventListener('click', () => openCard());
   $('#settingsBtn').addEventListener('click', openSettings);
-  $('#streak').addEventListener('click', () => toast(`{i:flame} ${ST().player.streak}-day care streak (best ${ST().player.bestStreak}). Care at least once a day!`));
 
   // ======================= minigames =======================
   const arena = $('#arena'), acv = $('#arenaCanvas'), ac = acv.getContext('2d');

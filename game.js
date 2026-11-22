@@ -649,13 +649,13 @@ const Game = (() => {
   }
   function lockPet(key, tradeId) { const f = findPet(key); if (!f || f.where === 'main') return false; f.pet.locked = tradeId; save(); emit('party'); return true; }
   function unlockTrade(tradeId) { let n = 0; allPets().forEach(m => { if (m.locked === tradeId) { delete m.locked; n++; } }); if (n) { save(); emit('party'); } return n; }
-  function snapshot(m) { const c = JSON.parse(JSON.stringify(m)); delete c.locked; return c; }
+  function tradeCopy(m) { if (!m) return null; const c = JSON.parse(JSON.stringify(m)); delete c.locked; return c; }
   /** finish a trade: give away `key`, receive `incoming` (keeps its Original Trainer) */
   function completeTrade(key, incoming, fromTrainer) {
     const f = findPet(key);
     if (!f || f.where === 'main') return false;
     if (f.where === 'party') S.player.party.splice(f.index, 1); else S.player.box.splice(f.index, 1);
-    const m = snapshot(incoming);
+    const m = tradeCopy(incoming);
     m.key = m.key || newKey(); m.receivedFrom = fromTrainer; m.receivedAt = Date.now(); m.asleep = false;
     if (!m.ot) m.ot = fromTrainer;
     register(m.sp, m.shiny);
@@ -693,7 +693,7 @@ const Game = (() => {
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
     ITEMS, EXPLORE_MAX_FLOOR, FRAGMENTS_TO_SUMMON, isSpecial, pickMysterySpecies, rollLegend, catchLegend, addFragment, summonLegend,
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
-    setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
+    setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
     canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
     stat, registered, registeredCount, shinyCount, careBonus, isFinal,
     LEGEND_UNLOCK, FAREWELL_AGE,
