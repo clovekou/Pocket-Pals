@@ -404,6 +404,17 @@ const PX = (() => {
         g.rect(x - 7, y - 1, 14, 2, '#2b2438', true); g.ell(x, y, 2.2, 2.2, '#2b2438', true); g.ell(x, y, 1.2, 1.2, '#ffffff', true);
       });
     },
+    masterball: g => {
+      D.pokeball(g);
+      for (let y = 0; y < 15; y++) for (let x = 0; x < 32; x++) { const p = g.get(x, y); if (p && (p.c === '#ee1515' || p.c === '#ff9a9a')) g.set(x, y, '#7a3fc4'); }
+      g.ell(9, 9, 2.6, 2.6, '#ff6fb5', true).ell(23, 9, 2.6, 2.6, '#ff6fb5', true);
+      g.line(12, 11, 13, 5, '#ffffff', true); g.line(13, 5, 16, 9, '#ffffff', true); g.line(16, 9, 19, 5, '#ffffff', true); g.line(19, 5, 20, 11, '#ffffff', true);
+    },
+    fragment: g => {   // glowing shard of a legendary
+      g.poly([[16, 2], [24, 12], [21, 29], [11, 29], [8, 12]], '#ffd84a');
+      g.poly([[16, 6], [20, 13], [16, 25], [12, 13]], '#fff4b0', true);
+      g.dots([[5, 5], [27, 8], [26, 24], [4, 22]], '#fff7c9');
+    },
     // ---- explore ----
     map: g => {
       g.poly([[3, 7], [11, 4], [21, 7], [29, 4], [29, 25], [21, 28], [11, 25], [3, 28]], '#f3e2b3');

@@ -43,7 +43,7 @@ const Game = (() => {
       streak: 0, bestStreak: 0, lastCareDay: 0, lastMilestone: 0, totalMedals: 0,
       lastEnd: 'none', dex: {}, shiny: {}, favKnown: {}, history: [],
       gameHi: 0, strHi: 0, starterPicked: false, party: [],
-      bag: {}, exploreBest: 0, wildWins: 0,
+      bag: {}, exploreBest: 0, wildWins: 0, fragments: {}, box: [], caught: 0,
     };
   }
   function fresh() {
@@ -66,6 +66,8 @@ const Game = (() => {
     for (const k of ['dex', 'shiny', 'favKnown']) for (const id of Object.keys(S.player[k])) if (!known(id)) delete S.player[k][id];
     S.player.history = S.player.history.filter(h => known(h.sp));
     S.player.bag = S.player.bag || {};
+    S.player.fragments = S.player.fragments || {};
+    S.player.box = (S.player.box || []).filter(m => m && known(m.sp));
     S.player.party = (S.player.party || []).filter(m => m && !m.egg && known(m.sp)).slice(0, PARTY_MAX - 1);
     if (S.pet && !known(S.pet.sp)) { S.pet = null; S.ceremony = null; S.player.starterPicked = false; }
     if (S.ceremony) finishEnding();
@@ -464,6 +466,25 @@ const Game = (() => {
     nugget:    { name: 'Nugget',      icon: 'nugget',        use: false, desc: 'A nugget of pure gold. A collector\'s item.' },
   };
   const EXPLORE_MAX_FLOOR = 10;
+  const FRAGMENTS_TO_SUMMON = 20;
+  // Ultra Beasts and Paradox Pokémon aren't flagged legendary in the data, but count as "special"
+  const SPECIAL_IDS = new Set([793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806,
+    984, 985, 986, 987, 988, 989, 990, 991, 992, 993, 994, 995, 1005, 1006, 1009, 1010, 1020, 1021, 1022, 1023]);
+  function isSpecial(id) {
+    const s = SPECIES_BY_ID[id];
+    return !s || s.tier === 'legend' || SPECIES_BY_ID[s.lineBase].tier === 'legend' || SPECIAL_IDS.has(id);
+  }
+  /** Mystery Egg: any first-stage Pokémon that isn't legendary/mythical/Ultra Beast/Paradox */
+  function pickMysterySpecies() {
+    const pool = SPECIES.filter(s => !s.prev && !isSpecial(s.id));
+    return pool[rnd(pool.length)].id;
+  }
+  function rollLegend() {
+    const pool = SPECIES.filter(s => isSpecial(s.id));
+    if (!pool.length) return null;
+    const s = pool[rnd(pool.length)];
+    return { sp: s.id, level: Math.max(5, level()), shiny: rnd(100) === 0, legend: true };
+  }
   function exploreCheck() {
     const p = S.pet;
     if (!p || S.ceremony) return { ok: false, why: 'Not right now.' };
@@ -483,7 +504,8 @@ const Game = (() => {
   /** what happens on a floor: 'none' | 'wild' | 'treasure' | 'egg' */
   function rollFloor(floor) {
     const r = Math.random();
-    const eggChance = .05 + floor * .006, treasure = .2 + floor * .015, wild = .3;
+    const legend = .012 + floor * .003, eggChance = .05 + floor * .006, treasure = .2 + floor * .015, wild = .3;
+    if (Math.random() < legend && SPECIES.some(s => isSpecial(s.id))) return 'legend';
     if (r < eggChance) return 'egg';
     if (r < eggChance + treasure) return 'treasure';
     if (r < eggChance + treasure + wild) return 'wild';
@@ -498,7 +520,7 @@ const Game = (() => {
   /** a wild Pokémon 3–5 levels below your main (never legendary) */
   function rollWild() {
     const lv = Math.max(1, level() - (3 + rnd(3)));
-    const pool = SPECIES.filter(s => s.tier !== 'legend' && !(s.prev == null && SPECIES_BY_ID[s.id].tier === 'legend'));
+    const pool = SPECIES.filter(s => !isSpecial(s.id));
     // fit the stage to the level: low levels meet first stages, higher levels can meet evolved ones
     const fit = pool.filter(s => (s.stage === 1) || (s.stage === 2 && lv >= 18) || (s.stage >= 3 && lv >= 34));
     const list = fit.length ? fit : pool;
@@ -521,8 +543,8 @@ const Game = (() => {
       if (!p || p.egg) return { error: 'Hatch your current egg first.' };
       if (S.player.party.length + 1 >= PARTY_MAX) return { error: `Your party is full (${PARTY_MAX}). Release one first.` };
       S.player.bag[k]--;
-      const id = pickEggSpecies(), shiny = rollShiny();
-      p.asleep = false; S.player.party.push(p); S.pet = makeEgg(id, shiny); S.lastTick = Date.now();
+      const id = pickMysterySpecies(), shiny = rollShiny();
+      p.asleep = false; S.player.party.push(p); S.pet = Object.assign(makeEgg(id, shiny), { mystery: true }); S.lastTick = Date.now();
       save(); emit('newegg'); emit('party');
       return { egg: true };
     }
@@ -533,6 +555,47 @@ const Game = (() => {
     afterCare();
     return {};
   }
+  /** a fully grown Pokémon (caught or summoned) at a given level */
+  function makeCaught(id, lv, shiny) {
+    register(id, shiny);
+    return {
+      egg: false, sp: id, shiny: !!shiny, name: '', ageMin: Math.max(0, lv - 1) * MIN_PER_LEVEL,
+      food: 80, joy: 80, ene: 80, hyg: 100, poops: 0, weight: 0,
+      genes: { atk: 95 + rnd(16), def: 95 + rnd(16), spd: 95 + rnd(16) }, tr: { atk: 0, def: 0, spd: 0 },
+      berryKnown: false, bond: 0, bondToday: 0, bondDay: dayNum(), medals: [], mistakes: 0, mistakeCd: 0, goodTicks: 0,
+      neglect: 0, asleep: false, declinedLevel: 0, farewellAt: FAREWELL_AGE, hatchedAt: Date.now(), caught: true,
+    };
+  }
+  /** add to the party if there's room, otherwise to the PC box */
+  function keepPokemon(m) {
+    S.player.caught = (S.player.caught || 0) + 1;
+    if (S.player.party.length + 1 < PARTY_MAX) { S.player.party.push(m); save(); emit('party'); return 'party'; }
+    S.player.box.push(m); save(); emit('party'); return 'box';
+  }
+  function catchLegend(w) { return keepPokemon(makeCaught(w.sp, w.level, w.shiny)); }
+  function addFragment(id) { S.player.fragments[id] = (S.player.fragments[id] || 0) + 1; save(); return S.player.fragments[id]; }
+  function summonLegend(id) {
+    if ((S.player.fragments[id] || 0) < FRAGMENTS_TO_SUMMON) return null;
+    S.player.fragments[id] -= FRAGMENTS_TO_SUMMON;
+    if (!S.player.fragments[id]) delete S.player.fragments[id];
+    return keepPokemon(makeCaught(id, Math.max(5, level() || 5), false));
+  }
+  function box() { return S.player.box; }
+  function boxToParty(i) {
+    const m = S.player.box[i]; if (!m) return false;
+    if (S.player.party.length + 1 >= PARTY_MAX) return false;
+    S.player.box.splice(i, 1); S.player.party.push(m); save(); emit('party'); return true;
+  }
+  function partyToBox(i) {
+    const m = S.player.party[i]; if (!m) return false;
+    S.player.party.splice(i, 1); S.player.box.push(m); save(); emit('party'); return true;
+  }
+  function releaseBox(i) {
+    const m = S.player.box[i]; if (!m) return false;
+    S.player.history.unshift({ sp: m.sp, shiny: m.shiny, name: m.name, level: memberLevel(m), ageMin: m.ageMin, end: 'release', date: Date.now(), medals: (m.medals || []).length });
+    S.player.box.splice(i, 1); save(); emit('party'); return true;
+  }
+
   function exploreEnd(r) {
     const p = S.pet; if (!p || p.egg) return;
     if (r.floor > S.player.exploreBest) S.player.exploreBest = r.floor;
@@ -556,7 +619,8 @@ const Game = (() => {
     pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, toggleSleep, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
-    ITEMS, EXPLORE_MAX_FLOOR, exploreCheck, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
+    ITEMS, EXPLORE_MAX_FLOOR, FRAGMENTS_TO_SUMMON, isSpecial, pickMysterySpecies, rollLegend, catchLegend, addFragment, summonLegend,
+    box, boxToParty, partyToBox, releaseBox, exploreCheck, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
     canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
     stat, registered, registeredCount, shinyCount, careBonus, isFinal,
     LEGEND_UNLOCK, FAREWELL_AGE,

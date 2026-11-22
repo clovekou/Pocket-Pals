@@ -48,11 +48,16 @@ they rest. Open **Party** to switch your main (or tap one on the home screen), r
 or take a new egg once your main is Lv 5.
 
 ## Explore
-Send your main into a Mystery-Dungeon-style dungeon (Leafy Woods, Rocky Cave, Crystal Depths),
+Send your main into a pixel-art crystal cave (Crystal Cavern, Emerald Grotto, Ember Hollow),
 floor by floor up to B10F. Each floor may hold a treasure chest (Oran Berry, Rare Candy, Pearl,
-Star Piece, Nugget), a Mystery Egg, or a wild Pokémon 3–5 levels below yours — Fight or Run.
-Each floor costs energy and a little food; items go to **Bag → Items**. (Training moved to
-Summary → Stats → Train strength.)
+Star Piece, Nugget), a Mystery Egg (hatches into a random first-stage Pokémon — never
+legendary, mythical, Ultra Beast or Paradox), or a wild Pokémon 3–5 levels below yours.
+Between floors you can eat berries or use items (Oran Berry heals, Rare Candy levels up).
+
+Rarely, a **legendary or special Pokémon** appears. Beat it, then spin the catch wheel
+(Poké / Great / Ultra / Master Ball) for one throw. If it breaks free it flees and leaves a
+fragment — collect 20 to summon it (100% catch) from **Bag → Items**. Caught Pokémon join your
+party, or the **PC Box** (in the Party menu) when the party is full.
 
 ## Backgrounds
 In the dashboard's **Backgrounds** section you can upload your own scene pictures

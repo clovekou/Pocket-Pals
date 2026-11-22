@@ -716,14 +716,31 @@
       const pic = m.egg ? `<img class="face" src="${PX.url(`egg_${s.tier || 'common'}_${Math.min(2, m.taps || 0)}`)}" alt="">` : face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny });
       return `<div class="pslot ${isMain ? 'main' : ''}">${pic}<div class="pi"><b>${m.egg ? 'Egg' : esc(memberName(m))}${m.shiny && !m.egg ? '{i:sparkle}' : ''}</b>
         <small>${m.egg ? 'Waiting to hatch' : `${ELEMENTS[s.el].label}${lv}${isMain ? '' : ' · resting'}`}</small>${needBar(m)}</div>
-        <div class="acts">${isMain ? '<span class="tag">{i:arrow}Main</span>' : `<button data-sw="${i}">Make main</button><button class="alt" data-rel="${i}">Release</button>`}</div></div>`;
+        <div class="acts">${isMain ? '<span class="tag">{i:arrow}Main</span>' : `<button data-sw="${i}">Make main</button><button class="alt" data-tobox="${i}">To Box</button>`}</div></div>`;
+    };
+    const roomInParty = party.length + 1 < Game.PARTY_MAX;
+    const boxSlot = (m, i) => {
+      const s = SPECIES_BY_ID[m.sp], face = portraitUrl(m.sp, m.shiny, 'Normal');
+      return `<div class="pslot">${face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny })}<div class="pi"><b>${esc(memberName(m))}${m.shiny ? '{i:sparkle}' : ''}</b>
+        <small>${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)} · in the PC</small></div>
+        <div class="acts"><button data-frombox="${i}" ${roomInParty ? '' : 'disabled'}>To party</button><button class="alt" data-relbox="${i}">Release</button></div></div>`;
     };
     const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
     openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.</p>
       <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="pslot empty">Empty slot</div>'.repeat(empties)}</div>
       <div class="btns"><button class="btn ${chk.ok ? 'gold' : 'alt'}" id="takeEgg" ${chk.ok ? '' : 'disabled'}>{i:egg_rare_0} Get a new egg</button></div>
+      ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 8px">PC Box (${Game.box().length})</h4><div class="partylist">${Game.box().map((m, i) => boxSlot(m, i)).join('')}</div>` : ''}
       <p class="muted" style="text-align:center">${chk.ok ? 'Your main joins the party and the egg becomes your new main.' : esc(chk.why)}</p>`);
     sheet.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', () => { closeSheet(); doSwitch(+b.dataset.sw); }));
+    sheet.querySelectorAll('[data-tobox]').forEach(b => b.addEventListener('click', () => { Game.partyToBox(+b.dataset.tobox); openParty(); }));
+    sheet.querySelectorAll('[data-frombox]').forEach(b => b.addEventListener('click', () => { if (Game.boxToParty(+b.dataset.frombox)) openParty(); else toast('Your party is full.'); }));
+    sheet.querySelectorAll('[data-relbox]').forEach(b => b.addEventListener('click', () => {
+      const m = Game.box()[+b.dataset.relbox];
+      dialog(`Release ${esc(memberName(m))}?`, 'It goes back to the wild. This can\'t be undone.', [
+        { label: 'Cancel', cls: 'alt', fn: () => openParty() },
+        { label: 'Release', cls: 'red', fn: () => { Game.releaseBox(+b.dataset.relbox); openParty(); } },
+      ]);
+    }));
     sheet.querySelectorAll('[data-rel]').forEach(b => b.addEventListener('click', () => {
       const m = party[+b.dataset.rel];
       dialog(`Release ${esc(memberName(m))}?`, 'It goes back to the wild and is remembered under Companions in the Pokédex. This can\'t be undone.', [
@@ -1160,15 +1177,38 @@
     return `<div class="tabs"><button data-bag="berries" class="${bagTab === 'berries' ? 'on' : ''}">Berries</button><button data-bag="items" class="${bagTab === 'items' ? 'on' : ''}">Items</button></div>`;
   }
   function wireBagTabs() { sheet.querySelectorAll('[data-bag]').forEach(b => b.addEventListener('click', () => openFeed(b.dataset.bag))); }
+  function fragmentsHtml() {
+    const fr = ST().player.fragments || {}, ids = Object.keys(fr).filter(k => fr[k] > 0).map(Number);
+    if (!ids.length) return '';
+    const need = Game.FRAGMENTS_TO_SUMMON;
+    return `<h4 style="font-family:var(--pixel);margin:16px 0 8px;display:flex;align-items:center;gap:6px">{i:fragment} Legendary fragments</h4>` + ids.map(id => {
+      const n = fr[id], s = SPECIES_BY_ID[id], ready = n >= need;
+      return `<div class="itemrow">${miniCanvas(id, { px: 40 })}<div class="ii"><b>${esc(s.name)}</b>
+        <div class="mini" style="height:8px;border-radius:5px;background:#4a4e66;border:2px solid var(--line);overflow:hidden;margin-top:4px"><i style="display:block;height:100%;width:${Math.min(100, n / need * 100)}%;background:${ready ? 'var(--yellow)' : 'var(--blue)'}"></i></div></div>
+        <span class="cnt">${Math.min(n, need)}/${need}</span>${ready ? `<button data-summon="${id}">Summon</button>` : ''}</div>`;
+    }).join('');
+  }
   function openItems() {
     const IT = Game.ITEMS, keys = Object.keys(IT);
     const have = keys.filter(k => Game.itemCount(k) > 0);
-    openSheet(head('Bag') + bagTabs() + (have.length ? have.map(k => `<div class="itemrow">${ic(IT[k].icon).replace('class="ic"', 'class="px"')}
+    openSheet(head('Bag') + bagTabs() + (have.length || Object.keys(ST().player.fragments || {}).length ? have.map(k => `<div class="itemrow">${ic(IT[k].icon).replace('class="ic"', 'class="px"')}
         <div class="ii"><b>${IT[k].name}</b><small>${IT[k].desc}</small></div><span class="cnt">×${Game.itemCount(k)}</span>
         ${IT[k].use ? `<button data-use="${k}">Use</button>` : ''}</div>`).join('')
       : '<p class="muted">No items yet. Go <b>Explore</b> to find treasure, Rare Candy and Mystery Eggs!</p>')
+      + fragmentsHtml()
       + `<p class="muted" style="margin-top:12px">Deepest floor reached: B${ST().player.exploreBest || 0}F · Wild battles won: ${ST().player.wildWins || 0}</p>`);
     wireBagTabs();
+    sheet.querySelectorAll('[data-summon]').forEach(b => b.addEventListener('click', () => {
+      const id = +b.dataset.summon, nm = SPECIES_BY_ID[id].name;
+      dialog(`Summon ${esc(nm)}?`, `Use ${Game.FRAGMENTS_TO_SUMMON} fragments to call ${esc(nm)}. It answers for sure and joins your party (or PC Box if the party is full).`, [
+        { label: 'Not yet', cls: 'alt', fn: () => openFeed('items') },
+        { label: '{i:fragment} Summon!', cls: 'gold', fn: () => {
+          const where = Game.summonLegend(id); if (!where) return;
+          Sound.play('evolve'); addSparkles(V.x * W, feetY() - petSize(), 30);
+          toast(`{i:sparkle} ${nm} answered your call! It ${where === 'party' ? 'joined your party' : 'was sent to your PC Box'}.`, 5000);
+        } },
+      ]);
+    }));
     sheet.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', () => {
       const k = b.dataset.use, r = Game.useItem(k);
       if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return; }
@@ -1181,13 +1221,90 @@
 
   // ---------- explore (Mystery-Dungeon style) ----------
   const panel = $('#arenaPanel'), epMsg = $('#epMsg'), epBtns = $('#epBtns');
+  // ---------- pixel-art crystal caves (painted once at low resolution, scaled up crisp) ----------
   const DUNGEONS = [
-    { name: 'Leafy Woods', wall: '#24452f', wall2: '#2f5a3c', floor: '#5d8f4e', floor2: '#6a9c58', deco: '#3f7a3a' },
-    { name: 'Rocky Cave', wall: '#3a3029', wall2: '#4a3d33', floor: '#8a7560', floor2: '#97826b', deco: '#6b5a48' },
-    { name: 'Crystal Depths', wall: '#2a2350', wall2: '#3a3070', floor: '#6a62a8', floor2: '#7770b5', deco: '#a99cf0' },
+    { name: 'Crystal Cavern', sky: ['#120e2a', '#241c4e'], rock: ['#2c2550', '#3b3268', '#4c4282', '#5d539a'], floor: ['#4a4170', '#574d80', '#3d355f'],
+      crys: ['#7af0ff', '#38c6e8', '#1e7fb5', '#d9fbff'], crys2: ['#d58cff', '#a656e0', '#6c2aa8', '#f3dcff'], glow: 'rgba(120,230,255,' },
+    { name: 'Emerald Grotto', sky: ['#0b1a17', '#13302a'], rock: ['#1f3a33', '#2b4d43', '#386055', '#4a7568'], floor: ['#3b5a4c', '#466858', '#2f4a3f'],
+      crys: ['#8dffb0', '#3fdc7a', '#1f9a52', '#e2ffe9'], crys2: ['#b8f05a', '#7cc22f', '#4a8418', '#efffcf'], glow: 'rgba(120,255,170,' },
+    { name: 'Ember Hollow', sky: ['#1c0d0a', '#3a1a12'], rock: ['#3b2420', '#51302a', '#6a3e35', '#835043'], floor: ['#5e3b30', '#6e473a', '#4a2e26'],
+      crys: ['#ffc26a', '#ff8a2d', '#c4561a', '#fff0c8'], crys2: ['#ff7a9c', '#e0456c', '#a52449', '#ffd6e2'], glow: 'rgba(255,170,90,' },
   ];
+  const PXS = 4; // screen pixels per art pixel
+  function prand(seed) { let x = seed % 2147483647; if (x <= 0) x += 2147483646; return () => (x = x * 16807 % 2147483647) / 2147483647; }
+  function makeCave(D, w, h, seed) {
+    const W2 = Math.ceil(w / PXS) * 2, H2 = Math.ceil(h / PXS);   // two screens wide, tiles seamlessly
+    const c = document.createElement('canvas'); c.width = W2; c.height = H2;
+    const g = c.getContext('2d'), R = prand(seed * 9973 + 7);
+    const px = (x, y, col) => { g.fillStyle = col; g.fillRect(((x % W2) + W2) % W2, y, 1, 1); };
+    // cave air
+    const grd = g.createLinearGradient(0, 0, 0, H2); grd.addColorStop(0, D.sky[0]); grd.addColorStop(1, D.sky[1]);
+    g.fillStyle = grd; g.fillRect(0, 0, W2, H2);
+    const floorY = Math.round(H2 * .66);
+    // far wall: noisy rock blocks
+    for (let y = 0; y < floorY; y++) for (let x = 0; x < W2; x++) {
+      const n = Math.sin(x * .21 + seed) * Math.cos(y * .17 + seed * .3) + Math.sin((x + y) * .07) * .6 + (R() - .5) * .5;
+      if (n > .55) px(x, y, D.rock[0]); else if (n > .15 && y > H2 * .08) px(x, y, D.rock[1] + '');
+    }
+    // mid rock pillars with lit edges
+    for (let i = 0; i < 7; i++) {
+      const cx = Math.round((i + .5) / 7 * W2 + (R() - .5) * 10), wdt = 6 + Math.round(R() * 8);
+      for (let y = Math.round(H2 * .12 + R() * 10); y < floorY; y++) {
+        const ww = wdt + Math.round(Math.sin(y * .3 + i) * 2);
+        for (let x = -ww; x <= ww; x++) px(cx + x, y, x === -ww ? D.rock[3] : x < -ww + 2 ? D.rock[2] : x > ww - 1 ? D.rock[0] : D.rock[1]);
+      }
+    }
+    // ceiling + stalactites
+    for (let x = 0; x < W2; x++) { const d = 3 + Math.round(Math.sin(x * .3) * 1.5 + R() * 2); for (let y = 0; y < d; y++) px(x, y, y === d - 1 ? D.rock[2] : D.rock[1]); }
+    for (let i = 0; i < 16; i++) {
+      const x0 = Math.round(R() * W2), len = 5 + Math.round(R() * 12), wd = 2 + Math.round(R() * 2);
+      for (let y = 0; y < len; y++) { const ww = Math.max(0, Math.round(wd * (1 - y / len))); for (let x = -ww; x <= ww; x++) px(x0 + x, y + 3, x === -ww ? D.rock[3] : D.rock[2]); }
+    }
+    // floor: stone band with lit top edge, pebbles and cracks
+    for (let y = floorY; y < H2; y++) for (let x = 0; x < W2; x++) {
+      const n = (R() - .5) * .4 + Math.sin(x * .5 + y * .9) * .2;
+      px(x, y, y === floorY ? D.rock[3] : y < floorY + 2 ? D.floor[1] : n > .25 ? D.floor[1] : n < -.25 ? D.floor[2] : D.floor[0]);
+    }
+    for (let i = 0; i < 60; i++) {
+      const x = Math.round(R() * W2), y = floorY + 3 + Math.round(R() * (H2 - floorY - 4));
+      px(x, y, D.rock[3]); px(x + 1, y, D.rock[2]); px(x, y + 1, D.floor[2]);
+    }
+    // crystal clusters (on the walls, by the pillars, and a few on the floor)
+    const crystal = (x0, y0, hgt, pal) => {
+      const wd = Math.max(1, Math.round(hgt / 3.2));
+      for (let y = 0; y < hgt; y++) {
+        const ww = y < wd ? y : wd; // pointed tip
+        for (let x = -ww; x <= ww; x++) px(x0 + x, y0 - hgt + y, y === 0 ? pal[3] : x === -ww ? pal[3] : x < 0 ? pal[0] : x === 0 ? pal[1] : pal[2]);
+      }
+    };
+    const clusters = [];
+    for (let i = 0; i < 9; i++) {
+      const onFloor = i % 3 === 0, x0 = Math.round(R() * W2), y0 = onFloor ? floorY + 2 + Math.round(R() * 3) : Math.round(H2 * .3 + R() * (floorY - H2 * .3));
+      const pal = R() < .6 ? D.crys : D.crys2, big = (onFloor ? 6 : 8) + Math.round(R() * 8);
+      crystal(x0, y0, big, pal); crystal(x0 - 3, y0, Math.round(big * .6), pal); crystal(x0 + 4, y0, Math.round(big * .7), pal);
+      clusters.push({ x: x0, y: y0 - big / 2, pal });
+    }
+    return { canvas: c, clusters, floorY, W2, H2 };
+  }
+  function drawCave(G, ms, walking) {
+    if (!G.cave || G.cave.w !== AW || G.cave.h !== AH) G.cave = Object.assign(makeCave(G.D, AW, AH, G.seedInt), { w: AW, h: AH });
+    const cv = G.cave, scroll = G.scroll || 0;
+    const off = Math.round(scroll / PXS) % cv.W2;
+    ac.imageSmoothingEnabled = false;
+    for (let k = -1; k <= 1; k++) ac.drawImage(cv.canvas, 0, 0, cv.W2, cv.H2, (k * cv.W2 - off) * PXS, 0, cv.W2 * PXS, cv.H2 * PXS);
+    // soft crystal glow + twinkles (drawn at full resolution on top)
+    for (const cl of cv.clusters) for (let k = -1; k <= 1; k++) {
+      const x = (cl.x + k * cv.W2 - off) * PXS, y = cl.y * PXS;
+      if (x < -80 || x > AW + 80) continue;
+      const a = .18 + Math.sin(ms / 600 + cl.x) * .06;
+      const gr = ac.createRadialGradient(x, y, 2, x, y, 70); gr.addColorStop(0, G.D.glow + a + ')'); gr.addColorStop(1, G.D.glow + '0)');
+      ac.fillStyle = gr; ac.fillRect(x - 70, y - 70, 140, 140);
+      if (Math.sin(ms / 300 + cl.x * 3) > .92) PX.draw(ac, 'sparkle', x + Math.sin(cl.x) * 10, y - 8, 16);
+    }
+  }
   function say(html, sub) { epMsg.innerHTML = icons(html) + (sub ? `<small>${icons(sub)}</small>` : ''); }
-  function buttons(list) {
+  function buttons(list, wrap) {
+    epBtns.classList.toggle('wrap', !!wrap);
     epBtns.innerHTML = list.map((b, i) => `<button class="btn ${b.cls || ''}" data-b="${i}">${icons(b.label)}</button>`).join('');
     epBtns.querySelectorAll('[data-b]').forEach(el => el.addEventListener('click', () => { const b = list[+el.dataset.b]; epBtns.innerHTML = ''; b.fn(); }));
   }
@@ -1215,7 +1332,7 @@
     const me = Game.battler(p.sp, Game.level(), true);
     const G = {
       D, floor: 0, state: 'walk', at: now(), me, meHp: me.maxHp, wins: 0, finds: {}, wild: null, wildHp: 0,
-      act: null, actAt: 0, hurt: null, hurtAt: 0, chest: null, over: false, seed: Math.random() * 1000,
+      act: null, actAt: 0, hurt: null, hurtAt: 0, chest: null, over: false, seedInt: 1 + Math.floor(Math.random() * 100000), scroll: 0,
     };
     preloadSpecies(p.sp, p.shiny);
     Sound.play('wake'); Talk.say('exploreGo');
@@ -1232,6 +1349,7 @@
     function resolveFloor() {
       const ev = Game.rollFloor(G.floor);
       if (ev === 'wild') return encounter();
+      if (ev === 'legend') return encounter(Game.rollLegend());
       if (ev === 'treasure') {
         G.state = 'chest'; G.chest = { open: false, item: null }; G.at = now();
         say('A treasure chest!'); Sound.play('tap');
@@ -1254,12 +1372,16 @@
       say(['Nothing here but dust…', 'Just some rustling leaves.', 'A quiet, empty floor.', 'It sniffs around… nothing.'][Math.floor(Math.random() * 4)]);
       afterFloor();
     }
-    function encounter() {
-      const w = Game.rollWild(), ws = SPECIES_BY_ID[w.sp];
-      G.wild = Object.assign(Game.battler(w.sp, w.level, false), { shiny: w.shiny, name: ws.name });
-      G.wildHp = G.wild.maxHp; G.state = 'encounter'; G.at = now();
-      preloadSpecies(w.sp, w.shiny); Sound.play('sad');
-      say(`A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · ${esc(name())} is Lv ${G.me.level}`);
+    function encounter(preset) {
+      const w = preset || Game.rollWild(), ws = SPECIES_BY_ID[w.sp];
+      G.wild = Object.assign(Game.battler(w.sp, w.level, false), { shiny: w.shiny, name: ws.name, legend: !!w.legend, raw: w });
+      if (w.legend) G.wild.maxHp = Math.round(G.wild.maxHp * 1.2);   // legendaries are a little tougher
+      G.wildHp = G.wild.maxHp; G.state = 'encounter'; G.at = now(); G.legendAt = w.legend ? now() : 0; G.throw = null; G.wheel = null;
+      preloadSpecies(w.sp, w.shiny); Sound.play(w.legend ? 'evolve' : 'sad');
+      const frag = Game.state.player.fragments[w.sp] || 0;
+      if (w.legend) say(`{i:sparkle} A <b>legendary</b> Pokémon appeared! It's ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
+        `Win the battle to spin the catch wheel.${frag ? ` You have ${frag}/${Game.FRAGMENTS_TO_SUMMON} of its fragments.` : ''}`);
+      else say(`A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · ${esc(name())} is Lv ${G.me.level}`);
       buttons([
         { label: '{i:sword} Fight', cls: 'red', fn: () => fight(false) },
         { label: '{i:speed} Run', cls: 'alt', fn: run },
@@ -1293,6 +1415,7 @@
       setTimeout(step, 600);
     }
     function win() {
+      if (G.wild.legend) { G.wins++; return startWheel(); }
       G.wins++; G.state = 'won'; G.at = now(); Sound.play('level');
       let sub = `${esc(name())} feels proud!`;
       if (Math.random() < .35) { const k = Game.rollTreasure(G.floor); Game.addItem(k); G.finds[k] = (G.finds[k] || 0) + 1; sub = `It dropped ${/^[AEIOU]/.test(Game.ITEMS[k].name) ? 'an' : 'a'} {i:${Game.ITEMS[k].icon}} ${Game.ITEMS[k].name}!`; }
@@ -1304,16 +1427,160 @@
       say(`${esc(name())} is out of strength…`, 'It heads back home to rest.');
       buttons([{ label: '{i:map} Return home', cls: 'red', fn: () => finish(true, true) }]);
     }
+    // ---- Ga-Olé style catch wheel: one spin, one throw ----
+    const BALLS = {
+      poke: { icon: 'pokeball', name: 'Poké Ball', rate: .2 },
+      great: { icon: 'greatball', name: 'Great Ball', rate: .35 },
+      ultra: { icon: 'ultraball', name: 'Ultra Ball', rate: .55 },
+      master: { icon: 'masterball', name: 'Master Ball', rate: 1 },
+    };
+    const SEGS = ['poke', 'great', 'poke', 'ultra', 'poke', 'great', 'master', 'poke', 'great', 'ultra', 'poke', 'great'];
+    function startWheel() {
+      G.state = 'wheel'; G.at = now(); G.wheel = { angle: 0, spinning: false, result: null };
+      Sound.play('medal');
+      say(`${esc(name())} won! The legendary <b>${esc(G.wild.name)}</b> is weakened…`, 'Spin the wheel to choose your ball — you get one throw!');
+      buttons([{ label: '{i:pokeball} Spin!', cls: 'gold', fn: spin }]);
+    }
+    function spin() {
+      const W0 = G.wheel, idx = Math.floor(Math.random() * SEGS.length), seg = Math.PI * 2 / SEGS.length, TAU = Math.PI * 2;
+      // land the chosen segment's centre under the pointer at the top (-90°), after 5–6 full turns
+      const target = -Math.PI / 2 - (idx + .5) * seg + (Math.random() - .5) * seg * .6;
+      let to = target; while (to > W0.angle - TAU * 5) to -= TAU;
+      W0.from = W0.angle; W0.to = to;
+      W0.spinning = true; W0.t0 = now(); W0.dur = 3200; W0.result = SEGS[idx]; W0.lastSeg = -1;
+      say('Spinning…');
+      setTimeout(() => {
+        if (arenaGame !== G) return;
+        W0.spinning = false; W0.angle = W0.to;
+        const b = BALLS[W0.result]; Sound.play('level');
+        say(`It's a {i:${b.icon}} <b>${b.name}</b>!`, W0.result === 'master' ? 'The Master Ball never misses!' : 'Throw it and hope it holds!');
+        buttons([{ label: `{i:${b.icon}} Throw!`, cls: 'red', fn: throwBall }]);
+      }, W0.dur + 100);
+    }
+    function throwBall() {
+      const b = BALLS[G.wheel.result];
+      const caught = Math.random() < b.rate;
+      G.state = 'throw'; G.at = now(); G.lastShake = -1; G.throw = { ball: b.icon, caught, shakes: caught ? 3 : 1 + Math.floor(Math.random() * 3) };
+      Sound.play('tap'); say(`You threw the ${b.name}!`);
+      const total = 700 + 500 + G.throw.shakes * 650;
+      setTimeout(() => {
+        if (arenaGame !== G) return;
+        const w = G.wild.raw;
+        if (caught) {
+          const where = Game.catchLegend(w);
+          G.state = 'caught'; G.at = now(); Sound.play('evolve');
+          say(`Gotcha! <b>${esc(G.wild.name)}</b> was caught! {i:sparkle}`, where === 'party' ? 'It joined your party.' : 'Your party is full — it was sent to your PC Box (Party → PC Box).');
+          G.wild = null;
+        } else {
+          const n = Game.addFragment(w.sp);
+          G.state = 'fled'; G.at = now(); Sound.play('sad');
+          say(`Oh no! ${esc(G.wild.name)} broke free and fled…`,
+            `It left behind a {i:fragment} ${esc(G.wild.name)} Fragment (${Math.min(n, Game.FRAGMENTS_TO_SUMMON)}/${Game.FRAGMENTS_TO_SUMMON}). ${n >= Game.FRAGMENTS_TO_SUMMON ? 'You can summon it from Bag → Items!' : 'Collect 20 to summon it.'}`);
+          setTimeout(() => { if (G.state === 'fled') G.wild = null; }, 1000);
+        }
+        afterFloor();
+      }, total);
+    }
+    function drawWheel(ms) {
+      const W0 = G.wheel; if (!W0) return;
+      const n = SEGS.length, seg = Math.PI * 2 / n;
+      if (W0.spinning) {
+        const k = Math.min(1, (ms - W0.t0) / W0.dur), e = 1 - Math.pow(1 - k, 3);
+        W0.angle = W0.from + (W0.to - W0.from) * e;
+        const at = Math.floor(((((-Math.PI / 2 - W0.angle) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) / seg);
+        if (at !== W0.lastSeg) { W0.lastSeg = at; Sound.play('blip'); }
+      }
+      const cxw = AW / 2, cyw = AH * .44, R = Math.min(AW, AH) * .3;
+      ac.fillStyle = 'rgba(10,8,30,.55)'; ac.fillRect(0, 0, AW, AH);
+      ac.save(); ac.translate(cxw, cyw);
+      ac.beginPath(); ac.arc(0, 0, R + 10, 0, Math.PI * 2); ac.fillStyle = '#2f3448'; ac.fill();
+      ac.beginPath(); ac.arc(0, 0, R + 6, 0, Math.PI * 2); ac.fillStyle = '#ffcb05'; ac.fill();
+      SEGS.forEach((k, i) => {
+        const a0 = W0.angle + i * seg;
+        ac.beginPath(); ac.moveTo(0, 0); ac.arc(0, 0, R, a0, a0 + seg); ac.closePath();
+        ac.fillStyle = k === 'master' ? '#e6d4ff' : i % 2 ? '#fbf9ef' : '#e9e4cf'; ac.fill();
+        ac.strokeStyle = '#2f3448'; ac.lineWidth = 2; ac.stroke();
+        const am = a0 + seg / 2;
+        PX.draw(ac, BALLS[k].icon, Math.cos(am) * R * .68, Math.sin(am) * R * .68, Math.max(24, Math.round(R * .3 / 8) * 8));
+      });
+      ac.beginPath(); ac.arc(0, 0, R * .16, 0, Math.PI * 2); ac.fillStyle = '#fbf9ef'; ac.fill(); ac.lineWidth = 3; ac.strokeStyle = '#2f3448'; ac.stroke();
+      ac.restore();
+      PX.draw(ac, 'arrow', cxw, cyw - R - 14, 32);
+    }
+    function drawThrow(ms, wx, wy, size) {
+      const T = G.throw; if (!T) return null;
+      const e = ms - G.at, sx = AW * .2, sy = AH * .8;
+      if (e < 700) {                                   // the ball flies in an arc
+        const k = e / 700, x = sx + (wx - sx) * k, y = sy + (wy - size * 1.4 - sy) * k - Math.sin(k * Math.PI) * AH * .25;
+        PX.draw(ac, T.ball, x, y, 32, { rot: k * 12 });
+        return 'show';
+      }
+      if (e < 1200) {                                  // the Pokémon is pulled into the ball
+        const k = (e - 700) / 500;
+        ac.fillStyle = `rgba(255,255,255,${.6 * (1 - k)})`; ac.fillRect(0, 0, AW, AH);
+        PX.draw(ac, T.ball, wx, wy - 14, 32);
+        return k < .5 ? 'flash' : 'hide';
+      }
+      const se = e - 1200, shake = Math.floor(se / 650), within = (se % 650) / 650;
+      if (shake < T.shakes) {                          // wobble… wobble…
+        const rot = within < .5 ? Math.sin(within * Math.PI * 4) * .4 : 0;
+        if (within < .1 && G.lastShake !== shake) { G.lastShake = shake; Sound.play('tap'); }
+        PX.draw(ac, T.ball, wx, wy - 14, 32, { rot });
+        return 'hide';
+      }
+      return T.caught ? 'hide' : 'show';
+    }
+    function drawThrowState(ms) { return drawThrow(ms, AW * .72, AH * .56, Math.min(AW, AH) * .11); }
+
     function afterFloor() {
       if (G.floor >= Game.EXPLORE_MAX_FLOOR) {
         say(epMsg.innerHTML + '<small>This is the deepest floor!</small>');
         return buttons([{ label: '{i:map} Return home', cls: 'gold', fn: () => finish(true) }]);
       }
-      if (G.tired) return buttons([{ label: '{i:map} Too tired — go home', cls: 'gold', fn: () => finish(true) }]);
+      if (G.tired) return buttons([{ label: '{i:map} Too tired — go home', cls: 'gold', fn: () => finish(true) }, { label: '{i:oran} Items', cls: 'alt', fn: showItems }]);
       buttons([
         { label: `Go deeper (B${G.floor + 1}F)`, cls: 'red', fn: nextFloor },
-        { label: 'Return home', cls: 'alt', fn: () => finish(true) },
+        { label: '{i:pecha} Items', cls: 'alt', fn: showItems },
+        { label: 'Home', cls: 'alt', fn: () => finish(true) },
       ]);
+    }
+    // ---- use berries / items between floors ----
+    function showItems() {
+      const p = Game.pet(), hpPct = Math.round(Math.max(0, G.meHp) / G.me.maxHp * 100);
+      say(`Use an item? <small>HP ${hpPct}% · Food ${Math.round(p.food)} · Energy ${Math.round(p.ene)}</small>`);
+      const list = FLAVORS.map((f, i) => ({ label: `{i:${f.icon}} ${f.label.replace(' Berry', '')}`, cls: 'alt', fn: () => useInDungeon('berry', i) }));
+      list.push({ label: '{i:poffin} Poffin', cls: 'alt', fn: () => useInDungeon('poffin') });
+      if (Game.itemCount('oran')) list.push({ label: `{i:oran} Oran ×${Game.itemCount('oran')}`, cls: 'alt', fn: () => useInDungeon('oran') });
+      if (Game.itemCount('rareCandy')) list.push({ label: `{i:rareCandy} Candy ×${Game.itemCount('rareCandy')}`, cls: 'alt', fn: () => useInDungeon('rareCandy') });
+      list.push({ label: '← Back', cls: 'red', fn: () => { say('What next?'); afterFloor(); } });
+      buttons(list, true);
+    }
+    function healHp(frac) { G.meHp = Math.min(G.me.maxHp, Math.max(0, G.meHp) + Math.round(G.me.maxHp * frac)); }
+    function useInDungeon(kind, i) {
+      const nm = esc(name());
+      let msg = '';
+      if (kind === 'berry') {
+        const f = FLAVORS[i], r = Game.feedBerry(i);
+        if (r.error) { toast('Not right now.'); return showItems(); }
+        healHp(.1); Sound.play('eat');
+        msg = `${nm} ate the {i:${f.icon}} ${f.label}!${r.fav ? ' It loved it!' : ''} <small>+${r.fav ? 35 : 25} food · +10% HP</small>`;
+      } else if (kind === 'poffin') {
+        const r = Game.feedCandy(); if (r.error) { toast('Not right now.'); return showItems(); }
+        Sound.play('eat'); msg = `${nm} munched a {i:poffin} Poffin! <small>+12 happy</small>`;
+      } else if (kind === 'oran') {
+        const r = Game.useItem('oran'); if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return showItems(); }
+        healHp(.4); Sound.play('level'); msg = `${nm} ate an {i:oran} Oran Berry! <small>Every need +25 · +40% HP</small>`;
+      } else if (kind === 'rareCandy') {
+        const ratio = Math.max(0, G.meHp) / G.me.maxHp, r = Game.useItem('rareCandy');
+        if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return showItems(); }
+        const p = Game.pet(); G.me = Game.battler(p.sp, Game.level(), true); G.meHp = Math.round(G.me.maxHp * ratio);
+        Sound.play('level'); msg = `${nm} grew to Lv ${Game.level()}! {i:sparkle} <small>Its battle stats went up</small>`;
+      }
+      G.tired = Game.pet().ene < 8;
+      $('#arenaInfo').innerHTML = icons(`B${G.floor}F &nbsp;{i:energy}${Math.round(Game.pet().ene)}`);
+      say(msg);
+      if (G.tired) return buttons([{ label: '{i:map} Too tired — go home', cls: 'gold', fn: () => finish(true) }]);
+      afterFloor();
     }
     function finish(early, lost) {
       if (G.over) return; G.over = true;
@@ -1325,37 +1592,32 @@
     }
     G.finish = early => finish(early, false);
 
-    let last = now();
+    let last2 = now();
     G.loop = () => {
       if (arenaGame !== G) return;
       requestAnimationFrame(G.loop);
-      const ms = now(), t = ms / 1000; last = ms;
+      const ms = now(), t = ms / 1000;
       const P = Game.pet(); if (!P) return;
-      const D2 = G.D, tile = 32, walking = G.state === 'walk';
-      // dungeon: wall band + scrolling floor tiles
-      const wallH = AH * .34, scroll = walking ? ((ms - G.at) / 1000 * 70) % (tile * 2) : 0;
-      ac.fillStyle = D2.wall; ac.fillRect(0, 0, AW, wallH);
-      for (let x = -tile * 2; x < AW + tile * 2; x += tile) for (let y = 0; y < wallH; y += tile) {
-        if (((x / tile + y / tile + Math.floor(G.seed)) & 1) === 0) { ac.fillStyle = D2.wall2; ac.fillRect(x - scroll, y, tile, tile); }
-      }
-      ac.fillStyle = 'rgba(0,0,0,.35)'; ac.fillRect(0, wallH - 6, AW, 6);
-      for (let x = -tile * 2; x < AW + tile * 2; x += tile) for (let y = wallH; y < AH; y += tile) {
-        ac.fillStyle = (((x / tile) + (y / tile)) & 1) ? D2.floor : D2.floor2; ac.fillRect(x - scroll, y, tile, tile);
-      }
-      for (let i = 0; i < 7; i++) {   // little rocks / tufts
-        const rx = ((rng(i + G.floor * 13 + G.seed) * (AW + 200)) - scroll * 1) % (AW + 60), ry = wallH + 20 + rng(i + 40 + G.floor) * (AH - wallH - 40);
-        ac.fillStyle = D2.deco; ac.fillRect(Math.round(rx), Math.round(ry), 10, 6); ac.fillRect(Math.round(rx) + 3, Math.round(ry) - 3, 5, 3);
-      }
-      const size = Math.min(AW, AH) * .11, meX = (G.wild || G.state === 'won') ? AW * .28 : AW * .4, meY = AH * .82;
+      const walking = G.state === 'walk';
+      if (walking) G.scroll = (G.scroll || 0) + 70 * Math.min(.05, (ms - last2) / 1000);
+      last2 = ms;
+      drawCave(G, ms, walking);
+      const size = Math.min(AW, AH) * .11, meX = (G.wild || G.state === 'won') ? AW * .28 : AW * .4, meY = Math.round(AH * .84);
       // the wild Pokémon (top-right) and its HP box
-      if (G.wild && G.state !== 'won' || (G.state === 'won' && ms - G.at < 900)) {
+      if (G.state === 'caught' && ms - G.at < 2500 && G.throw) {   // celebration stars over the ball
+        PX.draw(ac, G.throw.ball, AW * .72, AH * .56 - 14, 32);
+        for (let i = 0; i < 3; i++) PX.draw(ac, 'sparkle', AW * .72 + Math.cos(ms / 200 + i * 2) * 30, AH * .56 - 40 + Math.sin(ms / 200 + i * 2) * 12, 18);
+      }
+      const throwing = G.state === 'throw' ? drawThrowState(ms) : null;
+      if ((G.wild && G.state !== 'won' && throwing !== 'hide') || (G.state === 'won' && ms - G.at < 900)) {
         const wx = AW * .72, wy = AH * .56;
         const hurt = G.hurt === 'wild' && ms - G.hurtAt < 450, att = G.act === 'wild' && ms - G.actAt < 600;
-        const fade = G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : 1;
+        const fade = G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : G.state === 'fled' ? Math.max(0, 1 - (ms - G.at) / 900) : 1;
+        if (G.wild.legend && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,220,120,.45)'); gr.addColorStop(1, 'rgba(255,220,120,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
         ac.fillStyle = 'rgba(0,0,0,.22)'; ac.beginPath(); ac.ellipse(wx, wy, size * .8, size * .18, 0, 0, Math.PI * 2); ac.fill();
-        drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0), y: wy, size: size * .95, t, maxH: AH * .26, shiny: G.wild.shiny, dir: 'downleft',
+        drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0), y: wy - (G.state === 'fled' ? (ms - G.at) / 12 : 0), size: size * .95, silhouette: throwing === 'flash' ? '#ffffff' : false, t, maxH: AH * .26, shiny: G.wild.shiny, dir: 'downleft',
           anim: hurt ? 'Hurt' : att ? 'Attack' : undefined, animT: hurt ? (ms - G.hurtAt) / 1000 : att ? (ms - G.actAt) / 1000 : undefined, alpha: (hurt && Math.floor(ms / 80) % 2 ? .4 : 1) * fade });
-        hpBox(ac, 10, 10, Math.min(250, AW * .62), G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
+        if (!['wheel', 'throw', 'fled'].includes(G.state)) hpBox(ac, 10, 10, Math.min(250, AW * .62), (G.wild.legend ? '★ ' : '') + G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
       }
       // your Pokémon
       const hurtMe = G.hurt === 'me' && ms - G.hurtAt < 450, attMe = G.act === 'me' && ms - G.actAt < 600;
@@ -1365,6 +1627,8 @@
         animT: hurtMe ? (ms - G.hurtAt) / 1000 : attMe ? (ms - G.actAt) / 1000 : (G.state === 'won' || G.state === 'chest') ? ((ms - G.at) / 1000) % Math.max(.4, animLength(P.sp, 'Hop') + .3) : undefined,
         alpha: hurtMe && Math.floor(ms / 80) % 2 ? .4 : 1 });
       if (G.wild || G.state === 'won' || G.state === 'lost') hpBox(ac, AW - Math.min(250, AW * .62) - 10, AH - 70, Math.min(250, AW * .62), petName(), G.me.level, G.meHp, G.me.maxHp, true);
+      if (G.legendAt && ms - G.legendAt < 1200) { ac.fillStyle = `rgba(255,240,190,${.75 * (1 - (ms - G.legendAt) / 1200)})`; ac.fillRect(0, 0, AW, AH); }
+      if (G.state === 'wheel') drawWheel(ms);
       // treasure / egg props
       if (G.state === 'chest' && G.chest) {
         const cxp = AW * .68, cyp = AH * .7;
