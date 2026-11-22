@@ -2030,6 +2030,7 @@
   }
   Online.on((s, ev) => {
     updateBadge();
+    if (ev && ev.adminEdit) { V.loaded = null; V.anim = null; toast('{i:wrench} An admin updated your Pokémon.', 4500); }
     if (ev && ev.traded) {
       const m = ev.received, sp = m && SPECIES_BY_ID[m.sp];
       if (ev.ok) { Sound.play('evolve'); toast(`{i:trade} Trade complete! You received ${sp ? sp.name : 'a Pokémon'}.`, 5000); }

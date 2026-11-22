@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2b2438">
+<title>Player Admin</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root { --bg: #f4efe4; --panel: #fffdf8; --ink: #2b2438; --muted: #776f86; --line: #e4dccb; --accent: #7b61ff; --red: #e8503a; --ok: #3e9a5a; --gold: #f2b51d; --chip: #efe8da; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px 16px 110px; }
+  header { display: flex; align-items: center; gap: 10px; padding: 6px 0 14px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 24px; flex: 1; min-width: 200px; }
+  .back { text-decoration: none; font-weight: 700; background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 999px; white-space: nowrap; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 4px; font-size: 18px; }
+  .card h3 { margin: 16px 0 8px; font-size: 15px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; line-height: 1.45; }
+  .note { color: var(--muted); font-size: 13px; }
+  .banner { background: #fff1e8; border: 1px solid #f3c6ad; color: #8a3a17; border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; font-size: 14px; line-height: 1.55; }
+  .banner code, .sub code { background: #0000000d; padding: 1px 6px; border-radius: 6px; word-break: break-all; }
+  .btn { border: 0; background: var(--accent); color: #fff; font-weight: 700; padding: 9px 14px; border-radius: 12px; cursor: pointer; }
+  .btn.alt { background: var(--chip); color: var(--ink); }
+  .btn.ok { background: var(--ok); } .btn.red { background: var(--red); } .btn.sm { padding: 6px 10px; font-size: 13px; border-radius: 10px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  input[type=text], input[type=search], input[type=number], select { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 10px; width: 100%; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .players { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 10px; }
+  .pl { text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 10px 12px; cursor: pointer; }
+  .pl.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+  .pl b { display: block; } .pl small { color: var(--muted); }
+  .mons { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .mon { border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
+  .mon.main { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; }
+  .mon .top { display: flex; gap: 10px; align-items: center; }
+  .mon .face { width: 56px; height: 56px; border-radius: 10px; background: var(--chip); image-rendering: pixelated; object-fit: cover; flex: none; }
+  .mon .top b { display: block; font-size: 16px; } .mon .top small { color: var(--muted); display: block; }
+  .mon label { font-size: 12px; color: var(--muted); font-weight: 700; display: grid; gap: 3px; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .chk { display: flex !important; align-items: center; gap: 6px; color: var(--ink) !important; font-size: 14px !important; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: var(--chip); margin-right: 4px; }
+  .tag.lock { background: #ffe3dc; color: #a33; } .tag.gold { background: #fff0c2; color: #8a6400; }
+  .savebar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--ink); color: #fff; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; gap: 12px; align-items: center; transform: translateY(110%); transition: transform .2s; z-index: 5; flex-wrap: wrap; }
+  .savebar.show { transform: none; }
+  .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 9; max-width: calc(100% - 32px); }
+  @media (max-width: 560px) { .mons { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Player Admin</h1>
+    <span id="who" class="note"></span>
+    <button class="btn alt sm" id="signOut" hidden>Sign out</button>
+    <a class="back" href="dashboard.html">← Dashboard</a>
+  </header>
+
+  <div id="status" class="card"><p class="sub" style="margin:0">Connecting…</p></div>
+
+  <section class="card" id="playersCard" hidden>
+    <h2>Players</h2>
+    <p class="sub">Pick a player to view and edit their Pokémon. Changes reach the player's game straight away if it's open, or the next time they open it.</p>
+    <div class="row"><input type="search" id="q" placeholder="Search username or player ID…" style="flex:1"><button class="btn alt" id="reload">Refresh</button></div>
+    <div class="players" id="players"></div>
+  </section>
+
+  <section class="card" id="editCard" hidden>
+    <h2 id="edTitle"></h2>
+    <p class="sub" id="edSub"></p>
+    <div id="edBody"></div>
+    <h3>Give a Pokémon</h3>
+    <div class="row">
+      <input type="text" id="addSp" list="spList" placeholder="Species (name or number)" style="flex:2;min-width:180px">
+      <input type="number" id="addLv" min="1" max="100" value="5" style="width:90px" title="Level">
+      <label class="chk"><input type="checkbox" id="addShiny"> Shiny</label>
+      <button class="btn" id="addGo">Add</button>
+    </div>
+    <p class="note">It goes into their party if there's room (6 including the main), otherwise the PC Box.</p>
+  </section>
+</div>
+
+<datalist id="spList"></datalist>
+<div class="savebar" id="savebar">
+  <span id="dirtyTxt" style="font-weight:700">Unsaved changes</span>
+  <button class="btn alt" id="discard">Discard</button>
+  <button class="btn ok" id="save">Save to player</button>
+</div>
+
+<script src="online-config.js"></script>
+<script src="species.js"></script>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const SP = {}; (typeof SPECIES_CONFIG !== 'undefined' ? SPECIES_CONFIG : []).forEach(s => { SP[s.id] = s; });
+const MIN_PER_LEVEL = 60, PARTY_MAX = 6, FAREWELL_AGE = 3 * 24 * 60;
+const pad = n => String(n).padStart(4, '0');
+const spName = id => (SP[id] ? SP[id].name : `#${id}`);
+const face = (id, shiny) => `https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/portrait/${pad(id)}/${shiny ? '0000/0001/' : ''}Normal.png`;
+const lvOf = m => 1 + Math.floor((m.ageMin || 0) / MIN_PER_LEVEL);
+function toast(msg, ms = 2800) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
+const status = html => { $('#status').hidden = !html; $('#status').innerHTML = html || ''; };
+$('#spList').innerHTML = Object.values(SP).map(s => `<option value="${pad(s.id)} ${esc(s.name)}">`).join('');
+function parseSp(v) {
+  v = String(v || '').trim(); if (!v) return null;
+  const n = parseInt(v, 10); if (n && SP[n]) return n;
+  const low = v.replace(/^\d+\s*/, '').toLowerCase();
+  const hit = Object.values(SP).find(s => s.name.toLowerCase() === low); return hit ? hit.id : null;
+}
+
+let db = null, auth = null, users = [], cur = null, save = null, orig = '';
+
+async function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load ' + src)); document.head.appendChild(s); }); }
+async function init() {
+  if (typeof FIREBASE_CONFIG === 'undefined' || !FIREBASE_CONFIG) { status('<p class="sub" style="margin:0">Online play isn\'t set up (online-config.js is empty), so there are no player accounts to edit.</p>'); return; }
+  try {
+    const base = 'https://www.gstatic.com/firebasejs/10.12.2/';
+    await loadScript(base + 'firebase-app-compat.js');
+    await Promise.all([loadScript(base + 'firebase-auth-compat.js'), loadScript(base + 'firebase-firestore-compat.js')]);
+    firebase.initializeApp(FIREBASE_CONFIG); auth = firebase.auth(); db = firebase.firestore();
+    auth.getRedirectResult().catch(e => toast(e.message));
+    auth.onAuthStateChanged(onUser);
+    setTimeout(() => { if (!auth.currentUser && /Connecting/.test($('#status').textContent)) onUser(null); }, 2500);
+  } catch (e) { status(`<p class="sub" style="margin:0">Couldn't connect: ${esc(e.message)}</p>`); }
+}
+async function signIn() {
+  const p = new firebase.auth.GoogleAuthProvider();
+  try { await auth.signInWithPopup(p); } catch (e) { if (/popup|operation-not-supported/i.test(e.code || e.message)) return auth.signInWithRedirect(p); toast(e.message); }
+}
+$('#signOut').onclick = () => auth.signOut();
+
+async function onUser(u) {
+  $('#playersCard').hidden = $('#editCard').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
+  cur = save = null; dirty();
+  if (!u) { status('<h2>Admin sign-in</h2><p class="sub">Sign in with the Google account that has admin access.</p><button class="btn" id="signIn">Sign in with Google</button>'); $('#signIn').onclick = signIn; return; }
+  $('#who').textContent = u.displayName || '';
+  const ok = await db.collection('admins').doc(u.uid).get().then(d => d.exists).catch(() => false);
+  if (!ok) {
+    status(`<h2>Not an admin yet</h2>
+      <p class="sub">This account doesn't have admin access. To give it access (one time only):</p>
+      <ol class="sub" style="line-height:1.8;padding-left:20px">
+        <li>Open the Firebase console → <b>Firestore Database</b> → <b>Data</b>.</li>
+        <li>Click <b>+ Start collection</b>, name it <code>admins</code>.</li>
+        <li>For the <b>Document ID</b>, paste your UID: <code id="myUid">${esc(u.uid)}</code> <button class="btn alt sm" id="copyUid">Copy</button></li>
+        <li>Add any field (for example <code>name</code> = your name) and click <b>Save</b>, then refresh this page.</li>
+      </ol>
+      <p class="note">Also make sure the latest <code>firestore.rules</code> is published in Firestore → Rules.</p>`);
+    $('#copyUid').onclick = () => navigator.clipboard.writeText(u.uid).then(() => toast('UID copied'));
+    return;
+  }
+  status(''); $('#playersCard').hidden = false; loadUsers();
+}
+
+async function loadUsers() {
+  $('#players').innerHTML = '<p class="note">Loading players…</p>';
+  try {
+    const q = await db.collection('users').limit(500).get();
+    users = q.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => String(a.username).localeCompare(String(b.username)));
+    drawUsers();
+  } catch (e) { $('#players').innerHTML = `<p class="note">Couldn't load players: ${esc(e.message)}</p>`; }
+}
+function drawUsers() {
+  const q = $('#q').value.trim().toLowerCase();
+  const list = users.filter(u => !q || String(u.username).toLowerCase().includes(q) || String(u.code).toLowerCase().includes(q));
+  $('#players').innerHTML = list.map(u => {
+    const m = u.showcase && u.showcase.main;
+    return `<button class="pl ${cur && cur.uid === u.uid ? 'on' : ''}" data-uid="${esc(u.uid)}"><b>${esc(u.username)}</b><small>${esc(u.code)} · Dex ${(u.showcase && u.showcase.dex) || 0}${m ? ` · ${esc(spName(m.sp))}` : ''}</small></button>`;
+  }).join('') || '<p class="note">No players found.</p>';
+  $('#players').querySelectorAll('[data-uid]').forEach(b => b.onclick = () => openPlayer(b.dataset.uid));
+}
+$('#q').oninput = drawUsers; $('#reload').onclick = loadUsers;
+
+async function openPlayer(uid) {
+  if (isDirty() && !confirm('Discard unsaved changes to this player?')) return;
+  cur = users.find(u => u.uid === uid); drawUsers();
+  $('#editCard').hidden = false; $('#edTitle').textContent = cur.username; $('#edSub').textContent = 'Loading save…'; $('#edBody').innerHTML = '';
+  try {
+    const d = await db.collection('saves').doc(uid).get();
+    if (!d.exists || !d.data().data) { save = null; $('#edSub').textContent = 'This player has no cloud save yet.'; dirty(); return; }
+    orig = d.data().data; save = JSON.parse(orig); draw();
+  } catch (e) { $('#edSub').textContent = "Couldn't load the save: " + e.message; }
+}
+
+// every Pokémon as { where, i, m }
+function allMons() {
+  const out = [];
+  if (save.pet) out.push({ where: 'main', i: 0, m: save.pet });
+  (save.player.party || []).forEach((m, i) => out.push({ where: 'party', i, m }));
+  (save.player.box || []).forEach((m, i) => out.push({ where: 'box', i, m }));
+  return out;
+}
+function draw() {
+  const P = save.player;
+  $('#edSub').innerHTML = `${esc(cur.code)} · Dex ${Object.keys(P.dex || {}).length} · Party ${(P.party || []).length + (save.pet ? 1 : 0)}/${PARTY_MAX} · PC Box ${(P.box || []).length}`;
+  const sec = (title, items) => `<h3>${title}</h3>` + (items.length ? `<div class="mons">${items.map(card).join('')}</div>` : '<p class="note">Empty.</p>');
+  const all = allMons();
+  $('#edBody').innerHTML = sec('Main Pokémon', all.filter(x => x.where === 'main')) + sec('Party', all.filter(x => x.where === 'party')) + sec('PC Box', all.filter(x => x.where === 'box'));
+  wire(); dirty();
+}
+function card(x) {
+  const m = x.m, id = `${x.where}-${x.i}`, egg = !!m.egg, tr = m.tr || { atk: 0, def: 0, spd: 0 };
+  const tags = [x.where === 'main' ? '<span class="tag gold">MAIN</span>' : '', egg ? '<span class="tag">EGG</span>' : '', m.locked ? '<span class="tag lock">IN A TRADE</span>' : '', m.shiny ? '<span class="tag gold">SHINY</span>' : ''].join('');
+  const acts = [];
+  if (x.where === 'party') acts.push(`<button class="btn alt sm" data-act="main" data-id="${id}" ${m.locked || egg || !save.pet || save.pet.egg ? 'disabled' : ''}>Make main</button>`, `<button class="btn alt sm" data-act="box" data-id="${id}" ${m.locked ? 'disabled' : ''}>To PC Box</button>`);
+  if (x.where === 'box') acts.push(`<button class="btn alt sm" data-act="party" data-id="${id}" ${m.locked ? 'disabled' : ''}>To party</button>`);
+  if (x.where !== 'main') acts.push(`<button class="btn red sm" data-act="del" data-id="${id}" ${m.locked ? 'disabled' : ''}>Remove</button>`);
+  return `<div class="mon ${x.where === 'main' ? 'main' : ''}">
+    <div class="top"><img class="face" src="${face(m.sp, m.shiny)}" alt="" onerror="this.style.visibility='hidden'"><div><b>${esc(m.name || spName(m.sp))}</b><small>${pad(m.sp)} ${esc(spName(m.sp))}${egg ? '' : ` · Lv ${lvOf(m)}`}</small><small>${tags}</small></div></div>
+    <div class="g2">
+      <label>Species<input type="text" list="spList" data-f="sp" data-id="${id}" value="${pad(m.sp)} ${esc(spName(m.sp))}"></label>
+      ${egg ? '<label>Level<input type="text" disabled value="Egg"></label>' : `<label>Level<input type="number" min="1" max="100" data-f="lv" data-id="${id}" value="${lvOf(m)}"></label>`}
+    </div>
+    ${egg ? '' : `<label>Nickname<input type="text" maxlength="14" data-f="name" data-id="${id}" value="${esc(m.name || '')}" placeholder="${esc(spName(m.sp))}"></label>
+    <div class="g3">
+      <label>Attack training<input type="number" min="0" max="999" data-f="tr.atk" data-id="${id}" value="${tr.atk || 0}"></label>
+      <label>Defence training<input type="number" min="0" max="999" data-f="tr.def" data-id="${id}" value="${tr.def || 0}"></label>
+      <label>Speed training<input type="number" min="0" max="999" data-f="tr.spd" data-id="${id}" value="${tr.spd || 0}"></label>
+    </div>`}
+    <label class="chk"><input type="checkbox" data-f="shiny" data-id="${id}" ${m.shiny ? 'checked' : ''}> Shiny</label>
+    <div class="note">OT ${esc(m.ot ? m.ot.name : '—')}${m.receivedFrom ? ` · from ${esc(m.receivedFrom.name || m.receivedFrom)}` : ''}</div>
+    ${acts.length ? `<div class="row">${acts.join('')}</div>` : ''}
+  </div>`;
+}
+function find(id) { const [w, i] = id.split('-'); return allMons().find(x => x.where === w && x.i === +i); }
+function register(sp, shiny) { const P = save.player; P.dex = P.dex || {}; P.shiny = P.shiny || {}; if (!P.dex[sp]) P.dex[sp] = 1; if (shiny && !P.shiny[sp]) P.shiny[sp] = 1; }
+function wire() {
+  $('#edBody').querySelectorAll('[data-f]').forEach(el => el.onchange = () => {
+    const x = find(el.dataset.id), m = x.m, f = el.dataset.f;
+    if (f === 'sp') { const sp = parseSp(el.value); if (!sp) { toast('Unknown species'); draw(); return; } m.sp = sp; register(sp, m.shiny); }
+    else if (f === 'lv') { const lv = Math.max(1, Math.min(100, parseInt(el.value, 10) || 1)); m.ageMin = (lv - 1) * MIN_PER_LEVEL; m.farewellAt = Math.max(m.farewellAt || FAREWELL_AGE, m.ageMin + 24 * 60); if (m.declinedLevel > lv) m.declinedLevel = 0; }
+    else if (f === 'name') m.name = el.value.trim().slice(0, 14);
+    else if (f === 'shiny') { m.shiny = el.checked; register(m.sp, m.shiny); }
+    else if (f.startsWith('tr.')) { m.tr = m.tr || { atk: 0, def: 0, spd: 0 }; m.tr[f.slice(3)] = Math.max(0, Math.min(999, parseInt(el.value, 10) || 0)); }
+    draw();
+  });
+  $('#edBody').querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
+    const x = find(b.dataset.id), P = save.player, act = b.dataset.act;
+    if (act === 'main') { const p = save.pet; p.asleep = false; P.party[x.i] = p; save.pet = x.m; }
+    else if (act === 'box') { P.party.splice(x.i, 1); P.box.push(x.m); }
+    else if (act === 'party') { if (P.party.length + 1 >= PARTY_MAX) { toast('The party is full (6 including the main).'); return; } P.box.splice(x.i, 1); P.party.push(x.m); }
+    else if (act === 'del') { if (!confirm(`Remove ${x.m.name || spName(x.m.sp)} from ${cur.username}?`)) return; (x.where === 'party' ? P.party : P.box).splice(x.i, 1); }
+    draw();
+  });
+}
+const rnd = n => Math.floor(Math.random() * n);
+$('#addGo').onclick = () => {
+  if (!save) return;
+  const sp = parseSp($('#addSp').value); if (!sp) { toast('Pick a species from the list'); return; }
+  const lv = Math.max(1, Math.min(100, parseInt($('#addLv').value, 10) || 5)), shiny = $('#addShiny').checked;
+  const day = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 864e5);
+  const m = {
+    egg: false, sp, shiny, name: '', ageMin: (lv - 1) * MIN_PER_LEVEL, food: 80, joy: 80, ene: 80, hyg: 100, poops: 0, weight: 0,
+    genes: { atk: 95 + rnd(16), def: 95 + rnd(16), spd: 95 + rnd(16) }, tr: { atk: 0, def: 0, spd: 0 },
+    berryKnown: false, bond: 0, bondToday: 0, bondDay: day, medals: [], mistakes: 0, mistakeCd: 0, goodTicks: 0,
+    neglect: 0, asleep: false, declinedLevel: 0, farewellAt: Math.max(FAREWELL_AGE, (lv - 1) * MIN_PER_LEVEL + 24 * 60), hatchedAt: Date.now(),
+    key: Date.now().toString(36) + Math.random().toString(36).slice(2, 10), ot: { name: cur.username, code: cur.code }, gift: true,
+  };
+  const P = save.player; register(sp, shiny);
+  if (P.party.length + 1 < PARTY_MAX) P.party.push(m); else P.box.push(m);
+  $('#addSp').value = ''; toast(`${spName(sp)} added`); draw();
+};
+
+const isDirty = () => !!save && JSON.stringify(save) !== orig;
+function dirty() { $('#savebar').classList.toggle('show', isDirty()); }
+$('#discard').onclick = () => { if (!orig) return; save = JSON.parse(orig); draw(); };
+$('#save').onclick = async () => {
+  const b = $('#save'); b.disabled = true;
+  try {
+    const data = JSON.stringify(save), rev = Date.now();
+    await db.collection('saves').doc(cur.uid).set({ data, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), adminRev: rev, adminBy: auth.currentUser.uid });
+    orig = data; dirty(); toast(`Saved — ${cur.username}'s game updates now`);
+  } catch (e) { toast("Couldn't save: " + e.message, 5000); }
+  b.disabled = false;
+};
+addEventListener('beforeunload', e => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+init();
+</script>
+</body>
+</html>

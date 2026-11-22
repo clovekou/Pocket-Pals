@@ -13,6 +13,15 @@ const Online = (() => {
   };
   const subs = [];
   let db = null, auth = null, unsub = [], syncTimer = null, lastSynced = '', cloudChecked = false;
+  // admin edits: the save document carries adminRev; we remember the last one we applied on this device
+  const revKey = () => 'pocketpal.adminRev.' + me();
+  const appliedRev = () => { try { return +localStorage.getItem(revKey()) || 0; } catch (e) { return 0; } };
+  const setApplied = r => { try { localStorage.setItem(revKey(), String(r || 0)); } catch (e) {} };
+  function applyAdminSave(d) {
+    setApplied(d.adminRev); Game.importSave(d.data); lastSynced = d.data;
+    if (st.profile) Game.setTrainer({ name: st.profile.username, code: st.profile.code });
+    subs.forEach(f => { try { f(st, { adminEdit: true }); } catch (e) {} });
+  }
   const emit = () => subs.forEach(f => { try { f(st); } catch (e) { console.error(e); } });
 
   function loadScript(src) {
@@ -111,7 +120,10 @@ const Online = (() => {
     const cloud = snap.data();
     const local = JSON.parse(Game.exportSave());
     const hasLocal = local.player && local.player.starterPicked;
+    if (hasLocal && (cloud.adminRev || 0) > appliedRev() && cloud.data) { applyAdminSave(cloud); emit(); return; }
+    if (!hasLocal) setApplied(cloud.adminRev);
     if (!hasLocal || cloud.data === Game.exportSave()) { Game.importSave(cloud.data); lastSynced = cloud.data; Game.setTrainer({ name: st.profile.username, code: st.profile.code }); emit(); return; }
+    setApplied(cloud.adminRev); // either choice starts from the account's latest admin version
     st.conflict = { cloud, cloudInfo: describe(JSON.parse(cloud.data)), localInfo: describe(local) };
     emit();
   }
@@ -130,7 +142,7 @@ const Online = (() => {
     const data = Game.exportSave();
     if (!force && data === lastSynced) return;
     lastSynced = data;
-    await db.collection('saves').doc(me()).set({ data, updatedAt: now() });
+    await db.collection('saves').doc(me()).set({ data, updatedAt: now(), adminRev: appliedRev() });
     await db.collection('users').doc(me()).update({ showcase: Game.showcase() });
   }
 
@@ -150,6 +162,10 @@ const Online = (() => {
       emit();
     }, err));
     unsub.push(db.collection('trades').where('members', 'array-contains', uid).onSnapshot(q => { st.trades = map(q); emit(); processTrades(); }, err));
+    unsub.push(db.collection('saves').doc(uid).onSnapshot(d => {
+      const v = d.exists && d.data();
+      if (v && v.data && (v.adminRev || 0) > appliedRev()) applyAdminSave(v);
+    }, () => {}));
     unsub.push(db.collection('battles').where('to', '==', uid).onSnapshot(q => { st.battles = map(q).filter(b => !b.seen); emit(); }, err));
   }
   function err(e) { st.error = friendly(e); emit(); }

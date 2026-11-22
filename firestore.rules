@@ -4,6 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function isMe(uid) { return signedIn() && request.auth.uid == uid; }
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
     function unchanged(fields) { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields); }
 
     // Public trainer profile: username, UID code, showcase of their team. Anyone signed in can view.
@@ -18,13 +19,22 @@ service cloud.firestore {
         && existsAfter(/databases/$(database)/documents/codes/$(request.resource.data.code))
         && getAfter(/databases/$(database)/documents/codes/$(request.resource.data.code)).data.uid == uid;
       // username and code can never change once chosen
-      allow update: if isMe(uid) && unchanged(['username', 'usernameLower', 'code', 'createdAt']);
+      allow update: if (isMe(uid) && unchanged(['username', 'usernameLower', 'code', 'createdAt'])) || isAdmin();
       allow delete: if false;
     }
 
-    // Private game save — only the owner can read or write it.
+    // Private game save — only the owner (and admins) can read or write it.
+    // The owner can't overwrite an admin edit it hasn't loaded yet: adminRev has to stay the same.
     match /saves/{uid} {
-      allow read, write: if isMe(uid);
+      allow read: if isMe(uid) || isAdmin();
+      allow write: if isAdmin() || (isMe(uid) && (resource == null
+        || request.resource.data.get('adminRev', 0) == resource.data.get('adminRev', 0)));
+    }
+
+    // Admins: add a document here in the Firebase console (ID = the admin's UID). Nobody can write it from the game.
+    match /admins/{uid} {
+      allow read: if isMe(uid);
+      allow write: if false;
     }
 
     // Unique usernames: one document per lower-cased name, can only be claimed once.
