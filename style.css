@@ -40,10 +40,16 @@ img.px { image-rendering: pixelated; width: 28px; height: 28px; flex: none; }
   backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
+/* lock the page: no scrolling, rubber-band bounce or double-tap zoom on phones */
+html, body { position: fixed; inset: 0; width: 100%; overflow: hidden; }
+#app, #app *, #sheet, #sheet *, #scrim { touch-action: manipulation; -webkit-touch-callout: none; }
+#stage, #stage *, #arena, #arena * { touch-action: none; }
+#sheet { overscroll-behavior: contain; touch-action: pan-y; }
+
 #app { position: fixed; inset: 0; display: flex; flex-direction: column; max-width: 520px; margin: 0 auto; padding-top: var(--safe-t); }
 
 /* ---------- header ---------- */
-#top { display: flex; gap: 8px; align-items: center; padding: 10px 14px 8px; }
+#top { flex: none; display: flex; gap: 8px; align-items: center; padding: 10px 14px 8px; }
 .chip { border-radius: 16px; padding: 0 12px; height: 46px; color: var(--ink); font-weight: 900; font-size: 16px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .chip.icon { padding: 0; width: 46px; justify-content: center; }
 .chip img.px { width: 26px; height: 26px; }
@@ -58,7 +64,7 @@ img.px { image-rendering: pixelated; width: 28px; height: 28px; flex: none; }
 .lv { background: linear-gradient(135deg, var(--accent), #b07bff); color: #fff; border-radius: 10px; padding: 4px 9px; font-size: 12px; font-weight: 900; letter-spacing: .02em; box-shadow: 0 4px 12px rgba(139, 109, 255, .35); }
 
 /* ---------- need cards ---------- */
-#bars { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 2px 14px 10px; }
+#bars { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 2px 14px 10px; }
 .bar { display: flex; align-items: center; gap: 9px; border-radius: 16px; padding: 8px 11px 8px 8px; }
 .bar img.px { width: 28px; height: 28px; }
 .bt { flex: 1; min-width: 0; }
@@ -100,11 +106,12 @@ img.px { image-rendering: pixelated; width: 28px; height: 28px; flex: none; }
 /* ---------- dock ---------- */
 #actions { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; margin: 12px 14px calc(12px + var(--safe-b)); padding: 7px; border-radius: 24px;
   box-shadow: 0 14px 34px rgba(0, 0, 0, .4); }
+#actions { flex: none; }
 #actions button { background: transparent; border: 0; border-radius: 18px; padding: 7px 0 6px; font-size: 11px; font-weight: 800; color: var(--muted);
-  display: flex; flex-direction: column; align-items: center; gap: 3px; transition: background .15s, transform .15s; }
-#actions button img.px { width: 32px; height: 32px; transition: transform .2s cubic-bezier(.3, 1.6, .5, 1); }
-#actions button:active { background: var(--glass-hi); transform: scale(.94); }
-#actions button:active img.px { transform: translateY(-2px) scale(1.08); }
+  display: flex; flex-direction: column; align-items: center; gap: 3px; transition: background .12s; -webkit-user-select: none; user-select: none; }
+#actions button img.px { width: 32px; height: 32px; pointer-events: none; }
+#actions button span { pointer-events: none; }
+#actions button:active { background: var(--glass-hi); color: var(--ink); }
 #actions button.off { opacity: .35; }
 
 /* ---------- sheets & dialogs ---------- */

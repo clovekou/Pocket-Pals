@@ -1082,6 +1082,14 @@
   window.addEventListener('pagehide', () => Game.save());
 
   PX.hydrate();
+  // phones: stop double-tap zoom / pinch zoom from shifting the layout (text fields still work normally)
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', e => {
+    const t = Date.now();
+    if (t - lastTouchEnd < 350 && !e.target.closest('input, textarea, select')) e.preventDefault();
+    lastTouchEnd = t;
+  }, { passive: false });
+  ['gesturestart', 'gesturechange'].forEach(ev => document.addEventListener(ev, e => e.preventDefault()));
   Talk.init({ sound: Sound.play, player: () => (ST().settings.player || '').trim() || 'partner' });
   if (!ST().player.starterPicked) openStarter();
   else setTimeout(greet, 900);

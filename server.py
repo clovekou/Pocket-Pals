@@ -388,8 +388,29 @@ def lan_ip():
         return None
 
 
+def pocketpal_already_on(port):
+    """True if a Pocket Pal server is already answering on this port."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/state', timeout=2) as r:
+            return r.status == 200 and b'"species"' in r.read(200000)
+    except Exception:
+        return False
+
+
+def print_links(port, note='Pocket Pal running'):
+    ip = lan_ip()
+    print(f'{note}:\n  game:      http://localhost:{port}/\n  dashboard: http://localhost:{port}/dashboard.html')
+    if ip:
+        print(f'  on your phone (same Wi-Fi): http://{ip}:{port}/')
+
+
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+    if pocketpal_already_on(port):
+        print_links(port, 'Pocket Pal is already running (nothing to start)')
+        print('To restart it, close the other Terminal window running server.py (or press Ctrl+C there) and run this again.')
+        sys.exit(0)
     os.makedirs(SPRITES, exist_ok=True)
     os.makedirs(STAGE, exist_ok=True)
     B.build(verbose=False)
@@ -397,8 +418,19 @@ if __name__ == '__main__':
         write_bg(load_bg())
     if not os.path.exists(B.SPECIES_JS) or not B.load_species():
         B.write_species(B.load_species())
-    ip = lan_ip()
-    print(f'Pocket Pal running:\n  game:      http://localhost:{port}/\n  dashboard: http://localhost:{port}/dashboard.html')
-    if ip:
-        print(f'  on your phone (same Wi-Fi): http://{ip}:{port}/')
-    ThreadingHTTPServer(('0.0.0.0', port), Handler).serve_forever()
+    server = None
+    for p in range(port, port + 20):       # port taken by another program? use the next free one
+        try:
+            server = ThreadingHTTPServer(('0.0.0.0', p), Handler)
+            break
+        except OSError:
+            if p == port:
+                print(f'Port {port} is used by another program — trying the next one…')
+    if not server:
+        sys.exit(f'Could not find a free port between {port} and {port + 19}.')
+    print_links(server.server_address[1])
+    print('Keep this window open while you play or use the dashboard. Press Ctrl+C to stop.')
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print('\nPocket Pal stopped.')

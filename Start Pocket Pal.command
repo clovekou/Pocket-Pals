@@ -13,5 +13,8 @@ if ! command -v python3 >/dev/null 2>&1; then
   read -r -p "Press Enter to close." _
   exit 1
 fi
-(sleep 2; open "http://localhost:$PORT/dashboard.html") &
-python3 server.py "$PORT"
+# start the server and open the dashboard on whatever port it ends up using
+python3 -u server.py "$PORT" | while IFS= read -r line; do
+  echo "$line"
+  case "$line" in *"dashboard: "*) open "${line##*dashboard: }" ;; esac
+done

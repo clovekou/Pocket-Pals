@@ -1,4 +1,6 @@
 {
- "assign": {},
+ "assign": {
+  "default": "forest-clearing-50e867.png"
+ },
  "night": true
 }
