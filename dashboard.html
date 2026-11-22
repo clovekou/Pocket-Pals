@@ -75,11 +75,28 @@
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 14px; }
   .check input { width: 18px; height: 18px; }
+  label.f.check { flex-direction: row; justify-content: flex-start; text-align: left; }
   .note { font-size: 12px; color: var(--muted); font-weight: 600; }
   .spfoot { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 10px; }
   .spfoot .note { flex: 1; }
   .del { border: 0; background: none; color: var(--red); font-weight: 800; cursor: pointer; padding: 6px; }
   .orphans .sp { grid-template-columns: 112px 1fr; }
+  .ic { width: 22px; height: 22px; vertical-align: -5px; image-rendering: pixelated; margin-right: 4px; }
+  h1 .ic, h2 .ic { width: 28px; height: 28px; vertical-align: -6px; }
+  .btn .ic { margin-right: 6px; }
+  .bggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  .bgthumb { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; }
+  .bgthumb img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; background: #eee; }
+  .bgthumb div { display: flex; align-items: center; gap: 4px; padding: 6px 8px; font-size: 12px; font-weight: 700; }
+  .bgthumb span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .bgthumb button { border: 0; background: none; padding: 2px; cursor: pointer; }
+  .bgthumb button img { width: 20px; height: 20px; image-rendering: pixelated; }
+  .bgslots { display: grid; gap: 8px; }
+  .bgslot { display: grid; grid-template-columns: 54px 1fr minmax(150px, 220px); gap: 10px; align-items: center; background: #fbf8f1; border-radius: 14px; padding: 8px 10px; }
+  .bgslot .prev { width: 54px; height: 54px; border-radius: 10px; object-fit: cover; background: linear-gradient(#8fd0ff, #7cc35a); }
+  .bgslot b { display: block; font-size: 14px; }
+  .bgslot small { color: var(--muted); font-size: 12px; }
+  @media (max-width: 560px) { .bgslot { grid-template-columns: 54px 1fr; } .bgslot select { grid-column: 1 / -1; } }
   .toolbar { display: flex; gap: 8px; margin-bottom: 8px; position: sticky; top: 0; background: var(--panel); padding: 8px 0; z-index: 2; }
   .toolbar input { flex: 1; }
   .toolbar select { width: auto; }
@@ -103,8 +120,8 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>🛠️ Sprite Dashboard</h1>
-    <a class="back" href="index.html">▶ Back to game</a>
+    <h1><img class="ic" data-icon="wrench" alt=""> Sprite Dashboard</h1>
+    <a class="back" href="index.html">← Back to game</a>
   </header>
 
   <div id="offline" class="banner" hidden>
@@ -120,8 +137,8 @@
       <p><b>Drop a sprite folder or .zip here</b></p>
       <p class="note">or</p>
       <div class="pick">
-        <button class="btn alt" id="pickFolder">📁 Choose folder</button>
-        <button class="btn alt" id="pickZip">🗜️ Choose .zip</button>
+        <button class="btn alt" id="pickFolder"><img class="ic" data-icon="folder" alt=""> Choose folder</button>
+        <button class="btn alt" id="pickZip"><img class="ic" data-icon="box" alt=""> Choose .zip</button>
       </div>
       <input type="file" id="folderIn" webkitdirectory directory multiple hidden>
       <input type="file" id="zipIn" accept=".zip,application/zip" hidden>
@@ -131,9 +148,22 @@
       <label class="f">Dex number<input type="number" id="upId" min="1" max="9999" placeholder="e.g. 4"></label>
       <label class="f">Name<input type="text" id="upName" maxlength="24" placeholder="e.g. Charmander"></label>
     </div>
-    <div style="margin-top:12px"><button class="btn" id="upload" disabled>⬆️ Upload</button></div>
+    <div style="margin-top:12px"><button class="btn" id="upload" disabled><img class="ic" data-icon="up" alt=""> Upload</button></div>
     <div class="bar" id="bar"><i></i></div>
     <div class="msg" id="upMsg"></div>
+  </section>
+
+  <section class="card" id="bgCard">
+    <h2><img class="ic" data-icon="image" alt=""> Backgrounds</h2>
+    <p class="sub">Upload your own scene pictures (PNG, JPG, GIF or WebP, up to 15 MB each), then choose where each one is used: everywhere, or per landscape. The Pokémon stands near the bottom of the picture, so images with ground along the bottom look best; tall images (around 1080 × 1600) fit phones best.</p>
+    <div class="pick" style="justify-content:flex-start;margin:0 0 12px"><button class="btn alt" id="bgPick"><img class="ic" data-icon="up" alt=""> Upload images</button><input type="file" id="bgIn" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden></div>
+    <div class="bar" id="bgBar"><i></i></div>
+    <div class="msg" id="bgMsg"></div>
+    <div class="bggrid" id="bgGrid"></div>
+    <h3 style="margin:18px 0 8px;font-size:15px">Where each background is used</h3>
+    <div class="bgslots" id="bgSlots"></div>
+    <label class="f check" style="margin-top:12px"><input type="checkbox" id="bgNight"> Darken uploaded backgrounds at night and while your Pokémon sleeps</label>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn ok" id="bgSave"><img class="ic" data-icon="disk" alt=""> Save backgrounds</button><span class="note" id="bgDirty"></span></div>
   </section>
 
   <section class="card">
@@ -167,7 +197,7 @@
 <div class="savebar" id="savebar">
   <span id="dirtyTxt">Unsaved changes</span>
   <button class="btn alt" id="discard">Discard</button>
-  <button class="btn ok" id="save">💾 Save changes</button>
+  <button class="btn ok" id="save"><img class="ic" data-icon="disk" alt=""> Save changes</button>
   <div class="err" id="saveErr" hidden></div>
 </div>
 
@@ -181,9 +211,12 @@
   </div>
 </dialog>
 
+<script src="pixelart.js"></script>
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
+const ic = n => `<img class="ic" src="${PX.url(n)}" alt="">`;
+PX.hydrate();
 const ELEMENTS = {
   normal: '#a8a77a', grass: '#4cb04a', fire: '#ee7f30', water: '#4f8fe8', electric: '#e8b10f', ice: '#5fc0e0',
   fighting: '#c22e28', poison: '#a33ea1', ground: '#c9a44a', flying: '#8f7fe8', psychic: '#f95587', bug: '#91a119',
@@ -214,6 +247,7 @@ async function load() {
     const st = await api('/api/state');
     online = true; $('#offline').hidden = true;
     sprites = st.sprites; saved = st.species; draft = clone(saved);
+    setBg(st.backgrounds);
   } catch (e) {
     online = false; $('#offline').hidden = false;
     sprites = typeof SPRITE_DATA_FALLBACK !== 'undefined' ? SPRITE_DATA_FALLBACK : {};
@@ -336,9 +370,9 @@ function renderLines() {
     const line = document.createElement('div'); line.className = 'line';
     line.append(build(r));
     const tags = [];
-    if (r.starter) tags.push('⭐ starter');
+    if (r.starter) tags.push(ic('star') + 'starter');
     tags.push(TIERS[r.tier] + ' egg');
-    line.insertAdjacentHTML('beforeend', `<span class="note" style="margin-left:auto">${tags.join(' · ')}</span>`);
+    line.insertAdjacentHTML('beforeend', `<span class="note" style="margin-left:auto;display:flex;align-items:center">${tags.join('&nbsp;·&nbsp;')}</span>`);
     box.append(line);
   });
   if (matching.length > roots.length) {
@@ -396,10 +430,10 @@ function speciesCard(s) {
   side.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:center';
   if (sd && sd.s) {
     const lab = document.createElement('label'); lab.className = 'shinyT';
-    lab.innerHTML = '<input type="checkbox"> ✨ shiny'; lab.querySelector('input').onchange = e => { cv._opts.shiny = e.target.checked; };
+    lab.innerHTML = '<input type="checkbox"> ' + ic('sparkle') + 'shiny'; lab.querySelector('input').onchange = e => { cv._opts.shiny = e.target.checked; };
     side.append(lab);
   }
-  side.insertAdjacentHTML('beforeend', `<div class="tiny">${sd ? Object.keys(sd.a).length + ' animations' + (sd.s ? '<br>shiny ✓' : '<br>no shiny') : '⚠️ no sprites'}</div>`);
+  side.insertAdjacentHTML('beforeend', `<div class="tiny">${sd ? Object.keys(sd.a).length + ' animations' + (sd.s ? '<br>shiny ✓' : '<br>no shiny') : ic('warning') + ' no sprites'}</div>`);
   pv.append(side);
 
   const f = document.createElement('div'); f.className = 'fields';
@@ -527,7 +561,7 @@ function guessFromName(name) {
 }
 function setPending(p, label) {
   pending = p;
-  $('#picked').textContent = label;
+  $('#picked').innerHTML = label;
   $('#upMsg').textContent = ''; $('#upMsg').className = 'msg';
   refreshUploadBtn();
 }
@@ -541,13 +575,13 @@ $('#folderIn').addEventListener('change', e => {
   if (!files.length) return setPending(null, 'That folder has no sprite files in it.');
   const top = files[0].path.split('/')[0];
   guessFromName(top);
-  setPending({ kind: 'files', files }, `📁 ${top}: ${files.length} files`);
+  setPending({ kind: 'files', files }, `${ic('folder')}${esc(top)}: ${files.length} files`);
   e.target.value = '';
 });
 $('#zipIn').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
   guessFromName(f.name.replace(/\.zip$/i, ''));
-  setPending({ kind: 'zip', file: f }, `🗜️ ${f.name} (${(f.size / 1024 / 1024).toFixed(1)} MB)`);
+  setPending({ kind: 'zip', file: f }, `${ic('box')}${esc(f.name)} (${(f.size / 1024 / 1024).toFixed(1)} MB)`);
   e.target.value = '';
 });
 
@@ -561,7 +595,7 @@ drop.addEventListener('drop', async e => {
   if (entries.length === 1 && entries[0].isFile && /\.zip$/i.test(entries[0].name)) {
     const f = e.dataTransfer.files[0];
     guessFromName(f.name.replace(/\.zip$/i, ''));
-    return setPending({ kind: 'zip', file: f }, `🗜️ ${f.name} (${(f.size / 1024 / 1024).toFixed(1)} MB)`);
+    return setPending({ kind: 'zip', file: f }, `${ic('box')}${esc(f.name)} (${(f.size / 1024 / 1024).toFixed(1)} MB)`);
   }
   const files = [];
   const walk = (entry, path) => new Promise(res => {
@@ -579,7 +613,7 @@ drop.addEventListener('drop', async e => {
   if (!files.length) return setPending(null, 'No sprite files found in what you dropped.');
   const top = entries[0].name;
   guessFromName(top);
-  setPending({ kind: 'files', files }, `📁 ${top}: ${files.length} files`);
+  setPending({ kind: 'files', files }, `${ic('folder')}${esc(top)}: ${files.length} files`);
 });
 
 $('#upload').addEventListener('click', async () => {
@@ -627,6 +661,70 @@ $('#upload').addEventListener('click', async () => {
   setTimeout(() => { bar.style.display = 'none'; }, 800);
   refreshUploadBtn();
 });
+
+// ---------------- backgrounds ----------------
+const BG_SLOTS = [
+  ['default', 'Every scene', 'Used wherever a landscape below has no picture of its own'],
+  ['meadow', 'Meadow', 'Normal, Grass, Electric, Fairy (and eggs)'],
+  ['beach', 'Beach', 'Water'],
+  ['forest', 'Forest', 'Poison, Psychic, Bug, Ghost, Dark'],
+  ['volcano', 'Volcano', 'Fire'],
+  ['mountain', 'Mountain', 'Fighting, Ground, Flying, Rock, Dragon, Steel'],
+  ['snow', 'Snow', 'Ice'],
+];
+let bgSaved = { assign: {}, night: true, files: [] }, bgDraft = clone(bgSaved);
+const bgUrl = f => 'backgrounds/' + encodeURIComponent(f);
+function setBg(cfg) { bgSaved = clone(cfg || bgSaved); bgDraft = clone(bgSaved); renderBg(); }
+function bgDirty() { return JSON.stringify(bgSaved.assign) !== JSON.stringify(bgDraft.assign) || bgSaved.night !== bgDraft.night; }
+function renderBg() {
+  const grid = $('#bgGrid');
+  grid.innerHTML = bgDraft.files.length ? bgDraft.files.map(f => `<div class="bgthumb"><img src="${bgUrl(f)}" alt="" loading="lazy"><div><span title="${esc(f)}">${esc(f)}</span><button data-bgdel="${esc(f)}" title="Delete">${ic('trash')}</button></div></div>`).join('')
+    : '<p class="sub" style="grid-column:1/-1;margin:0">No backgrounds uploaded yet — the game uses its built-in scenery.</p>';
+  const opts = (slot, cur) => (slot === 'default' ? '<option value="">Built-in scenery</option>' : '<option value="">Same as "Every scene"</option>')
+    + bgDraft.files.map(f => `<option value="${esc(f)}" ${f === cur ? 'selected' : ''}>${esc(f)}</option>`).join('');
+  $('#bgSlots').innerHTML = BG_SLOTS.map(([k, name, sub]) => {
+    const cur = bgDraft.assign[k] || '';
+    const eff = cur || (k !== 'default' && bgDraft.assign.default) || '';
+    return `<div class="bgslot">${eff ? `<img class="prev" src="${bgUrl(eff)}" alt="">` : '<span class="prev" style="display:block"></span>'}
+      <div><b>${name}</b><small>${sub}</small></div><select data-slot="${k}">${opts(k, cur)}</select></div>`;
+  }).join('');
+  $('#bgNight').checked = bgDraft.night !== false;
+  $('#bgDirty').textContent = bgDirty() ? 'Unsaved changes' : '';
+  $('#bgSlots').querySelectorAll('select').forEach(sel => sel.onchange = () => {
+    if (sel.value) bgDraft.assign[sel.dataset.slot] = sel.value; else delete bgDraft.assign[sel.dataset.slot];
+    renderBg();
+  });
+  grid.querySelectorAll('[data-bgdel]').forEach(b => b.onclick = async () => {
+    const f = b.dataset.bgdel;
+    if (!confirm(`Delete ${f}? Scenes using it go back to the default.`)) return;
+    try { const r = await api('/api/bg-delete', { method: 'POST', body: JSON.stringify({ file: f }) }); setBg(r.backgrounds); toast('Background deleted.'); }
+    catch (e) { $('#bgMsg').className = 'msg err'; $('#bgMsg').textContent = e.message; }
+  });
+}
+$('#bgNight').onchange = e => { bgDraft.night = e.target.checked; renderBg(); };
+$('#bgPick').onclick = () => $('#bgIn').click();
+$('#bgIn').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = '';
+  if (!files.length) return;
+  const msg = $('#bgMsg'), bar = $('#bgBar'), fill = bar.querySelector('i');
+  msg.className = 'msg'; msg.textContent = 'Uploading…'; bar.style.display = 'block'; fill.style.width = '0%';
+  let cfg = null, done = 0, failed = [];
+  for (const f of files) {
+    try { cfg = (await api('/api/bg-upload?name=' + encodeURIComponent(f.name), { method: 'POST', body: f })).backgrounds; }
+    catch (err) { failed.push(`${f.name}: ${err.message}`); }
+    fill.style.width = (++done / files.length * 100) + '%';
+  }
+  if (cfg) { const keep = bgDraft; bgSaved.files = cfg.files; bgDraft = { ...keep, files: cfg.files }; renderBg(); }
+  msg.className = failed.length ? 'msg err' : 'msg good';
+  msg.textContent = failed.length ? 'Some uploads failed — ' + failed.join(' · ') : `Uploaded ${files.length} image${files.length > 1 ? 's' : ''}. Now choose where to use ${files.length > 1 ? 'them' : 'it'} below and press Save backgrounds.`;
+  setTimeout(() => { bar.style.display = 'none'; }, 700);
+};
+$('#bgSave').onclick = async () => {
+  try {
+    const r = await api('/api/backgrounds', { method: 'POST', body: JSON.stringify({ assign: bgDraft.assign, night: bgDraft.night }) });
+    setBg(r.backgrounds); toast('Backgrounds saved! Refresh the game to see them.');
+  } catch (e) { $('#bgMsg').className = 'msg err'; $('#bgMsg').textContent = e.message; }
+};
 
 load();
 </script>

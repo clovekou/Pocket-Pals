@@ -40,6 +40,17 @@ You can also double-click `index.html` to play, but the dashboard only works thr
   target makes a branch), egg rarity, whether it's a starter, and ATK/DEF/SPD.
 - Press **Save changes**, then refresh the game.
 
+## Backgrounds
+In the dashboard's **Backgrounds** section you can upload your own scene pictures
+(PNG/JPG/GIF/WebP) and pick one for every scene or a different one per landscape
+(meadow, beach, forest, volcano, mountain, snow — chosen by the Pokémon's type). Uploaded
+images are stored in `backgrounds/`, so they go online too when you push. Scenes without a
+picture use the built-in animated scenery.
+
+## Look
+Dark, glassy mobile UI with 32×32 pixel-art icons for every item and button (berries,
+candy, poop, stars, hearts, eggs, medals…), drawn in code in `pixelart.js` — no emoji.
+
 ## Talking
 The Pokémon talks in a Mystery Dungeon-style text box, using the emotion portrait
 (`portrait/Happy.png`, `Sad.png`, `Joyous.png`, …) that fits the moment. It reacts to

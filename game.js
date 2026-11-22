@@ -2,14 +2,14 @@
 // Pocket Pal — game state and rules (no DOM). 1 tick = 1 game minute.
 
 const MEDALS = [
-  { id: 'lv10',    icon: '🥉', label: 'Level 10',      desc: 'Reach level 10' },
-  { id: 'lv25',    icon: '🥈', label: 'Level 25',      desc: 'Reach level 25' },
-  { id: 'lv50',    icon: '🥇', label: 'Level 50',      desc: 'Reach level 50' },
-  { id: 'berry',   icon: '🍓', label: 'Favourite',     desc: 'Find its favourite berry' },
-  { id: 'streak7', icon: '🔥', label: '7-day streak',  desc: 'Care 7 days in a row' },
-  { id: 'bond',    icon: '💞', label: 'Best friends',  desc: 'Max out the bond' },
-  { id: 'final',   icon: '👑', label: 'Final form',    desc: 'Reach a final form' },
-  { id: 'fit',     icon: '💪', label: 'Fit',           desc: 'Lv 5+, weight 0, no slip-ups' },
+  { id: 'lv10',    icon: 'medalBronze', label: 'Level 10',      desc: 'Reach level 10' },
+  { id: 'lv25',    icon: 'medalSilver', label: 'Level 25',      desc: 'Reach level 25' },
+  { id: 'lv50',    icon: 'medalGold', label: 'Level 50',      desc: 'Reach level 50' },
+  { id: 'berry',   icon: 'berrySweet', label: 'Favourite',     desc: 'Find its favourite berry' },
+  { id: 'streak7', icon: 'flame', label: '7-day streak',  desc: 'Care 7 days in a row' },
+  { id: 'bond',    icon: 'heart', label: 'Best friends',  desc: 'Max out the bond' },
+  { id: 'final',   icon: 'crown', label: 'Final form',    desc: 'Reach a final form' },
+  { id: 'fit',     icon: 'dumbbell', label: 'Fit',           desc: 'Lv 5+, weight 0, no slip-ups' },
 ];
 
 const Game = (() => {

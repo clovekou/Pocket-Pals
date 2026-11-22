@@ -51,26 +51,21 @@
     return d ? `${d}d ${h}h` : h ? `${h}h ${mm}m` : `${mm}m`;
   };
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ic = n => `<img class="ic" src="${PX.url(n)}" alt="">`;
+  const icons = s => String(s).replace(/\{i:(\w+)\}/g, (_, n) => ic(n)); // {i:name} -> pixel icon
   const petName = () => { const p = Game.pet(); if (!p) return ''; if (p.egg) return 'Egg'; return p.name || Game.sp().name; };
   const stageScale = id => { const s = SPECIES_BY_ID[id]; return s.tier === 'legend' ? 1.12 : [0, .85, 1, 1.12][s.stage] || 1; };
 
-  function heart(g, x, y, r, col = '#ff5d8f') {
-    g.save(); g.translate(x, y); g.beginPath();
-    g.moveTo(0, r); g.bezierCurveTo(-r * 1.4, 0, -r * .6, -r * 1.1, 0, -r * .4);
-    g.bezierCurveTo(r * .6, -r * 1.1, r * 1.4, 0, 0, r);
-    g.fillStyle = col; g.fill(); g.restore();
-  }
-  function star(g, x, y, r, rot, col) {
-    g.save(); g.translate(x, y); g.rotate(rot); g.beginPath();
-    for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, rr = i % 2 ? r * .45 : r; g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
-    g.closePath(); g.fillStyle = col; g.fill(); g.lineWidth = Math.max(1, r * .12); g.strokeStyle = '#2b2438'; g.stroke(); g.restore();
-  }
+  function heart(g, x, y, r) { PX.draw(g, 'heart', x, y, r * 2.6); }
+
+  function star(g, x, y, r, rot, col) { PX.draw(g, col === '#fff' || col === '#fff6b0' ? 'sparkle' : 'star', x, y, r * 2.6, { rot: 0 }); }
+
 
   // ======================= toasts =======================
   function toast(msg, ms = 2800) {
     const box = $('#toasts');
     while (box.children.length >= 3) box.firstChild.remove();
-    const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; box.appendChild(el);
+    const el = document.createElement('div'); el.className = 'toast'; el.innerHTML = icons(esc(msg)); box.appendChild(el);
     setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 350); }, ms);
   }
 
@@ -216,13 +211,32 @@
     else if (phase === 'dusk') { cx.fillStyle = 'rgba(80,40,90,.18)'; cx.fillRect(0, hz - H * .35, W, H); }
   }
 
+  // ---------- uploaded backgrounds (set in the dashboard) ----------
+  const bgImgs = {};
+  function drawCustomBg(scene, phase) {
+    const cfg = typeof BACKGROUNDS !== 'undefined' ? BACKGROUNDS : null;
+    const file = cfg && cfg.assign && (cfg.assign[scene] || cfg.assign.default);
+    if (!file) return false;
+    let im = bgImgs[file];
+    if (!im) { im = bgImgs[file] = new Image(); im.src = 'backgrounds/' + encodeURIComponent(file); }
+    if (!im.complete || !im.naturalWidth) return false;          // built-in scenery until it loads
+    const s = Math.max(W / im.naturalWidth, H / im.naturalHeight); // cover the whole stage
+    const w = im.naturalWidth * s, h = im.naturalHeight * s;
+    cx.drawImage(im, (W - w) / 2, H - h, w, h);                   // keep the bottom (the ground) in view
+    if (cfg.night !== false) {
+      if (phase === 'night') { cx.fillStyle = 'rgba(10,14,45,.5)'; cx.fillRect(0, 0, W, H); }
+      else if (phase === 'dusk') { cx.fillStyle = 'rgba(90,40,100,.18)'; cx.fillRect(0, 0, W, H); }
+      else if (phase === 'dawn') { cx.fillStyle = 'rgba(255,150,110,.12)'; cx.fillRect(0, 0, W, H); }
+    }
+    return true;
+  }
+
   const POOP_X = [.16, .84, .7];
   function drawPoop(x, y, t, i) {
-    const r = baseSize() * .22;
-    cx.save(); cx.translate(x, y);
-    cx.fillStyle = '#8b5a2b'; cx.strokeStyle = '#2b2438'; cx.lineWidth = 1.5;
-    for (const [dy, rx] of [[0, 1], [-.55, .75], [-1, .45]]) { cx.beginPath(); cx.ellipse(0, dy * r, rx * r, r * .45, 0, 0, Math.PI * 2); cx.fill(); cx.stroke(); }
-    cx.strokeStyle = 'rgba(120,140,60,.7)'; cx.lineWidth = 2;
+    const r = baseSize() * .22, sz = Math.max(32, Math.round(baseSize() * .9 / 16) * 16);
+    PX.draw(cx, 'poop', x, y - sz * .42, sz);
+    cx.save(); cx.translate(x, y - sz * .5);
+    cx.strokeStyle = 'rgba(150,170,80,.75)'; cx.lineWidth = 2;
     for (let k = -1; k <= 1; k++) {
       cx.beginPath();
       for (let j = 0; j < 8; j++) cx.lineTo(k * r * .6 + Math.sin(j * .9 + t * 3 + i + k) * 3, -r * 1.5 - j * 3);
@@ -253,7 +267,10 @@
       const s = SPECIES_BY_ID[p.sp];
       const sz = baseSize() * 1.1;
       cx.fillStyle = 'rgba(0,0,0,.18)'; cx.beginPath(); cx.ellipse(W / 2, fy, sz * .7, sz * .16, 0, 0, Math.PI * 2); cx.fill();
-      drawEgg(cx, W / 2, fy, sz, s.tier || 'rare', t, ms < V.eggWobbleUntil ? 1 : 0, p.taps);
+      const eggPx = Math.round(sz * 2.2 / 32) * 32 || 64, wob = ms < V.eggWobbleUntil ? Math.sin(t * 22) * .18 : Math.sin(t * 1.5) * .04;
+      cx.save(); cx.translate(W / 2, fy - eggPx * .08); cx.rotate(wob);
+      PX.draw(cx, `egg_${s.tier || 'common'}_${Math.min(2, p.taps)}`, 0, -eggPx * .45, eggPx);
+      cx.restore();
       return;
     }
     const size = petSize();
@@ -270,8 +287,7 @@
     if (ms < V.eatUntil) {
       const k = (V.eatUntil - ms) / 2500, dir = V.flip ? -1 : 1;
       const bx = x + dir * size * .9, by = fy - size * 1.2;
-      cx.fillStyle = V.eatColor; cx.strokeStyle = '#2b2438'; cx.lineWidth = 2;
-      cx.beginPath(); cx.arc(bx, by, size * .22 * k + 2, 0, Math.PI * 2); cx.fill(); cx.stroke();
+      PX.draw(cx, V.eatIcon || 'berrySweet', bx, by, Math.max(16, Math.round((size * .7 * k + 8) / 8) * 8));
       if (Math.random() < .2) V.fx.push({ kind: 'crumb', x: bx, y: by, vx: (Math.random() - .5) * 60, vy: -30, life: .5, age: 0, col: V.eatColor });
     }
     if (p.asleep) {
@@ -279,7 +295,7 @@
       for (let i = 0; i < 3; i++) {
         const ph = (t * .35 + i / 3) % 1;
         cx.globalAlpha = 1 - ph;
-        cx.fillText('z', x + size * (.7 + ph * .6), fy - size * (1.8 + ph * 1.2));
+        PX.draw(cx, 'z', x + size * (.7 + ph * .6), fy - size * (1.8 + ph * 1.2), 24 + i * 6, { alpha: 1 - ph });
       }
       cx.globalAlpha = 1;
     }
@@ -295,7 +311,7 @@
     for (const f of V.fx) {
       cx.globalAlpha = Math.max(0, 1 - f.age / f.life);
       if (f.kind === 'spark') star(cx, f.x, f.y, 5, f.age * 4, f.col);
-      else if (f.kind === 'bubble') { cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(f.x, f.y, f.r, 0, Math.PI * 2); cx.stroke(); }
+      else if (f.kind === 'bubble') PX.draw(cx, 'bubble', f.x, f.y, f.r * 3.2);
       else { cx.fillStyle = f.col; cx.beginPath(); cx.arc(f.x, f.y, 3, 0, Math.PI * 2); cx.fill(); }
     }
     cx.globalAlpha = 1;
@@ -345,7 +361,7 @@
     if (e >= 1) {
       V.anim = null;
       const to = SPECIES_BY_ID[A.to];
-      toast(`✨ ${SPECIES_BY_ID[A.from].name} evolved into ${to.name}!`, 4000);
+      toast(`{i:sparkle} ${SPECIES_BY_ID[A.from].name} evolved into ${to.name}!`, 4000);
       Talk.say('evolveDone', { vars: { to: to.name }, prio: 2 });
       addHearts(6); addSparkles(x, fy - s1, 20);
     }
@@ -380,7 +396,7 @@
     if (e >= 1) {
       V.anim = null; V.x = .5;
       Game.finishEnding();
-      const note = { farewell: 'A blessed egg appeared! ✨', runaway: 'A plain egg appeared…', release: 'A new egg appeared.' }[A.type];
+      const note = { farewell: 'A blessed egg appeared! {i:sparkle}', runaway: 'A plain egg appeared…', release: 'A new egg appeared.' }[A.type];
       toast(note, 3500);
       Talk.say('newEgg', { prio: 2 });
     }
@@ -390,8 +406,8 @@
     const p = Game.pet();
     const phase = dayPhase();
     const biome = p ? ELEMENTS[SPECIES_BY_ID[p.sp].el].biome : 'meadow';
-    drawSky(t, phase);
-    drawBiome(p && p.egg ? 'meadow' : biome, t, phase);
+    const scene = p && p.egg ? 'meadow' : biome;
+    if (!drawCustomBg(scene, phase)) { drawSky(t, phase); drawBiome(scene, t, phase); }
     if (p && !p.egg) for (let i = 0; i < p.poops; i++) drawPoop(POOP_X[i] * W, feetY() - 2 + i * 4, t, i);
     if (V.anim && V.anim.type === 'evolve') drawEvolve(t, ms);
     else if (V.anim) drawEnding(t, ms);
@@ -402,24 +418,34 @@
   // ======================= HUD =======================
   const els = {
     name: $('#petName'), lv: $('#petLevel'), streak: $('#streakNum'), cer: $('#cerBtns'), hint: $('#hint'),
-    lightIcon: $('#lightIcon'), lightLbl: $('#lightLbl'),
-    bars: [...document.querySelectorAll('.bar')].map(b => ({ k: b.dataset.k, el: b, fill: b.querySelector('i') })),
+    lightIcon: $('#lightIcon'), lightLbl: $('#lightLbl'), sub: $('#petSub'), avatar: $('#avatar'),
+    bars: [...document.querySelectorAll('.bar')].map(b => ({ k: b.dataset.k, el: b, fill: b.querySelector('i'), val: b.querySelector('.bv') })),
   };
   let cerSig = '';
   function hud() {
     const p = Game.pet(), S = ST();
     els.streak.textContent = S.player.streak;
-    if (!p) { els.name.textContent = 'Pocket Pal'; els.lv.textContent = ''; return; }
-    els.name.innerHTML = esc(petName()) + (p.shiny && !p.egg ? ' <span class="shinytag">✨</span>' : '');
+    if (!p) { els.name.textContent = 'Pocket Pal'; els.name.dataset.sig = ''; els.sub.textContent = 'Choose a partner'; els.avatar.className = 'egg'; els.avatar.src = PX.url('egg_rare_0'); els.lv.textContent = ''; els.lv.classList.add('hidden'); return; }
+    const nameSig = petName() + p.shiny + p.egg + p.sp;
+    if (els.name.dataset.sig !== nameSig) {
+      els.name.dataset.sig = nameSig;
+      els.name.innerHTML = esc(petName()) + (p.shiny && !p.egg ? ic('sparkle') : '');
+      const s = SPECIES_BY_ID[p.sp];
+      els.sub.textContent = p.egg ? `${TIER_LABEL[s.tier || 'common']} egg` : `${p.name ? s.name + ' · ' : ''}${ELEMENTS[s.el].label}`;
+      const face = !p.egg && portraitUrl(p.sp, p.shiny, 'Normal');
+      els.avatar.className = face ? '' : 'egg';
+      els.avatar.src = face || PX.url(`egg_${s.tier || 'common'}_0`);
+    }
     els.lv.textContent = p.egg ? '' : 'Lv ' + Game.level();
     els.lv.classList.toggle('hidden', !!p.egg);
     for (const b of els.bars) {
       const v = p.egg ? 0 : p[b.k];
       b.fill.style.width = v + '%';
+      b.val.textContent = p.egg ? '–' : Math.round(v);
       b.el.classList.toggle('low', !p.egg && v <= 20);
     }
     const asleep = !p.egg && p.asleep;
-    els.lightIcon.textContent = asleep ? '☀️' : '🌙';
+    const li = PX.url(asleep ? 'wake' : 'sleep'); if (els.lightIcon.src !== li) els.lightIcon.src = li;
     els.lightLbl.textContent = asleep ? 'Wake' : 'Sleep';
     document.querySelectorAll('#actions button').forEach(b => {
       const a = b.dataset.act;
@@ -433,14 +459,14 @@
     if (sig !== cerSig) {
       cerSig = sig; els.cer.innerHTML = '';
       if (!busy) {
-        if (Game.canEvolve()) { els.cer.append(mkBtn('✨ Ready to evolve!', 'cb-evolve', askEvolve)); Talk.say('evolveReady', { prio: 2 }); }
-        if (Game.canFarewell()) { els.cer.append(mkBtn('💛 A full life — say goodbye?', 'cb-farewell', askFarewell)); Talk.say('farewellReady', { prio: 2 }); }
-        if (Game.canRunaway()) { els.cer.append(mkBtn('🌧 It feels abandoned…', 'cb-runaway', askRunaway)); Talk.say('runawayReady', { prio: 2 }); }
+        if (Game.canEvolve()) { els.cer.append(mkBtn('{i:sparkle} Ready to evolve!', 'cb-evolve', askEvolve)); Talk.say('evolveReady', { prio: 2 }); }
+        if (Game.canFarewell()) { els.cer.append(mkBtn('{i:heartGold} A full life — say goodbye?', 'cb-farewell', askFarewell)); Talk.say('farewellReady', { prio: 2 }); }
+        if (Game.canRunaway()) { els.cer.append(mkBtn('{i:rain} It feels abandoned…', 'cb-runaway', askRunaway)); Talk.say('runawayReady', { prio: 2 }); }
       }
     }
   }
   function mkBtn(label, cls, fn) {
-    const b = document.createElement('button'); b.className = cls; b.textContent = label;
+    const b = document.createElement('button'); b.className = cls; b.innerHTML = icons(esc(label));
     b.addEventListener('click', e => { e.stopPropagation(); fn(); }); return b;
   }
 
@@ -449,7 +475,7 @@
   let sheetLocked = false;
   function openSheet(html, { dialog = false, locked = false } = {}) {
     sheet.className = dialog ? 'dialog' : '';
-    sheet.innerHTML = html; sheet.scrollTop = 0;
+    sheet.innerHTML = icons(html); sheet.scrollTop = 0;
     scrim.classList.remove('hidden'); sheetLocked = locked;
     paintMinis(sheet);
   }
@@ -507,27 +533,27 @@
     const p = Game.pet(), s = Game.sp();
     const known = p.berryKnown;
     openSheet(head('Feed') + `<div class="foods">
-      ${FLAVORS.map((f, i) => `<button class="food" data-f="${i}"><span class="dot" style="background:${f.color}"></span><span><b>${f.label}</b><small>+25 food${known && s.fav === i ? ' · favourite!' : ''}</small></span>${known && s.fav === i ? '<span class="heart">❤️</span>' : ''}</button>`).join('')}
-      <button class="food" data-f="candy"><span class="dot" style="background:repeating-linear-gradient(45deg,#ff8fb3 0 5px,#fff 5px 10px)"></span><span><b>Candy</b><small>+10 food, +12 joy, fattening</small></span></button>
+      ${FLAVORS.map((f, i) => `<button class="food" data-f="${i}">${ic(['berrySweet', 'berrySour', 'berrySpicy'][i]).replace('class="ic"', 'class="px"')}<span><b>${f.label}</b><small>+25 food${known && s.fav === i ? ' · favourite!' : ''}</small></span>${known && s.fav === i ? '<span class="heart">{i:heart}</span>' : ''}</button>`).join('')}
+      <button class="food" data-f="candy">${ic('candy').replace('class="ic"', 'class="px"')}<span><b>Candy</b><small>+10 food, +12 joy, fattening</small></span></button>
       </div><p class="muted" style="margin-top:12px">${known ? `It loves the ${FLAVORS[s.fav].label.toLowerCase()}.` : 'Every creature has a hidden favourite berry. Try them all!'}</p>`);
     sheet.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
       const f = b.dataset.f; closeSheet();
       const foodBefore = Game.pet().food;
       if (f === 'candy') {
         const r = Game.feedCandy(); if (r.error) return;
-        startEat('#ff8fb3');
+        startEat('#ff8fb3', 'candy');
         toast(Game.pet().weight > 50 ? 'Yum! …but it\'s getting chubby (sluggish).' : 'Sweet! +JOY');
         Talk.say(Game.pet().weight > 50 ? 'candyHeavy' : 'candy');
       } else {
         const r = Game.feedBerry(+f); if (r.error) return;
-        startEat(FLAVORS[+f].color);
+        startEat(FLAVORS[+f].color, ['berrySweet', 'berrySour', 'berrySpicy'][+f]);
         const berry = FLAVORS[+f].label.toLowerCase();
-        if (r.fav) { addHearts(6); toast(r.first ? `❤️ It LOVES ${berry}s! Favourite found.` : '❤️ Its favourite!'); Talk.say(r.first ? 'favFirst' : 'fav', { vars: { berry } }); }
+        if (r.fav) { addHearts(6); toast(r.first ? `{i:heart} It LOVES ${berry}s! Favourite found.` : '{i:heart} Its favourite!'); Talk.say(r.first ? 'favFirst' : 'fav', { vars: { berry } }); }
         else { toast('+25 food'); Talk.say(foodBefore >= 90 ? 'berryFull' : 'berry'); }
       }
     }));
   }
-  function startEat(color) { V.eatUntil = now() + 2500; V.eatColor = color; Sound.play('eat'); }
+  function startEat(color, icon) { V.eatUntil = now() + 2500; V.eatColor = color; V.eatIcon = icon; Sound.play('eat'); }
 
   // ---------- evolve / endings ----------
   function askEvolve() {
@@ -536,7 +562,7 @@
     const branch = s.next.length > 1 ? ' Its path will lean toward a form you haven\'t raised yet.' : '';
     dialog(`${petName()} is glowing…`, `It's ready to evolve!${branch}`, [
       { label: 'Keep form', cls: 'alt', fn: () => { Game.declineEvolve(); toast(`OK — it stays as ${s.name}. It'll ask again next level.`); Talk.say('evolveNo'); } },
-      { label: '✨ Evolve', cls: 'red', fn: () => {
+      { label: '{i:sparkle} Evolve', cls: 'red', fn: () => {
         const r = Game.evolve(); if (!r) return;
         V.anim = { type: 'evolve', from: r.from, to: r.to, start: now(), dur: 5200 }; Sound.play('evolve');
       } },
@@ -545,7 +571,7 @@
   function askFarewell() {
     dialog('A full life together', `${petName()} has reached its final form and lived a full life. Saying goodbye <b>blesses your next egg</b> (better rarity and shiny odds).`, [
       { label: 'Stay together', cls: 'alt', fn: () => { Game.postponeFarewell(); toast('You stay together. It will ask again in a day.'); Talk.say('stay', { prio: 2 }); } },
-      { label: '💛 Say goodbye', cls: 'gold', fn: () => startEnd('farewell') },
+      { label: '{i:heartGold} Say goodbye', cls: 'gold', fn: () => startEnd('farewell') },
     ]);
   }
   function askRunaway() {
@@ -584,7 +610,7 @@
     if (cardTab === 'profile') {
       const hearts = Math.round(p.bond / 20);
       body = `<div class="hero">${miniCanvas(p.sp, { px: 104, shiny: p.shiny })}<div>
-          <h3>${esc(petName())} ${p.shiny ? '<span style="color:#e0a81f">✨</span>' : ''}</h3>
+          <h3>${esc(petName())} ${p.shiny ? '<span style="color:#e0a81f">{i:sparkle}</span>' : ''}</h3>
           <div class="muted">${s.name} · Lv ${Game.level()}</div>
           <span class="pill" style="background:${el.color}">${el.label}</span>
         </div></div>
@@ -593,7 +619,7 @@
           <div class="row"><span>Stage</span><b>${s.stage === 1 && !s.next.length ? 'Unique' : 'Stage ' + s.stage}${!s.next.length ? ' (final)' : ''}</b></div>
           <div class="row"><span>Age</span><b>${fmtDur(p.ageMin)}</b></div>
           <div class="row"><span>Weight</span><b>${weightLabel(p.weight)}</b></div>
-          <div class="row"><span>Bond</span><b>${'❤️'.repeat(hearts)}${'🤍'.repeat(5 - hearts)} ${p.bond}%</b></div>
+          <div class="row"><span>Bond</span><b>${'{i:heart}'.repeat(hearts)}${'{i:heartEmpty}'.repeat(5 - hearts)} ${p.bond}%</b></div>
           <div class="row"><span>Favourite berry</span><b>${p.berryKnown ? FLAVORS[s.fav].label : '???'}</b></div>
           <div class="row"><span>Slip-ups</span><b>${p.mistakes}</b></div>
           <div class="row"><span>Genes</span><b>ATK ${p.genes.atk}% · DEF ${p.genes.def}% · SPD ${p.genes.spd}%</b></div>
@@ -601,16 +627,16 @@
     } else if (cardTab === 'battle') {
       const row = (k, label, col, note) => { const v = Game.stat(k); return `<div class="stat"><div class="top"><span>${label}</span><span>${v}</span></div><div class="trk"><i style="width:${Math.min(100, v / 2.5)}%;background:${col}"></i></div><small>${note}</small></div>`; };
       const defLeft = 720 - p.goodTicks;
-      body = row('atk', '⚔️ Attack', '#e8503a', `Strength training ${p.tr.atk}/100 — from the training bag`) +
-        row('def', '🛡️ Defence', '#4f93c4', `Discipline ${p.tr.def}/100 — +1 per 12 h of good care (next in ${fmtDur(defLeft)} if every need stays ≥ 40)`) +
-        row('spd', '💨 Speed', '#58b868', `Speed training ${p.tr.spd}/100 — from Star Catch`) +
+      body = row('atk', '{i:sword} Attack', '#e8503a', `Strength training ${p.tr.atk}/100 — from the training bag`) +
+        row('def', '{i:shield} Defence', '#4f93c4', `Discipline ${p.tr.def}/100 — +1 per 12 h of good care (next in ${fmtDur(defLeft)} if every need stays ≥ 40)`) +
+        row('spd', '{i:speed} Speed', '#58b868', `Speed training ${p.tr.spd}/100 — from Star Catch`) +
         `<p class="muted">Stat = species base × genes + level + training.</p>
         <div class="rows"><div class="row"><span>Best Star Catch</span><b>${S.player.gameHi}</b></div><div class="row"><span>Most bag hits</span><b>${S.player.strHi}</b></div></div>
-        <div class="btns"><button class="btn red" id="goTrain">🥊 Train strength</button></div>`;
+        <div class="btns"><button class="btn red" id="goTrain">{i:train} Train strength</button></div>`;
     } else if (cardTab === 'medals') {
-      body = `<div class="medals">${MEDALS.map(m => `<div class="medal ${p.medals.includes(m.id) ? '' : 'off'}" title="${m.desc}"><span>${m.icon}</span>${m.label}</div>`).join('')}</div>
+      body = `<div class="medals">${MEDALS.map(m => `<div class="medal ${p.medals.includes(m.id) ? '' : 'off'}" title="${m.desc}">${ic(m.icon)}${m.label}</div>`).join('')}</div>
         <p class="muted" style="margin-top:12px">${p.medals.length}/8 for ${esc(petName())} · ${S.player.totalMedals} medals earned in total.</p>
-        <div class="rows">${MEDALS.map(m => `<div class="row"><span>${m.icon} ${m.label}</span><b>${m.desc}</b></div>`).join('')}</div>`;
+        <div class="rows">${MEDALS.map(m => `<div class="row"><span>${ic(m.icon)} ${m.label}</span><b>${m.desc}</b></div>`).join('')}</div>`;
     } else {
       const need = Game.evoLevel();
       const fin = Game.farewellIn();
@@ -619,13 +645,13 @@
       body = `<div class="rows">
         <div class="row"><span>Dex</span><b>${Game.registeredCount()} / ${SPECIES.length}</b></div>
         <div class="row"><span>Shinies</span><b>${Game.shinyCount()} / ${SPECIES.length}</b></div>
-        <div class="row"><span>Streak</span><b>🔥 ${S.player.streak} days (best ${S.player.bestStreak})</b></div>
+        <div class="row"><span>Streak</span><b>{i:flame} ${S.player.streak} days (best ${S.player.bestStreak})</b></div>
         <div class="row"><span>Next milestone</span><b>${nextMs ? nextMs + ' days' : 'All reached!'}</b></div>
         <div class="row"><span>Evolution</span><b>${need == null ? 'Final form' : `At Lv ${need}${p.mistakes ? ` (${s.evo} + ${p.mistakes} slip-ups)` : ''}`}</b></div>
         ${need == null ? '' : '<div class="row"><span>Also needs</span><b>Awake, every need ≥ 40</b></div>'}
         <div class="row"><span>Farewell</span><b>${fin == null ? 'After its final form' : fin === 0 ? 'Ready' : 'In ' + fmtDur(fin)}</b></div>
         <div class="row"><span>Egg luck bonus</span><b>+${Game.careBonus()} (streak + bond)</b></div>
-        <div class="row"><span>Next egg</span><b>${end === 'farewell' ? 'Blessed ✨' : end === 'runaway' ? 'Plain (after a run-away)' : 'Normal'}</b></div>
+        <div class="row"><span>Next egg</span><b>${end === 'farewell' ? 'Blessed {i:sparkle}' : end === 'runaway' ? 'Plain (after a run-away)' : 'Normal'}</b></div>
         ${SPECIES.some(x => x.tier === 'legend') ? `<div class="row"><span>Legendaries</span><b>${Game.registeredCount() >= Game.LEGEND_UNLOCK ? 'Can appear!' : `Unlock at ${Game.LEGEND_UNLOCK} registered`}</b></div>` : ''}
       </div>`;
     }
@@ -648,13 +674,13 @@
       return String(s.id) === q.replace(/^#?0*/, '') || (reg && s.name.toLowerCase().includes(q));
     });
     const shown = list.slice(0, dexShown);
-    $('#dexGrid').innerHTML = shown.map(s => {
+    $('#dexGrid').innerHTML = icons(shown.map(s => {
       const reg = Game.registered(s.id), sh = !!S.player.shiny[s.id];
       const face = reg && portraitUrl(s.id, false, 'Normal');
-      const pic = !reg ? '<span class="unk">?</span>' : face ? `<img src="${face}" alt="" loading="lazy">` : miniCanvas(s.id, { px: 72 });
-      return `<button class="dexcell" data-dex="${s.id}"><span class="no">${String(s.id).padStart(4, '0')}</span>${sh ? '<span class="st">✨</span>' : ''}${pic}<small>${reg ? esc(s.name) : '???'}</small></button>`;
+      const pic = !reg ? '<span class="unk">?</span>' : face ? `<img class="face" src="${face}" alt="" loading="lazy">` : miniCanvas(s.id, { px: 72 });
+      return `<button class="dexcell" data-dex="${s.id}"><span class="no">${String(s.id).padStart(4, '0')}</span>${sh ? ic('sparkle').replace('class="ic"', 'class="ic st"') : ''}${pic}<small>${reg ? esc(s.name) : '???'}</small></button>`;
     }).join('') + (list.length > shown.length ? `<button class="dexmore" data-more>Show more (${list.length - shown.length} left)</button>` : '')
-      + (list.length ? '' : '<p class="muted" style="grid-column:1/-1">Nothing matches.</p>');
+      + (list.length ? '' : '<p class="muted" style="grid-column:1/-1">Nothing matches.</p>'));
     paintMinis($('#dexGrid'));
   }
   function openDex(tab) { if (tab) dexTab = tab; renderDex(); }
@@ -668,8 +694,8 @@
         <div class="dexgrid" id="dexGrid"></div>`;
     } else {
       const H = S.player.history;
-      const endLbl = { farewell: '💛 Farewell', runaway: '🌧 Ran away', release: '👋 Released' };
-      body = H.length ? H.map(h => `<div class="hist">${miniCanvas(h.sp, { px: 56, shiny: h.shiny })}<div><b>${esc(h.name || SPECIES_BY_ID[h.sp].name)}</b> ${h.shiny ? '✨' : ''}<br><span class="muted">${SPECIES_BY_ID[h.sp].name} · Lv ${h.level} · ${fmtDur(h.ageMin)} · ${h.medals} medals<br>${endLbl[h.end] || ''} · ${new Date(h.date).toLocaleDateString()}</span></div></div>`).join('')
+      const endLbl = { farewell: '{i:heartGold} Farewell', runaway: '{i:rain} Ran away', release: '{i:hand} Released' };
+      body = H.length ? H.map(h => `<div class="hist">${miniCanvas(h.sp, { px: 56, shiny: h.shiny })}<div><b>${esc(h.name || SPECIES_BY_ID[h.sp].name)}</b> ${h.shiny ? '{i:sparkle}' : ''}<br><span class="muted">${SPECIES_BY_ID[h.sp].name} · Lv ${h.level} · ${fmtDur(h.ageMin)} · ${h.medals} medals<br>${endLbl[h.end] || ''} · ${new Date(h.date).toLocaleDateString()}</span></div></div>`).join('')
         : '<p class="muted">Your past companions will be remembered here.</p>';
     }
     openSheet(head('Dex') + `<div class="tabs"><button data-dt="dex" class="${dexTab === 'dex' ? 'on' : ''}">Dex</button><button data-dt="hist" class="${dexTab === 'hist' ? 'on' : ''}">Companions</button></div>` + body);
@@ -697,7 +723,7 @@
     const walk = sp => { line.push(sp); sp.next.forEach(n => walk(SPECIES_BY_ID[n])); };
     walk(base);
     openSheet(head(`#${String(id).padStart(2, '0')} ${s.name}`) + `
-      <div class="pair"><figure>${miniCanvas(id, { px: 120 })}Normal</figure><figure>${miniCanvas(id, { px: 120, shiny: true, sil: !hasShiny })}${hasShiny ? 'Shiny ✨' : 'Shiny ???'}</figure></div>
+      <div class="pair"><figure>${miniCanvas(id, { px: 120 })}Normal</figure><figure>${miniCanvas(id, { px: 120, shiny: true, sil: !hasShiny })}${hasShiny ? 'Shiny {i:sparkle}' : 'Shiny ???'}</figure></div>
       <div class="rows">
         <div class="row"><span>Element</span><b><span class="pill" style="background:${el.color}">${el.label}</span></b></div>
         <div class="row"><span>Egg rarity</span><b>${TIER_LABEL[SPECIES_BY_ID[s.lineBase].tier]}</b></div>
@@ -718,7 +744,7 @@
       <label class="toggle"><span><b>Your name</b><small>What your Pokémon calls you</small></span><input id="setPlayer" maxlength="14" placeholder="partner" value="${esc(S.settings.player || '')}" style="width:140px;border:2px solid var(--line);border-radius:10px;padding:7px 9px;font:inherit;font-size:16px"></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Fast time (testing)</b><small>1 second = 1 game minute. Normally 1 real minute = 1 game minute.</small></span><span class="sw"><input type="checkbox" id="setFast" ${S.settings.fast ? 'checked' : ''}><i></i></span></label>
-      <div class="btns"><button class="btn alt" id="howTo">📘 How to play</button><button class="btn alt" id="openCard">📋 Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">🛠️ Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
+      <div class="btns"><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
     $('#setPlayer').addEventListener('input', e => { S.settings.player = e.target.value.slice(0, 14); Game.save(); });
@@ -734,9 +760,9 @@
     openSheet(head('How to play') + `<div class="manual">
       <h4>Time</h4><ul><li>1 real minute = 1 game minute. +1 level every hour.</li><li>It keeps living while the app is closed (up to 2 weeks of catch-up).</li></ul>
       <h4>Needs</h4><ul><li>FOOD −2/min, ENE −1/min, HYG −1/min (−4 more per poop), JOY −1/min (faster if hungry or dirty).</li><li>Letting a need drop to 10 or less is a <b>slip-up</b>: it delays evolution by 1 level and cools the bond.</li></ul>
-      <h4>Care</h4><ul><li>🍓 <b>Berries</b> +25 food. One flavour is its hidden favourite (+35 food, +joy, bond).</li><li>🍬 <b>Candy</b> +food +joy but adds weight. Over 50 weight = sluggish.</li><li>⭐ <b>Star Catch</b> trains SPEED and burns weight. 🥊 <b>Bag</b> trains ATTACK.</li><li>🛁 <b>Bath</b> clears poops. 👆 <b>Tap</b> to pet it. 🌙 <b>Sleep</b> restores energy; needs drop much slower.</li></ul>
+      <h4>Care</h4><ul><li>{i:berrySweet} <b>Berries</b> +25 food. One flavour is its hidden favourite (+35 food, +joy, bond).</li><li>{i:candy} <b>Candy</b> +food +joy but adds weight. Over 50 weight = sluggish.</li><li>{i:star} <b>Star Catch</b> trains SPEED and burns weight. {i:train} <b>Bag</b> trains ATTACK.</li><li>{i:bath} <b>Bath</b> clears poops. {i:hand} <b>Tap</b> to pet it. {i:sleep} <b>Sleep</b> restores energy; needs drop much slower.</li></ul>
       <h4>Evolution</h4><ul><li>When it reaches its evolution level and every need is ≥ 40, a button appears — you choose to evolve or keep its form.</li></ul>
-      <h4>Endings</h4><ul><li>💛 <b>Farewell</b>: final form + 3 days. Blesses the next egg.</li><li>🌧 <b>Run-away</b>: all needs at 0 for 1 hour. One act of care cancels it. Curses the next egg.</li><li>👋 <b>Release</b>: hold your finger on it for 3 seconds.</li></ul>
+      <h4>Endings</h4><ul><li>{i:heartGold} <b>Farewell</b>: final form + 3 days. Blesses the next egg.</li><li>{i:rain} <b>Run-away</b>: all needs at 0 for 1 hour. One act of care cancels it. Curses the next egg.</li><li>{i:hand} <b>Release</b>: hold your finger on it for 3 seconds.</li></ul>
       <h4>Eggs</h4><ul><li>Every egg hatches into a ${SPECIES.filter(x => !x.prev).map(x => x.name).join(' / ')}.</li><li>Streak + bond improve the shiny odds (1/48 → best 1/8). A farewell doubles them for the next egg.</li></ul>
       <h4>Gestures</h4><ul><li>Swipe ← → Dex · ↑ Stat card · ↓ Settings · hold 3 s = release.</li></ul>
       </div>`);
@@ -791,7 +817,7 @@
     } else {
       const p = Game.pet();
       if (p && !p.egg && p.poops) {
-        for (let i = 0; i < p.poops; i++) if (Math.abs(x - POOP_X[i] * W) < 30 && Math.abs(y - feetY()) < 50) { toast('Eww! Give it a bath 🛁'); break; }
+        for (let i = 0; i < p.poops; i++) if (Math.abs(x - POOP_X[i] * W) < 30 && Math.abs(y - feetY()) < 50) { toast('Eww! Give it a bath {i:bath}'); break; }
       }
     }
   };
@@ -802,7 +828,7 @@
     const p = Game.pet(), s = Game.sp();
     Sound.play('hatch'); addSparkles(W / 2, feetY() - baseSize(), 24); addHearts(5);
     V.x = .5;
-    toast(p.shiny ? `✨ A SHINY ${s.name} hatched! ✨` : `It hatched! Meet ${s.name}!`, 4000);
+    toast(p.shiny ? `{i:sparkle} A SHINY ${s.name} hatched! {i:sparkle}` : `It hatched! Meet ${s.name}!`, 4000);
     Talk.clear(); Talk.say(p.shiny ? 'hatchShiny' : 'hatch', { prio: 2 });
   }
 
@@ -832,13 +858,13 @@
   }));
   $('#nameBtn').addEventListener('click', () => openCard());
   $('#settingsBtn').addEventListener('click', openSettings);
-  $('#streak').addEventListener('click', () => toast(`🔥 ${ST().player.streak}-day care streak (best ${ST().player.bestStreak}). Care at least once a day!`));
+  $('#streak').addEventListener('click', () => toast(`{i:flame} ${ST().player.streak}-day care streak (best ${ST().player.bestStreak}). Care at least once a day!`));
 
   // ======================= minigames =======================
   const arena = $('#arena'), acv = $('#arenaCanvas'), ac = acv.getContext('2d');
   let AW = 1, AH = 1, arenaGame = null;
   function openArena(title) {
-    $('#arenaTitle').textContent = title; arena.classList.remove('hidden');
+    $('#arenaTitle').innerHTML = icons(esc(title)); arena.classList.remove('hidden');
     const r = acv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
     AW = r.width; AH = r.height; acv.width = AW * d; acv.height = AH * d; ac.setTransform(d, 0, 0, d, 0, 0);
   }
@@ -849,7 +875,7 @@
   acv.addEventListener('pointermove', e => arenaGame && arenaGame.move && arenaGame.move(aPos(e)));
 
   function startCatch() {
-    openArena('⭐ Star Catch');
+    openArena('{i:star} Star Catch');
     const p = Game.pet();
     const G = { score: 0, lives: 3, t0: now(), dur: 30000, items: [], px: .5, vx: 0, nextSpawn: 0, over: false, endAt: 0, pops: [] };
     const size = Math.min(AW, AH) * .09;
@@ -865,7 +891,7 @@
     const reportCatch = () => {
       const r = G.result || {};
       if (r.hearts) addHearts(5);
-      toast(`⭐ ${G.score} stars! SPD training +${r.spd || 0}${r.hi ? ' · New record!' : ''}`, 3500);
+      toast(`{i:star} ${G.score} stars! SPD training +${r.spd || 0}${r.hi ? ' · New record!' : ''}`, 3500);
       Talk.say(G.score >= 8 ? 'playGood' : 'playBad');
     };
     let last = now(), dispX = .5;
@@ -897,7 +923,7 @@
       for (const it of G.items) star(ac, it.x * AW, it.y * AH, size * .32, it.rot, '#ffd23d');
       G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = 1 - pp.age * 2; ac.fillStyle = '#fff'; ac.font = '800 18px system-ui'; ac.fillText('+1', pp.x - 8, pp.y - pp.age * 60); ac.globalAlpha = 1; return pp.age < .5; });
       drawCreature(ac, p.sp, { x: dispX * AW, y: AH - size * .35, size, t, maxH: AH * .25, shiny: p.shiny, flip: d < -.002, walking: Math.abs(d) > .01, dir: Math.abs(d) > .01 ? undefined : 'front' });
-      $('#arenaInfo').textContent = `⭐ ${G.score}   ${'❤️'.repeat(Math.max(0, G.lives))}   ${Math.ceil(left / 1000)}s`;
+      $('#arenaInfo').innerHTML = icons(`{i:star}${G.score} &nbsp;${'{i:heart}'.repeat(Math.max(0, G.lives))}${'{i:heartEmpty}'.repeat(3 - Math.max(0, G.lives))} &nbsp;${Math.ceil(left / 1000)}s`);
       if (G.over) {
         ac.fillStyle = 'rgba(0,0,0,.45)'; ac.fillRect(0, 0, AW, AH);
         ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '800 28px system-ui';
@@ -915,7 +941,7 @@
   function startTrain() {
     if (!guard()) return;
     if (Game.pet().ene < 15) { toast('Too tired to train… let it sleep.'); return; }
-    openArena('🥊 Training Bag');
+    openArena('{i:train} Training Bag');
     const p = Game.pet();
     const G = { hits: 0, t0: now(), dur: 15000, a: 0, av: 0, punchAt: 0, over: false, endAt: 0, pops: [] };
     const size = Math.min(AW, AH) * .12;
@@ -934,7 +960,7 @@
     const report = () => {
       const r = G.result || {};
       if (r.hearts) addHearts(5);
-      toast(`🥊 ${G.hits} hits! ATK training +${r.atk || 0}${r.hi ? ' · New record!' : ''}`, 3500);
+      toast(`{i:train} ${G.hits} hits! ATK training +${r.atk || 0}${r.hi ? ' · New record!' : ''}`, 3500);
       Talk.say(G.hits >= 20 ? 'trainGood' : 'trainBad');
     };
     let last = now();
@@ -953,9 +979,8 @@
       const ax = AW * .62, ay = 14, len = Math.max(20, AH * .8 - size * .35 - bh - ay);
       ac.save(); ac.translate(ax, ay); ac.rotate(-G.a * .12);
       ac.strokeStyle = '#2b2438'; ac.lineWidth = 3; ac.beginPath(); ac.moveTo(0, 0); ac.lineTo(0, len); ac.stroke();
-      ac.fillStyle = '#e8503a'; ac.beginPath(); ac.roundRect ? ac.roundRect(-bw / 2, len, bw, bh, bw * .35) : ac.rect(-bw / 2, len, bw, bh); ac.fill();
-      ac.lineWidth = 3; ac.stroke();
-      ac.fillStyle = '#fff'; ac.fillRect(-bw / 2 + 2, len + bh * .3, bw - 4, bh * .1); ac.fillRect(-bw / 2 + 2, len + bh * .6, bw - 4, bh * .1);
+      ac.imageSmoothingEnabled = false;
+      ac.drawImage(PX.get('bag'), 0, 0, 32, 32, -bh / 2, len, bh, bh);
       ac.restore();
       const punch = Math.max(0, 1 - (ms - G.punchAt) / 160);
       const idle = spriteAnim(p.sp, p.shiny, 'Idle');
@@ -964,7 +989,7 @@
       drawCreature(ac, p.sp, { x: px, y: AH * .8, size, t, maxH: AH * .35, shiny: p.shiny, dir: 'right', anim: atk ? 'Attack' : 'Idle', animT: atk ? atkT : undefined });
       if (punch > .3) star(ac, AW * .62 - bw * .55, AH * .8 - size * 1.1, size * .25 * punch, t, '#ffd23d');
       G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = Math.max(0, 1 - pp.age * 1.6); ac.fillStyle = pp.txt === '+1' ? '#2b2438' : '#e8503a'; ac.font = '800 20px system-ui'; ac.fillText(pp.txt, pp.x, pp.y - pp.age * 70); ac.globalAlpha = 1; return pp.age < .6; });
-      $('#arenaInfo').textContent = `👊 ${G.hits}   STR +${Math.min(18, Math.floor(G.hits / 4))}   ${Math.ceil(left / 1000)}s`;
+      $('#arenaInfo').innerHTML = icons(`{i:train}${G.hits} &nbsp;{i:sword}+${Math.min(18, Math.floor(G.hits / 4))} &nbsp;${Math.ceil(left / 1000)}s`);
       ac.textAlign = 'center';
       if (G.over) {
         ac.fillStyle = 'rgba(0,0,0,.45)'; ac.fillRect(0, 0, AW, AH);
@@ -981,12 +1006,12 @@
 
   // ======================= game events =======================
   Game.on((ev, d) => {
-    if (ev === 'level') { toast(`⬆️ Level up! Lv ${d}`); Sound.play('level'); if (!Game.pet().asleep) Talk.say('level', { vars: { lv: d } }); }
-    else if (ev === 'medal') { toast(`🏅 New medal: ${d.icon} ${d.label}`, 3500); Sound.play('medal'); if (!Game.pet().asleep) Talk.say('medal', { vars: { medal: d.label } }); }
-    else if (ev === 'milestone') { toast(`🔥 ${d}-day streak! Your eggs are getting luckier.`, 4000); Sound.play('medal'); Talk.say('milestone', { vars: { n: d }, prio: 2 }); }
+    if (ev === 'level') { toast(`{i:up} Level up! Lv ${d}`); Sound.play('level'); if (!Game.pet().asleep) Talk.say('level', { vars: { lv: d } }); }
+    else if (ev === 'medal') { toast(`New medal: {i:${d.icon}} ${d.label}`, 3500); Sound.play('medal'); if (!Game.pet().asleep) Talk.say('medal', { vars: { medal: d.label } }); }
+    else if (ev === 'milestone') { toast(`{i:flame} ${d}-day streak! Your eggs are getting luckier.`, 4000); Sound.play('medal'); Talk.say('milestone', { vars: { n: d }, prio: 2 }); }
     else if (ev === 'poop') { Sound.play('poop'); }
-    else if (ev === 'slip') { toast('⚠️ Slip-up! A need hit rock bottom — evolution delayed.', 3500); Sound.play('sad'); Talk.say('slip', { prio: 2 }); }
-    else if (ev === 'def') { toast('🛡️ 12 h of great care: DEF +1'); }
+    else if (ev === 'slip') { toast('{i:warning} Slip-up! A need hit rock bottom — evolution delayed.', 3500); Sound.play('sad'); Talk.say('slip', { prio: 2 }); }
+    else if (ev === 'def') { toast('{i:shield} 12 h of great care: DEF +1'); }
     else if (ev === 'hatch') { onHatched(); }
     else if (ev === 'away') {
       const a = d.before, b = d.after;
@@ -1041,6 +1066,7 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) Game.save(); });
   window.addEventListener('pagehide', () => Game.save());
 
+  PX.hydrate();
   Talk.init({ sound: Sound.play, player: () => (ST().settings.player || '').trim() || 'partner' });
   if (!ST().player.starterPicked) openStarter();
   else setTimeout(greet, 900);
