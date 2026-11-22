@@ -60,7 +60,12 @@ function _img(src, onload) {
   if (!im) {
     im = new Image(); im._cbs = [];
     im.crossOrigin = 'anonymous'; // so remote sprites can still be measured
-    im.onload = im.onerror = () => { const cbs = im._cbs; im._cbs = []; cbs.forEach(f => f()); };
+    im.onload = () => { const cbs = im._cbs; im._cbs = []; cbs.forEach(f => f()); };
+    im.onerror = () => { // flaky mobile network: forget the failure and try again shortly
+      im._tries = (im._tries || 0) + 1;
+      if (im._tries <= 4) setTimeout(() => { im.src = src + (src.includes('?') ? '&' : '?') + 'retry=' + im._tries; }, 800 * im._tries);
+      else { const cbs = im._cbs; im._cbs = []; cbs.forEach(f => f()); }
+    };
     im.src = src; _imgs[src] = im;
   }
   if (onload) { if (im.complete) onload(); else im._cbs.push(onload); }

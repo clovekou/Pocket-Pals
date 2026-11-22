@@ -82,10 +82,18 @@
   new ResizeObserver(resize).observe(stage); resize();
 
   const V = {
+    lift: 0,
     x: .5, tx: .5, flip: false, moving: false, nextMove: 0, nextBlink: 2, blinkUntil: 0,
     eatUntil: 0, eatColor: null, hopAt: -9, hearts: [], fx: [], eggWobbleUntil: 0, anim: null, press: null, bathUntil: 0,
   };
-  const horizon = () => H * .6, feetY = () => H * .86;
+  const horizon = () => H * .6, feetY = () => H * .86 - V.lift;
+  const talkEl = document.getElementById('talk');
+  /** how far the ground must rise so the Pokémon stands just above the dialogue box */
+  function talkLift() {
+    if (!Talk.busy || talkEl.classList.contains('hidden')) return 0;
+    const top = talkEl.offsetTop; // box top inside the stage (the portrait sits to the left, above it)
+    return Math.max(0, H * .86 - (top - 10));
+  }
   const baseSize = () => Math.min(W * .14, H * .16);
   const petSize = () => { const p = Game.pet(); return p && !p.egg ? baseSize() * stageScale(p.sp) : baseSize(); };
 
@@ -249,6 +257,13 @@
     const p = Game.pet();
     if (t > V.nextBlink) { V.blinkUntil = t + .14; V.nextBlink = t + 2.5 + Math.random() * 3; }
     V.moving = false;
+    // rise smoothly above the dialogue box while talking, settle back afterwards
+    V.lift += (talkLift() - V.lift) * Math.min(1, dt * 8);
+    if (Talk.busy && !V.anim) {           // keep clear of the portrait square on the left
+      const minX = Math.min(.7, (100 + petSize() * 1.2) / W);
+      if (V.tx < minX) V.tx = minX + Math.random() * .1;
+      if (V.x < minX - .02) { V.x += Math.min(minX - V.x, dt * .35); V.flip = false; }
+    }
     if (p && !p.egg && !p.asleep && !V.anim && now() > V.eatUntil && now() > V.bathUntil && !V.press) {
       if (t > V.nextMove) { V.tx = .22 + Math.random() * .56; V.nextMove = t + 3 + Math.random() * 5; }
       const sad = Game.lowest() < 25;
@@ -498,7 +513,7 @@
         if (!c.isConnected && c.dataset.painted) return;
         const px = +c.dataset.px, g = c.getContext('2d'), id = +c.dataset.mini;
         g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, px, px);
-        drawCreature(g, id, { x: px / 2, y: px * .9, size: px * .3 * Math.min(1.05, stageScale(id)), maxH: px * .8, t: .3, shiny: !!c.dataset.shiny, silhouette: c.dataset.sil ? '#d8cfbd' : false, still: true });
+        drawCreature(g, id, { x: px / 2, y: px * .9, size: px * .3 * Math.min(1.05, stageScale(id)), maxH: px * .8, t: .3, shiny: !!c.dataset.shiny, silhouette: c.dataset.sil ? '#544883' : false, still: true });
         c.dataset.painted = 1;
       };
       paint();
@@ -677,7 +692,7 @@
     $('#dexGrid').innerHTML = icons(shown.map(s => {
       const reg = Game.registered(s.id), sh = !!S.player.shiny[s.id];
       const face = reg && portraitUrl(s.id, false, 'Normal');
-      const pic = !reg ? '<span class="unk">?</span>' : face ? `<img class="face" src="${face}" alt="" loading="lazy">` : miniCanvas(s.id, { px: 72 });
+      const pic = !reg ? miniCanvas(s.id, { px: 72, sil: true }) : face ? `<img class="face" src="${face}" alt="" loading="lazy">` : miniCanvas(s.id, { px: 72 });
       return `<button class="dexcell" data-dex="${s.id}"><span class="no">${String(s.id).padStart(4, '0')}</span>${sh ? ic('sparkle').replace('class="ic"', 'class="ic st"') : ''}${pic}<small>${reg ? esc(s.name) : '???'}</small></button>`;
     }).join('') + (list.length > shown.length ? `<button class="dexmore" data-more>Show more (${list.length - shown.length} left)</button>` : '')
       + (list.length ? '' : '<p class="muted" style="grid-column:1/-1">Nothing matches.</p>'));
