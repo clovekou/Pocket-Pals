@@ -37,6 +37,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Home-screen widget cards: anyone holding the secret token (the widget script) can read one;
+    // nobody can list them, and only the owner can write theirs.
+    match /widgets/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && token.size() >= 20;
+      allow update, delete: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+    }
+
     // Unique usernames: one document per lower-cased name, can only be claimed once.
     match /usernames/{name} {
       allow read: if signedIn();

@@ -697,6 +697,126 @@
   Online.on(o => { if (gateOpen && phaseOf(o) !== gatePhase) openGate(); });
   const startNewGame = () => (needsGate() ? openGate() : openStarter());
 
+  // ---------- home-screen widget (via the free Scriptable app on iPhone/iPad) ----------
+  function widgetScript(token) {
+    const project = (typeof FIREBASE_CONFIG !== 'undefined' && FIREBASE_CONFIG && FIREBASE_CONFIG.projectId) || '';
+    return `// Pocket Pals widget for the Scriptable app. Shows your partner Pokémon and how it's doing.
+// Synced with your Pocket Pals account. Keep this script private: it contains your widget key.
+const TOKEN = "${token}";
+const DOC = "https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents/widgets/" + TOKEN;
+const GAME = "https://clovekou.github.io/Pocket-Pals/";
+const fm = FileManager.local(), cache = fm.joinPath(fm.documentsDirectory(), "pocketpals-" + TOKEN + ".json");
+
+function val(v) {
+  if (!v) return null;
+  if ("stringValue" in v) return v.stringValue;
+  if ("integerValue" in v) return Number(v.integerValue);
+  if ("doubleValue" in v) return v.doubleValue;
+  if ("booleanValue" in v) return v.booleanValue;
+  return null;
+}
+async function getData() {
+  try {
+    const j = await new Request(DOC).loadJSON();
+    if (j && j.fields) { const d = {}; for (const k in j.fields) d[k] = val(j.fields[k]); fm.writeString(cache, JSON.stringify(d)); return d; }
+  } catch (e) {}
+  return fm.fileExists(cache) ? JSON.parse(fm.readString(cache)) : null;
+}
+async function img(url) { try { return await new Request(url).loadImage(); } catch (e) { return null; } }
+function bar(v, w, h) {
+  const c = new DrawContext(); c.size = new Size(w, h); c.opaque = false; c.respectScreenScale = true;
+  const bg = new Path(); bg.addRoundedRect(new Rect(0, 0, w, h), h / 2, h / 2); c.addPath(bg); c.setFillColor(new Color("#2f3448")); c.fillPath();
+  const pct = Math.max(0, Math.min(100, v || 0));
+  if (pct > 0) {
+    const p = new Path(); p.addRoundedRect(new Rect(0, 0, Math.max(h, w * pct / 100), h), h / 2, h / 2); c.addPath(p);
+    c.setFillColor(new Color(pct > 50 ? "#48d048" : pct > 20 ? "#f8c030" : "#f85838")); c.fillPath();
+  }
+  return c.getImage();
+}
+function ago(ms) {
+  const m = Math.round((Date.now() - ms) / 60000);
+  return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago";
+}
+function txt(stack, s, size, bold, color) {
+  const t = stack.addText(String(s)); t.font = bold ? Font.boldRoundedSystemFont(size) : Font.roundedSystemFont(size);
+  t.textColor = new Color(color || "#ffffff"); t.lineLimit = 1; t.minimumScaleFactor = 0.6; return t;
+}
+
+const d = await getData();
+const w = new ListWidget(); w.url = GAME; w.setPadding(12, 12, 12, 12);
+const g = new LinearGradient(); g.colors = [new Color("#3b4ba8"), new Color("#1f2650")]; g.locations = [0, 1]; w.backgroundGradient = g;
+const fam = config.widgetFamily || "medium";
+
+if (!d) {
+  txt(w, "Pocket Pals", 15, true);
+  const t = w.addText("Open the game, sign in, and tap Options → Home-screen widget."); t.font = Font.roundedSystemFont(12); t.textColor = new Color("#dfe4ff");
+} else {
+  const face = await img(d.face);
+  const stats = [["Food", d.food], ["Happy", d.joy], ["Energy", d.ene], ["Hygiene", d.hyg]];
+  const sub = d.egg ? "Egg" : "Lv " + d.level + (d.shiny ? " ✦" : "");
+  if (fam === "small") {
+    const top = w.addStack(); top.centerAlignContent();
+    if (face) { const im = top.addImage(face); im.imageSize = new Size(44, 44); im.cornerRadius = 10; }
+    top.addSpacer(8);
+    const col = top.addStack(); col.layoutVertically(); txt(col, d.name, 14, true); txt(col, sub, 11, false, "#f8d030");
+    w.addSpacer(6);
+    for (const [label, v] of stats) {
+      const row = w.addStack(); row.centerAlignContent();
+      const l = txt(row, label[0], 9, true, "#dfe4ff"); row.addSpacer(4);
+      row.addImage(bar(v, 108, 7)); w.addSpacer(3);
+    }
+    w.addSpacer(2); txt(w, d.mood, 9, false, "#dfe4ff");
+  } else {
+    const top = w.addStack(); top.centerAlignContent();
+    if (face) { const im = top.addImage(face); im.imageSize = new Size(fam === "large" ? 110 : 88, fam === "large" ? 110 : 88); im.cornerRadius = 14; }
+    top.addSpacer(12);
+    const col = top.addStack(); col.layoutVertically();
+    const head = col.addStack(); head.centerAlignContent(); txt(head, d.name, 16, true); head.addSpacer(6); txt(head, sub, 12, true, "#f8d030");
+    col.addSpacer(4);
+    for (const [label, v] of stats) {
+      const row = col.addStack(); row.centerAlignContent();
+      const ls = row.addStack(); ls.size = new Size(52, 0); txt(ls, label, 10, true, "#dfe4ff");
+      row.addImage(bar(v, 120, 8)); row.addSpacer(6); txt(row, Math.round(v || 0), 10, true);
+      col.addSpacer(3);
+    }
+    w.addSpacer(6);
+    const foot = w.addStack(); txt(foot, d.mood, 11, true, "#ffffff"); foot.addSpacer(); txt(foot, d.trainer + " · " + ago(d.updated), 9, false, "#aab3e8");
+  }
+}
+w.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
+if (config.runsInWidget) Script.setWidget(w); else await w.presentMedium();
+Script.complete();
+`;
+  }
+  function openWidget() {
+    const o = ON();
+    if (!o.enabled || !o.profile) {
+      openSheet(head('Home-screen widget') + `<p>The widget shows your partner Pokémon's portrait (its face changes with its mood) and its Food, Happy, Energy and Hygiene bars, synced with your account.</p>
+        <p class="muted">Sign in first, so the widget knows which Pokémon is yours.</p><div class="btns"><button class="btn" id="wgSignIn">{i:friends} Sign in</button></div>`);
+      $('#wgSignIn').addEventListener('click', () => openOnline());
+      return;
+    }
+    const token = Game.widgetToken();
+    Online.syncWidget(true).catch(e => toast("Couldn't update the widget: " + (e.message || e)));
+    openSheet(head('Home-screen widget') + `<p>Put your Pokémon on your home screen: its portrait changes with its mood, and the bars show how it's doing. It's synced with your account and refreshes about every 15 minutes while the game is open on any device.</p>
+      <h4 style="font-family:var(--pixel);margin:14px 0 6px">iPhone / iPad</h4>
+      <ol class="muted" style="padding-left:20px;line-height:1.7;margin:0">
+        <li>Install <b>Scriptable</b> (free) from the App Store.</li>
+        <li>Tap <b>Copy widget script</b> below.</li>
+        <li>Open Scriptable, tap <b>+</b>, paste, and name the script <b>Pocket Pals</b> (tap the title at the top). Tap <b>Done</b>.</li>
+        <li>On your home screen, press and hold an empty spot → <b>Edit</b> → <b>Add Widget</b> → <b>Scriptable</b>. Pick small or medium and tap <b>Add Widget</b>.</li>
+        <li>Press and hold the new widget → <b>Edit Widget</b> → set <b>Script</b> to <b>Pocket Pals</b>.</li>
+      </ol>
+      <div class="btns"><button class="btn gold" id="wgCopy">{i:card} Copy widget script</button></div>
+      <p class="muted" style="margin-top:10px">Keep the script to yourself: it has your private widget key. Tapping the widget opens the game.</p>
+      <p class="muted">Android: widgets need an installed app, so for now add the game to your home screen from Chrome's ⋮ menu → <b>Add to Home screen</b>.</p>`);
+    $('#wgCopy').addEventListener('click', async () => {
+      const s = widgetScript(token);
+      try { await navigator.clipboard.writeText(s); toast('Widget script copied! Paste it into Scriptable.', 3500); }
+      catch (e) { const ta = document.createElement('textarea'); ta.value = s; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Widget script copied!'); }
+    });
+  }
+
   // ---------- starter ----------
   function openStarter() {
     gateOpen = false;
@@ -1009,7 +1129,7 @@
       <label class="toggle"><span><b>Music volume</b><small id="musicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Fast time (testing)</b><small>1 second = 1 game minute. Normally 1 real minute = 1 game minute.</small></span><span class="sw"><input type="checkbox" id="setFast" ${S.settings.fast ? 'checked' : ''}><i></i></span></label>
-      <div class="btns"><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
+      <div class="btns"><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:card} Home-screen widget</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
     $('#setMusic').addEventListener('change', e => { S.settings.music = e.target.checked; Game.save(); });
@@ -1018,6 +1138,7 @@
     $('#setFast').addEventListener('change', e => { Game.setFast(e.target.checked); toast(e.target.checked ? 'Fast time ON' : 'Fast time OFF'); });
     $('#howTo').addEventListener('click', openManual);
     $('#openOnline').addEventListener('click', () => openOnline());
+    $('#openWidget').addEventListener('click', openWidget);
     $('#openCard').addEventListener('click', () => openCard());
     $('#resetBtn').addEventListener('click', () => dialog('Reset everything?', 'Your creature, Dex, streak and medals will be erased.', [
       { label: 'Cancel', cls: 'alt' },

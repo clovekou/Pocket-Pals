@@ -137,6 +137,38 @@ const Online = (() => {
     else await uploadSave(true);
     emit();
   }
+  // ---------------- home-screen widget ----------------
+  let lastWidget = '';
+  function widgetCard() {
+    const S = Game.state, p = S.pet; if (!p) return null;
+    const sd = typeof SPRITE_DATA !== 'undefined' && SPRITE_DATA[p.sp], sp = SPECIES_BY_ID[p.sp];
+    const r = v => Math.round(v || 0), food = r(p.food), joy = r(p.joy), ene = r(p.ene), hyg = r(p.hyg);
+    const low = Math.min(food, joy, ene, hyg), avg = (food + joy + ene + hyg) / 4;
+    let emo = 'Normal';
+    if (!p.egg && !p.asleep) emo = low < 15 ? 'Crying' : low < 30 ? 'Sad' : avg >= 85 ? 'Joyous' : avg >= 65 ? 'Happy' : 'Normal';
+    let face = 'https://clovekou.github.io/Pocket-Pals/assets/egg.png';
+    if (!p.egg && sd) {
+      const shiny = !!(p.shiny && sd.ps), mask = shiny ? sd.ps : sd.p;
+      if (mask) {
+        let i = EMOTIONS.indexOf(emo);
+        if (i < 0 || !(mask & (1 << i))) i = mask & 1 ? 0 : Math.log2(mask & -mask);
+        face = `https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/portrait/${String(p.sp).padStart(4, '0')}/${shiny ? '0000/0001/' : ''}${EMOTIONS[i]}.png`;
+      }
+    }
+    const name = p.egg ? 'Egg' : (p.name || (sp ? sp.name : 'Pokémon'));
+    const mood = p.egg ? 'Tap it 3 times to hatch!' : p.asleep ? 'Sleeping… Zzz' : food < 30 ? 'Hungry! Feed me a berry' : joy < 30 ? 'Bored… let\'s play!'
+      : ene < 30 ? 'So sleepy…' : hyg < 30 ? 'Needs a bath!' : avg >= 80 ? 'Feeling great!' : 'Doing okay';
+    return { uid: me(), trainer: st.profile.username, name, sp: p.sp, shiny: !!p.shiny, egg: !!p.egg, asleep: !!p.asleep,
+      level: p.egg ? 0 : Game.level(), food, joy, ene, hyg, face, mood };
+  }
+  async function syncWidget(force) {
+    const token = Game.state.player.widgetToken;
+    if (!db || !me() || !st.profile || !token) return;
+    const c = widgetCard(); if (!c) return;
+    const sig = JSON.stringify(c); if (!force && sig === lastWidget) return;
+    lastWidget = sig;
+    await db.collection('widgets').doc(token).set({ ...c, updated: Date.now() });
+  }
   async function uploadSave(force) {
     if (!db || !me() || !st.profile || !cloudChecked || st.conflict) return;
     const data = Game.exportSave();
@@ -144,6 +176,7 @@ const Online = (() => {
     lastSynced = data;
     await db.collection('saves').doc(me()).set({ data, updatedAt: now(), adminRev: appliedRev() });
     await db.collection('users').doc(me()).update({ showcase: Game.showcase() });
+    await syncWidget().catch(() => {});
   }
 
   // ---------------- live lists ----------------
@@ -270,7 +303,7 @@ const Online = (() => {
   document.addEventListener('visibilitychange', () => { if (document.hidden) uploadSave(false).catch(() => {}); });
   return {
     get state() { return st; }, on: f => subs.push(f), init, signIn, signOut, createProfile, usernameFree, NAME_RE,
-    resolveConflict, uploadSave, findUser, addFriend, respond, cancelRequest, removeFriend,
+    resolveConflict, uploadSave, syncWidget, findUser, addFriend, respond, cancelRequest, removeFriend,
     offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending,
   };
 })();

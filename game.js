@@ -665,6 +665,13 @@ const Game = (() => {
     return true;
   }
   /** for cloud saves */
+  function widgetToken() {
+    if (!S.player.widgetToken) {
+      const abc = 'abcdefghijkmnpqrstuvwxyz23456789', a = new Uint32Array(24); crypto.getRandomValues(a);
+      S.player.widgetToken = [...a].map(n => abc[n % abc.length]).join(''); save();
+    }
+    return S.player.widgetToken;
+  }
   function exportSave() { return JSON.stringify(S); }
   function importSave(json) {
     try { localStorage.setItem(SAVE_KEY, typeof json === 'string' ? json : JSON.stringify(json)); } catch (e) { return false; }
@@ -686,7 +693,7 @@ const Game = (() => {
   }
 
   return {
-    load, save, reset, update, setFast, on: f => listeners.push(f),
+    load, save, reset, update, setFast, widgetToken, on: f => listeners.push(f),
     get state() { return S; }, pet, sp, level, lowest, msPerMin,
     pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
