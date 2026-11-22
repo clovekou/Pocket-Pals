@@ -1286,7 +1286,27 @@
     }
     return { canvas: c, clusters, floorY, W2, H2 };
   }
+  // an uploaded "Explore & battles" picture replaces the built-in cave
+  let exploreImg = null;
+  function drawExploreBg(G, ms) {
+    const file = typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.explore;
+    if (!file) return false;
+    if (!exploreImg || exploreImg._file !== file) { exploreImg = new Image(); exploreImg._file = file; exploreImg.src = 'backgrounds/' + encodeURIComponent(file); }
+    if (!exploreImg.complete || !exploreImg.naturalWidth) return false;
+    // walking deeper slowly zooms in; each new floor starts a fresh walk
+    const walkK = G.state === 'walk' ? Math.min(1, (ms - G.at) / 1700) : 1;
+    const zoom = 1.04 + .06 * walkK + Math.sin(ms / 2400) * .006;
+    const s = Math.max(AW / exploreImg.naturalWidth, AH / exploreImg.naturalHeight) * zoom;
+    const w = exploreImg.naturalWidth * s, h = exploreImg.naturalHeight * s;
+    ac.imageSmoothingEnabled = false;
+    ac.drawImage(exploreImg, (AW - w) / 2 + Math.sin(ms / 3100) * 6, AH - h + (h - AH) * .25, w, h);
+    const v = ac.createRadialGradient(AW / 2, AH * .55, AH * .3, AW / 2, AH * .55, AH * .85);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(5,8,25,.35)');
+    ac.fillStyle = v; ac.fillRect(0, 0, AW, AH);
+    return true;
+  }
   function drawCave(G, ms, walking) {
+    if (drawExploreBg(G, ms)) return;
     if (!G.cave || G.cave.w !== AW || G.cave.h !== AH) G.cave = Object.assign(makeCave(G.D, AW, AH, G.seedInt), { w: AW, h: AH });
     const cv = G.cave, scroll = G.scroll || 0;
     const off = Math.round(scroll / PXS) % cv.W2;
@@ -1328,10 +1348,11 @@
     const p = Game.pet();
     panel.classList.remove('hidden');
     const D = DUNGEONS[Math.floor(Math.random() * DUNGEONS.length)];
-    openArena(`{i:map} ${D.name}`);
+    const caveName = typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.explore ? 'Crystal Cave' : D.name;
+    openArena(`{i:map} ${caveName}`);
     const me = Game.battler(p.sp, Game.level(), true);
     const G = {
-      D, floor: 0, state: 'walk', at: now(), me, meHp: me.maxHp, wins: 0, finds: {}, wild: null, wildHp: 0,
+      D, caveName, floor: 0, state: 'walk', at: now(), me, meHp: me.maxHp, wins: 0, finds: {}, wild: null, wildHp: 0,
       act: null, actAt: 0, hurt: null, hurtAt: 0, chest: null, over: false, seedInt: 1 + Math.floor(Math.random() * 100000), scroll: 0,
     };
     preloadSpecies(p.sp, p.shiny);
@@ -1641,7 +1662,7 @@
         const k = Math.min(1, (ms - G.at) / 400);
         ac.globalAlpha = k; ac.fillStyle = 'rgba(15,20,45,.6)'; ac.fillRect(0, AH * .14, AW, 54);
         ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '700 30px "Pixelify Sans", system-ui';
-        ac.fillText(`${G.D.name}  B${G.floor}F`, AW / 2, AH * .14 + 38); ac.textAlign = 'left'; ac.globalAlpha = 1;
+        ac.fillText(`${G.caveName}  B${G.floor}F`, AW / 2, AH * .14 + 38); ac.textAlign = 'left'; ac.globalAlpha = 1;
       }
     };
     arenaGame = G; requestAnimationFrame(G.loop);

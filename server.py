@@ -25,7 +25,7 @@ MAX_UPLOAD = 60 * 1024 * 1024
 BG_DIR = os.path.join(ROOT, 'backgrounds')
 BG_JSON = os.path.join(ROOT, 'backgrounds.json')
 BG_JS = os.path.join(ROOT, 'backgrounds.js')
-BG_SLOTS = ['default', 'meadow', 'beach', 'forest', 'volcano', 'mountain', 'snow']
+BG_SLOTS = ['default', 'meadow', 'beach', 'forest', 'volcano', 'mountain', 'snow', 'explore']
 BG_MAX = 15 * 1024 * 1024
 IMAGE_TYPES = [(b'\x89PNG\r\n\x1a\n', '.png'), (b'\xff\xd8\xff', '.jpg'), (b'GIF8', '.gif')]
 

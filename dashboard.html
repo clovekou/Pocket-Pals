@@ -684,6 +684,7 @@ const BG_SLOTS = [
   ['volcano', 'Volcano', 'Fire'],
   ['mountain', 'Mountain', 'Fighting, Ground, Flying, Rock, Dragon, Steel'],
   ['snow', 'Snow', 'Ice'],
+  ['explore', 'Explore & battles', 'The dungeon in Explore, including wild and legendary battles'],
 ];
 let bgSaved = { assign: {}, night: true, files: [] }, bgDraft = clone(bgSaved);
 const bgUrl = f => 'backgrounds/' + encodeURIComponent(f);
@@ -693,11 +694,11 @@ function renderBg() {
   const grid = $('#bgGrid');
   grid.innerHTML = bgDraft.files.length ? bgDraft.files.map(f => `<div class="bgthumb"><img src="${bgUrl(f)}" alt="" loading="lazy"><div><span title="${esc(f)}">${esc(f)}</span><button data-bgdel="${esc(f)}" title="Delete">${ic('trash')}</button></div></div>`).join('')
     : '<p class="sub" style="grid-column:1/-1;margin:0">No backgrounds uploaded yet — the game uses its built-in scenery.</p>';
-  const opts = (slot, cur) => (slot === 'default' ? '<option value="">Built-in scenery</option>' : '<option value="">Same as "Every scene"</option>')
+  const opts = (slot, cur) => (slot === 'default' ? '<option value="">Built-in scenery</option>' : slot === 'explore' ? '<option value="">Built-in crystal cave</option>' : '<option value="">Same as "Every scene"</option>')
     + bgDraft.files.map(f => `<option value="${esc(f)}" ${f === cur ? 'selected' : ''}>${esc(f)}</option>`).join('');
   $('#bgSlots').innerHTML = BG_SLOTS.map(([k, name, sub]) => {
     const cur = bgDraft.assign[k] || '';
-    const eff = cur || (k !== 'default' && bgDraft.assign.default) || '';
+    const eff = cur || (k !== 'default' && k !== 'explore' && bgDraft.assign.default) || '';
     return `<div class="bgslot">${eff ? `<img class="prev" src="${bgUrl(eff)}" alt="">` : '<span class="prev" style="display:block"></span>'}
       <div><b>${name}</b><small>${sub}</small></div><select data-slot="${k}">${opts(k, cur)}</select></div>`;
   }).join('');
