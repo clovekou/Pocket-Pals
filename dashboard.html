@@ -125,9 +125,16 @@
   </header>
 
   <div id="offline" class="banner" hidden>
-    <b>The dashboard needs the Pocket Pal server.</b><br>
-    Open Terminal in the <code>PocketPal</code> folder and run <code>python3 server.py</code>, then open
-    <code>http://localhost:8000/dashboard.html</code>.
+    <b id="offTitle">The dashboard needs the Pocket Pal server running on your computer.</b>
+    <p id="offWhy" style="margin:6px 0"></p>
+    <ol style="margin:6px 0 10px;padding-left:20px;line-height:1.7">
+      <li>On your Mac, open the <code>PocketPal</code> folder and double-click <b>Start Pocket Pal.command</b><br>
+        <span class="note">(or open Terminal in that folder and run <code>python3 server.py</code>)</span></li>
+      <li>Your browser opens the dashboard at <code>http://localhost:8000/dashboard.html</code>.</li>
+      <li>After uploading or changing things, push to GitHub to update the online game.</li>
+    </ol>
+    <a class="btn" href="http://localhost:8000/dashboard.html" style="text-decoration:none">Open my local dashboard</a>
+    <span class="note" style="margin-left:8px">(works once the server is running on this computer)</span>
   </div>
 
   <section class="card">
@@ -250,6 +257,12 @@ async function load() {
     setBg(st.backgrounds);
   } catch (e) {
     online = false; $('#offline').hidden = false;
+    const host = location.hostname;
+    $('#offWhy').textContent = /github\.io$/i.test(host)
+      ? 'You are on the online copy (GitHub Pages). It can only show the game — uploads and settings are saved by a small Python program on your own computer.'
+      : location.protocol === 'file:'
+        ? 'This page was opened as a file, so it can\'t reach the Python server.'
+        : 'The Python server isn\'t answering — it may have been closed.';
     sprites = typeof SPRITE_DATA_FALLBACK !== 'undefined' ? SPRITE_DATA_FALLBACK : {};
   }
   render();

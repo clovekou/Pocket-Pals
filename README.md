@@ -24,7 +24,8 @@ Pokemon-Sprites/0025_Pikachu/portrait/Normal.png, Happy.png, ...   (optional, us
 Then run `python3 tools/build_sprites.py`, or add them through the dashboard.
 
 ## Play it
-Start the server from this folder:
+On a Mac, double-click **Start Pocket Pal.command** (it starts the server and opens the dashboard).
+Or start the server from this folder yourself:
 ```bash
 python3 server.py
 ```
