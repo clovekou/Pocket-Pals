@@ -61,6 +61,9 @@ const LINES = {
   runawayReady: [[['Crying', '...You don\'t care about me anymore... do you...?']]],
   runaway: [[['Sad', '...Goodbye.']]],
   release: [[['Teary-Eyed', '...You\'re letting me go?'], ['Sad', '...I understand. Take care of yourself, {player}.']]],
+  exploreGo: [[['Determined', 'Let\'s go exploring! I wonder what we\'ll find...']], [['Joyous', 'Adventure time! Stay close, {player}!']]],
+  exploreBack: [[['Joyous', 'We\'re back! What an adventure!']], [['Happy', 'Phew! Exploring is fun... but home is nice too.']]],
+  exploreLose: [[['Pain', 'Ow... that wild Pokémon was tough...'], ['Determined', 'I\'ll get stronger. Next time!']]],
   newEgg: [[['', 'A new Egg appeared...'], ['', 'It feels warm. Something is moving inside!']]],
   eggTap: [[['', 'The Egg wobbled!']], [['', 'Something is tapping back from inside!']]],
 };

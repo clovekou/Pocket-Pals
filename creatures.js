@@ -140,7 +140,8 @@ function _measure(a, img) {
 /** calls cb once the image for this animation has loaded (and been measured) */
 function whenSprite(id, shiny, name, cb) {
   const a = spriteAnim(id, shiny, name); if (!a) return;
-  const im = _img(a.src, () => { if (im.naturalWidth) _measure(a, im); cb && cb(); });
+  // the callback can run immediately (image already loaded), so look the image up inside it
+  _img(a.src, () => { const im = _imgs[a.src]; if (im && im.naturalWidth) _measure(a, im); cb && cb(); });
 }
 /** start loading the animations a Pokémon uses on the main screen */
 function preloadSpecies(id, shiny) {

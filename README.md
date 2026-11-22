@@ -47,6 +47,13 @@ wander, nap, play and chat with each other in the background, and their needs pa
 they rest. Open **Party** to switch your main (or tap one on the home screen), release one,
 or take a new egg once your main is Lv 5.
 
+## Explore
+Send your main into a Mystery-Dungeon-style dungeon (Leafy Woods, Rocky Cave, Crystal Depths),
+floor by floor up to B10F. Each floor may hold a treasure chest (Oran Berry, Rare Candy, Pearl,
+Star Piece, Nugget), a Mystery Egg, or a wild Pokémon 3–5 levels below yours — Fight or Run.
+Each floor costs energy and a little food; items go to **Bag → Items**. (Training moved to
+Summary → Stats → Train strength.)
+
 ## Backgrounds
 In the dashboard's **Backgrounds** section you can upload your own scene pictures
 (PNG/JPG/GIF/WebP) and pick one for every scene or a different one per landscape

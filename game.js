@@ -43,6 +43,7 @@ const Game = (() => {
       streak: 0, bestStreak: 0, lastCareDay: 0, lastMilestone: 0, totalMedals: 0,
       lastEnd: 'none', dex: {}, shiny: {}, favKnown: {}, history: [],
       gameHi: 0, strHi: 0, starterPicked: false, party: [],
+      bag: {}, exploreBest: 0, wildWins: 0,
     };
   }
   function fresh() {
@@ -64,6 +65,7 @@ const Game = (() => {
     const known = id => !!SPECIES_BY_ID[id];
     for (const k of ['dex', 'shiny', 'favKnown']) for (const id of Object.keys(S.player[k])) if (!known(id)) delete S.player[k][id];
     S.player.history = S.player.history.filter(h => known(h.sp));
+    S.player.bag = S.player.bag || {};
     S.player.party = (S.player.party || []).filter(m => m && !m.egg && known(m.sp)).slice(0, PARTY_MAX - 1);
     if (S.pet && !known(S.pet.sp)) { S.pet = null; S.ceremony = null; S.player.starterPicked = false; }
     if (S.ceremony) finishEnding();
@@ -452,6 +454,95 @@ const Game = (() => {
   }
   const memberLevel = m => 1 + Math.floor(m.ageMin / MIN_PER_LEVEL);
 
+  // ---------------- explore ----------------
+  const ITEMS = {
+    oran:      { name: 'Oran Berry',  icon: 'oran',          use: true,  desc: 'Restores every need by 25.' },
+    rareCandy: { name: 'Rare Candy',  icon: 'rareCandy',     use: true,  desc: 'Your main grows 1 level.' },
+    mysteryEgg:{ name: 'Mystery Egg', icon: 'egg_legend_0',  use: true,  desc: 'A new egg — no Lv 5 needed (needs a free party slot).' },
+    pearl:     { name: 'Pearl',       icon: 'pearl',         use: false, desc: 'A pretty pearl. A collector\'s item.' },
+    starPiece: { name: 'Star Piece',  icon: 'starPiece',     use: false, desc: 'A shard of a shooting star. A collector\'s item.' },
+    nugget:    { name: 'Nugget',      icon: 'nugget',        use: false, desc: 'A nugget of pure gold. A collector\'s item.' },
+  };
+  const EXPLORE_MAX_FLOOR = 10;
+  function exploreCheck() {
+    const p = S.pet;
+    if (!p || S.ceremony) return { ok: false, why: 'Not right now.' };
+    if (p.egg) return { ok: false, why: 'Hatch your egg first!' };
+    if (p.asleep) return { ok: false, why: 'It\'s asleep. Wake it up first.' };
+    if (p.ene < 30) return { ok: false, why: 'Too tired to explore — needs 30+ energy.' };
+    if (p.food < 20) return { ok: false, why: 'Too hungry to explore — feed it first.' };
+    return { ok: true };
+  }
+  /** costs of walking one floor; returns false when too tired to continue */
+  function exploreStep() {
+    const p = S.pet; if (!p || p.egg) return false;
+    p.ene = clamp(p.ene - 6); p.food = clamp(p.food - 3); p.hyg = clamp(p.hyg - 2);
+    save(); emit('change');
+    return p.ene >= 8;
+  }
+  /** what happens on a floor: 'none' | 'wild' | 'treasure' | 'egg' */
+  function rollFloor(floor) {
+    const r = Math.random();
+    const eggChance = .05 + floor * .006, treasure = .2 + floor * .015, wild = .3;
+    if (r < eggChance) return 'egg';
+    if (r < eggChance + treasure) return 'treasure';
+    if (r < eggChance + treasure + wild) return 'wild';
+    return 'none';
+  }
+  function rollTreasure(floor) {
+    const table = [['oran', 40], ['pearl', 18], ['starPiece', 14 + floor], ['nugget', 8 + floor * 1.5], ['rareCandy', 6 + floor * 1.5], ['mysteryEgg', 2 + floor * .5]];
+    let r = Math.random() * table.reduce((a, [, w]) => a + w, 0);
+    for (const [k, w] of table) { if ((r -= w) < 0) return k; }
+    return 'oran';
+  }
+  /** a wild Pokémon 3–5 levels below your main (never legendary) */
+  function rollWild() {
+    const lv = Math.max(1, level() - (3 + rnd(3)));
+    const pool = SPECIES.filter(s => s.tier !== 'legend' && !(s.prev == null && SPECIES_BY_ID[s.id].tier === 'legend'));
+    // fit the stage to the level: low levels meet first stages, higher levels can meet evolved ones
+    const fit = pool.filter(s => (s.stage === 1) || (s.stage === 2 && lv >= 18) || (s.stage >= 3 && lv >= 34));
+    const list = fit.length ? fit : pool;
+    const s = list[rnd(list.length)];
+    return { sp: s.id, level: lv, shiny: rnd(200) === 0 };
+  }
+  /** battle numbers for any Pokémon at a level (mine uses genes + training) */
+  function battler(id, lv, mine) {
+    const s = SPECIES_BY_ID[id], p = S.pet;
+    const st = k => mine ? stat(k) : Math.floor(s.base[{ atk: 0, def: 1, spd: 2 }[k]] * (90 + rnd(21)) / 100) + lv;
+    const def = st('def');
+    return { id, level: lv, atk: st('atk'), def, spd: st('spd'), maxHp: Math.round(22 + lv * 2.2 + def * .25) };
+  }
+  function addItem(k, n = 1) { S.player.bag[k] = (S.player.bag[k] || 0) + n; save(); }
+  function itemCount(k) { return S.player.bag[k] || 0; }
+  function useItem(k) {
+    const p = S.pet, it = ITEMS[k];
+    if (!it || !it.use || !itemCount(k)) return { error: 'none' };
+    if (k === 'mysteryEgg') {
+      if (!p || p.egg) return { error: 'Hatch your current egg first.' };
+      if (S.player.party.length + 1 >= PARTY_MAX) return { error: `Your party is full (${PARTY_MAX}). Release one first.` };
+      S.player.bag[k]--;
+      const id = pickEggSpecies(), shiny = rollShiny();
+      p.asleep = false; S.player.party.push(p); S.pet = makeEgg(id, shiny); S.lastTick = Date.now();
+      save(); emit('newegg'); emit('party');
+      return { egg: true };
+    }
+    const b = blocked(false); if (b) return { error: b === 'egg' ? 'Hatch your egg first.' : 'Not right now.' };
+    S.player.bag[k]--;
+    if (k === 'oran') { p.food = clamp(p.food + 25); p.joy = clamp(p.joy + 25); p.ene = clamp(p.ene + 25); p.hyg = clamp(p.hyg + 25); }
+    if (k === 'rareCandy') { p.ageMin += MIN_PER_LEVEL - (p.ageMin % MIN_PER_LEVEL); emit('level', level()); }
+    afterCare();
+    return {};
+  }
+  function exploreEnd(r) {
+    const p = S.pet; if (!p || p.egg) return;
+    if (r.floor > S.player.exploreBest) S.player.exploreBest = r.floor;
+    S.player.wildWins += r.wins || 0;
+    registerCare();
+    if (r.lost) { p.ene = clamp(p.ene - 15); p.joy = clamp(p.joy - 8); }
+    else { p.joy = clamp(p.joy + 6 + (r.wins || 0) * 3); addBond(2); }
+    afterCare();
+  }
+
   // ---------------- battle stats ----------------
   function stat(k) {
     const p = S.pet; if (!p || p.egg) return 0;
@@ -465,6 +556,7 @@ const Game = (() => {
     pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, toggleSleep, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
+    ITEMS, EXPLORE_MAX_FLOOR, exploreCheck, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
     canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
     stat, registered, registeredCount, shinyCount, careBonus, isFinal,
     LEGEND_UNLOCK, FAREWELL_AGE,

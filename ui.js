@@ -536,7 +536,7 @@
     els.lightLbl.textContent = asleep ? 'Wake' : 'Sleep';
     document.querySelectorAll('#actions button').forEach(b => {
       const a = b.dataset.act;
-      const off = (p.egg && a !== 'dex' && a !== 'party') || (asleep && ['feed', 'play', 'train'].includes(a));
+      const off = (p.egg && a !== 'dex' && a !== 'party') || (asleep && ['feed', 'play', 'train', 'explore'].includes(a));
       b.classList.toggle('off', off);
     });
     els.hint.textContent = !S.player.starterPicked ? '' : p.egg ? 'Tap the egg 3× to hatch it' : '';
@@ -615,14 +615,18 @@
   }
 
   // ---------- feed ----------
-  function openFeed() {
+  let bagTab = 'berries';
+  function openFeed(tab) {
+    if (tab) bagTab = tab;
+    if (bagTab === 'items') return openItems();
     if (!guard()) return;
     const p = Game.pet(), s = Game.sp();
     const known = p.berryKnown;
-    openSheet(head('Berries') + `<div class="foods">
+    openSheet(head('Bag') + bagTabs() + `<div class="foods">
       ${FLAVORS.map((f, i) => `<button class="food" data-f="${i}">${ic(f.icon).replace('class="ic"', 'class="px"')}<span><b>${f.label}</b><small>${f.taste} · +25 food${known && s.fav === i ? ' · favourite!' : ''}</small></span>${known && s.fav === i ? '<span class="heart">{i:heart}</span>' : ''}</button>`).join('')}
       <button class="food" data-f="candy">${ic('poffin').replace('class="ic"', 'class="px"')}<span><b>Poffin</b><small>Treat · +12 happy, fattening</small></span></button>
       </div><p class="muted" style="margin-top:12px">${known ? `Its favourite is the ${FLAVORS[s.fav].label} (${FLAVORS[s.fav].taste.toLowerCase()}).` : 'Every Pokémon has a hidden favourite berry. Try them all!'}</p>`);
+    wireBagTabs();
     sheet.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
       const f = b.dataset.f; closeSheet();
       const foodBefore = Game.pet().food;
@@ -986,6 +990,7 @@
     if (V.anim) return;
     if (a === 'feed') return openFeed();
     if (a === 'play') { if (!guard()) return; if (Game.pet().ene < 10) { Talk.say('tooTired'); Sound.play('no'); return; } return startCatch(); }
+    if (a === 'explore') return startExplore();
     if (a === 'train') { if (!guard()) return; if (Game.pet().ene < 15) { Talk.say('tooTired'); Sound.play('no'); return; } return startTrain(); }
     if (a === 'bath') {
       if (!guard(false)) return;
@@ -1014,7 +1019,7 @@
     const r = acv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
     AW = r.width; AH = r.height; acv.width = AW * d; acv.height = AH * d; ac.setTransform(d, 0, 0, d, 0, 0);
   }
-  function closeArena() { arena.classList.add('hidden'); arenaGame = null; }
+  function closeArena() { arena.classList.add('hidden'); $('#arenaPanel').classList.add('hidden'); arenaGame = null; }
   $('#arenaClose').addEventListener('click', () => { if (arenaGame) arenaGame.finish(true); });
   const aPos = e => { const r = acv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   acv.addEventListener('pointerdown', e => arenaGame && arenaGame.down && arenaGame.down(aPos(e)));
@@ -1148,6 +1153,235 @@
       requestAnimationFrame(G.loop);
     };
     arenaGame = G; requestAnimationFrame(G.loop);
+  }
+
+  // ---------- bag: items found while exploring ----------
+  function bagTabs() {
+    return `<div class="tabs"><button data-bag="berries" class="${bagTab === 'berries' ? 'on' : ''}">Berries</button><button data-bag="items" class="${bagTab === 'items' ? 'on' : ''}">Items</button></div>`;
+  }
+  function wireBagTabs() { sheet.querySelectorAll('[data-bag]').forEach(b => b.addEventListener('click', () => openFeed(b.dataset.bag))); }
+  function openItems() {
+    const IT = Game.ITEMS, keys = Object.keys(IT);
+    const have = keys.filter(k => Game.itemCount(k) > 0);
+    openSheet(head('Bag') + bagTabs() + (have.length ? have.map(k => `<div class="itemrow">${ic(IT[k].icon).replace('class="ic"', 'class="px"')}
+        <div class="ii"><b>${IT[k].name}</b><small>${IT[k].desc}</small></div><span class="cnt">×${Game.itemCount(k)}</span>
+        ${IT[k].use ? `<button data-use="${k}">Use</button>` : ''}</div>`).join('')
+      : '<p class="muted">No items yet. Go <b>Explore</b> to find treasure, Rare Candy and Mystery Eggs!</p>')
+      + `<p class="muted" style="margin-top:12px">Deepest floor reached: B${ST().player.exploreBest || 0}F · Wild battles won: ${ST().player.wildWins || 0}</p>`);
+    wireBagTabs();
+    sheet.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', () => {
+      const k = b.dataset.use, r = Game.useItem(k);
+      if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return; }
+      closeSheet();
+      if (k === 'oran') { startEat('#4a86e8', 'oran'); addHearts(4); toast('{i:oran} Every need +25!'); Talk.say('fav', { vars: { berry: 'Oran Berry' } }); }
+      if (k === 'rareCandy') { startEat('#4a7fe0', 'rareCandy'); addSparkles(V.x * W, feetY() - petSize(), 18); toast(`{i:rareCandy} ${petName()} grew to Lv ${Game.level()}!`); }
+      if (r.egg) { V.x = .5; V.loaded = null; Talk.clear(); Sound.play('hatch'); toast('{i:egg_legend_0} The Mystery Egg is your new main — tap it 3 times!', 4000); Talk.say('newEgg', { prio: 2 }); }
+    }));
+  }
+
+  // ---------- explore (Mystery-Dungeon style) ----------
+  const panel = $('#arenaPanel'), epMsg = $('#epMsg'), epBtns = $('#epBtns');
+  const DUNGEONS = [
+    { name: 'Leafy Woods', wall: '#24452f', wall2: '#2f5a3c', floor: '#5d8f4e', floor2: '#6a9c58', deco: '#3f7a3a' },
+    { name: 'Rocky Cave', wall: '#3a3029', wall2: '#4a3d33', floor: '#8a7560', floor2: '#97826b', deco: '#6b5a48' },
+    { name: 'Crystal Depths', wall: '#2a2350', wall2: '#3a3070', floor: '#6a62a8', floor2: '#7770b5', deco: '#a99cf0' },
+  ];
+  function say(html, sub) { epMsg.innerHTML = icons(html) + (sub ? `<small>${icons(sub)}</small>` : ''); }
+  function buttons(list) {
+    epBtns.innerHTML = list.map((b, i) => `<button class="btn ${b.cls || ''}" data-b="${i}">${icons(b.label)}</button>`).join('');
+    epBtns.querySelectorAll('[data-b]').forEach(el => el.addEventListener('click', () => { const b = list[+el.dataset.b]; epBtns.innerHTML = ''; b.fn(); }));
+  }
+  function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  function hpBox(g, x, y, w, name, lv, hp, max, showNums) {
+    const h = showNums ? 58 : 46;
+    roundRect(g, x, y, w, h, 10); g.fillStyle = '#fbf9ef'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#2f3448'; g.stroke();
+    g.fillStyle = '#2b2d42'; g.font = '700 16px "Pixelify Sans", system-ui'; g.textAlign = 'left';
+    g.fillText(name, x + 10, y + 20); g.textAlign = 'right'; g.font = '700 14px "Pixelify Sans", system-ui'; g.fillText('Lv' + lv, x + w - 10, y + 20); g.textAlign = 'left';
+    const bx = x + 34, by = y + 28, bw = w - 44, k = Math.max(0, hp / max);
+    g.fillStyle = '#2f3448'; roundRect(g, x + 8, by - 1, 24, 12, 4); g.fill();
+    g.fillStyle = '#ffcb05'; g.font = '700 10px "Pixelify Sans", system-ui'; g.fillText('HP', x + 12, by + 9);
+    roundRect(g, bx, by, bw, 10, 5); g.fillStyle = '#4a4e66'; g.fill(); g.strokeStyle = '#2f3448'; g.lineWidth = 2; g.stroke();
+    if (k > 0) { roundRect(g, bx + 2, by + 2, (bw - 4) * k, 6, 3); g.fillStyle = k > .5 ? '#48d048' : k > .2 ? '#f8c030' : '#f85838'; g.fill(); }
+    if (showNums) { g.fillStyle = '#2b2d42'; g.font = '700 13px "Pixelify Sans", system-ui'; g.textAlign = 'right'; g.fillText(`${Math.max(0, Math.ceil(hp))}/${max}`, x + w - 10, y + 52); g.textAlign = 'left'; }
+  }
+
+  function startExplore() {
+    const chk = Game.exploreCheck();
+    if (!chk.ok) { toast(chk.why); Sound.play('no'); if (/tired/.test(chk.why)) Talk.say('tooTired'); return; }
+    const p = Game.pet();
+    panel.classList.remove('hidden');
+    const D = DUNGEONS[Math.floor(Math.random() * DUNGEONS.length)];
+    openArena(`{i:map} ${D.name}`);
+    const me = Game.battler(p.sp, Game.level(), true);
+    const G = {
+      D, floor: 0, state: 'walk', at: now(), me, meHp: me.maxHp, wins: 0, finds: {}, wild: null, wildHp: 0,
+      act: null, actAt: 0, hurt: null, hurtAt: 0, chest: null, over: false, seed: Math.random() * 1000,
+    };
+    preloadSpecies(p.sp, p.shiny);
+    Sound.play('wake'); Talk.say('exploreGo');
+    const name = () => petName();
+    const info = () => { $('#arenaInfo').innerHTML = icons(`B${G.floor}F &nbsp;{i:energy}${Math.round(Game.pet().ene)}`); };
+
+    function nextFloor() {
+      G.floor++; G.state = 'walk'; G.at = now(); G.wild = null; G.chest = null;
+      G.meHp = Math.min(G.me.maxHp, G.meHp + Math.round(G.me.maxHp * .15));  // catches its breath between floors
+      G.tired = !Game.exploreStep();
+      info(); say(`B${G.floor}F — ${esc(name())} explores…`); buttons([]);
+      setTimeout(() => { if (arenaGame === G) resolveFloor(); }, 1700);
+    }
+    function resolveFloor() {
+      const ev = Game.rollFloor(G.floor);
+      if (ev === 'wild') return encounter();
+      if (ev === 'treasure') {
+        G.state = 'chest'; G.chest = { open: false, item: null }; G.at = now();
+        say('A treasure chest!'); Sound.play('tap');
+        setTimeout(() => {
+          if (arenaGame !== G) return;
+          const k = Game.rollTreasure(G.floor); Game.addItem(k); G.finds[k] = (G.finds[k] || 0) + 1;
+          G.chest = { open: true, item: k }; G.at = now(); Sound.play('medal');
+          say(`Found ${/^[AEIOU]/.test(Game.ITEMS[k].name) ? 'an' : 'a'} {i:${Game.ITEMS[k].icon}} <b>${Game.ITEMS[k].name}</b>!`, Game.ITEMS[k].desc);
+          afterFloor();
+        }, 900);
+        return;
+      }
+      if (ev === 'egg') {
+        Game.addItem('mysteryEgg'); G.finds.mysteryEgg = (G.finds.mysteryEgg || 0) + 1;
+        G.state = 'egg'; G.at = now(); Sound.play('hatch');
+        say('Something was hidden in the grass… a {i:egg_legend_0} <b>Mystery Egg</b>!', 'Find it in your Bag → Items. It hatches into a random Pokémon.');
+        return afterFloor();
+      }
+      G.state = 'empty';
+      say(['Nothing here but dust…', 'Just some rustling leaves.', 'A quiet, empty floor.', 'It sniffs around… nothing.'][Math.floor(Math.random() * 4)]);
+      afterFloor();
+    }
+    function encounter() {
+      const w = Game.rollWild(), ws = SPECIES_BY_ID[w.sp];
+      G.wild = Object.assign(Game.battler(w.sp, w.level, false), { shiny: w.shiny, name: ws.name });
+      G.wildHp = G.wild.maxHp; G.state = 'encounter'; G.at = now();
+      preloadSpecies(w.sp, w.shiny); Sound.play('sad');
+      say(`A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · ${esc(name())} is Lv ${G.me.level}`);
+      buttons([
+        { label: '{i:sword} Fight', cls: 'red', fn: () => fight(false) },
+        { label: '{i:speed} Run', cls: 'alt', fn: run },
+      ]);
+    }
+    function run() {
+      if (Math.random() < .8) { say('Got away safely!'); Sound.play('wake'); G.wild = null; G.state = 'empty'; return afterFloor(); }
+      say(`Couldn't get away! The wild ${esc(G.wild.name)} attacks!`); fight(true);
+    }
+    function fight(wildFirst) {
+      G.state = 'battle'; buttons([]);
+      let turn = wildFirst ? 'wild' : (G.me.spd >= G.wild.spd ? 'me' : 'wild');
+      const step = () => {
+        if (arenaGame !== G) return;
+        const A = turn === 'me' ? G.me : G.wild, Dd = turn === 'me' ? G.wild : G.me;
+        const crit = Math.random() < .07;
+        const dmg = Math.max(2, Math.round((A.atk / Math.max(1, Dd.def)) * (A.level * .45 + 6) * (.85 + Math.random() * .3) * (crit ? 1.5 : 1)));
+        G.act = turn; G.actAt = now(); Sound.play('hit');
+        const an = turn === 'me' ? esc(name()) : `The wild ${esc(G.wild.name)}`;
+        setTimeout(() => {
+          if (arenaGame !== G) return;
+          if (turn === 'me') G.wildHp -= dmg; else G.meHp -= dmg;
+          G.hurt = turn === 'me' ? 'wild' : 'me'; G.hurtAt = now();
+          say(`${an} attacks!${crit ? ' A critical hit!' : ''}`, `${dmg} damage`);
+          if (G.wildHp <= 0) return setTimeout(win, 700);
+          if (G.meHp <= 0) return setTimeout(lose, 700);
+          turn = turn === 'me' ? 'wild' : 'me';
+          setTimeout(step, 750);
+        }, 380);
+      };
+      setTimeout(step, 600);
+    }
+    function win() {
+      G.wins++; G.state = 'won'; G.at = now(); Sound.play('level');
+      let sub = `${esc(name())} feels proud!`;
+      if (Math.random() < .35) { const k = Game.rollTreasure(G.floor); Game.addItem(k); G.finds[k] = (G.finds[k] || 0) + 1; sub = `It dropped ${/^[AEIOU]/.test(Game.ITEMS[k].name) ? 'an' : 'a'} {i:${Game.ITEMS[k].icon}} ${Game.ITEMS[k].name}!`; }
+      say(`The wild ${esc(G.wild.name)} fainted! ${esc(name())} won!`, sub);
+      afterFloor();
+    }
+    function lose() {
+      G.state = 'lost'; G.at = now(); Sound.play('sad');
+      say(`${esc(name())} is out of strength…`, 'It heads back home to rest.');
+      buttons([{ label: '{i:map} Return home', cls: 'red', fn: () => finish(true, true) }]);
+    }
+    function afterFloor() {
+      if (G.floor >= Game.EXPLORE_MAX_FLOOR) {
+        say(epMsg.innerHTML + '<small>This is the deepest floor!</small>');
+        return buttons([{ label: '{i:map} Return home', cls: 'gold', fn: () => finish(true) }]);
+      }
+      if (G.tired) return buttons([{ label: '{i:map} Too tired — go home', cls: 'gold', fn: () => finish(true) }]);
+      buttons([
+        { label: `Go deeper (B${G.floor + 1}F)`, cls: 'red', fn: nextFloor },
+        { label: 'Return home', cls: 'alt', fn: () => finish(true) },
+      ]);
+    }
+    function finish(early, lost) {
+      if (G.over) return; G.over = true;
+      Game.exploreEnd({ floor: G.floor, wins: G.wins, lost: !!lost });
+      closeArena();
+      const found = Object.entries(G.finds).map(([k, n]) => `{i:${Game.ITEMS[k].icon}}${n > 1 ? '×' + n : ''}`).join(' ');
+      toast(`Explored to B${G.floor}F${G.wins ? ` · won ${G.wins} battle${G.wins > 1 ? 's' : ''}` : ''}${found ? ' · found ' + found : ''}`, 5000);
+      Talk.clear(); setTimeout(() => Talk.say(lost ? 'exploreLose' : 'exploreBack', { prio: 2 }), 300);
+    }
+    G.finish = early => finish(early, false);
+
+    let last = now();
+    G.loop = () => {
+      if (arenaGame !== G) return;
+      requestAnimationFrame(G.loop);
+      const ms = now(), t = ms / 1000; last = ms;
+      const P = Game.pet(); if (!P) return;
+      const D2 = G.D, tile = 32, walking = G.state === 'walk';
+      // dungeon: wall band + scrolling floor tiles
+      const wallH = AH * .34, scroll = walking ? ((ms - G.at) / 1000 * 70) % (tile * 2) : 0;
+      ac.fillStyle = D2.wall; ac.fillRect(0, 0, AW, wallH);
+      for (let x = -tile * 2; x < AW + tile * 2; x += tile) for (let y = 0; y < wallH; y += tile) {
+        if (((x / tile + y / tile + Math.floor(G.seed)) & 1) === 0) { ac.fillStyle = D2.wall2; ac.fillRect(x - scroll, y, tile, tile); }
+      }
+      ac.fillStyle = 'rgba(0,0,0,.35)'; ac.fillRect(0, wallH - 6, AW, 6);
+      for (let x = -tile * 2; x < AW + tile * 2; x += tile) for (let y = wallH; y < AH; y += tile) {
+        ac.fillStyle = (((x / tile) + (y / tile)) & 1) ? D2.floor : D2.floor2; ac.fillRect(x - scroll, y, tile, tile);
+      }
+      for (let i = 0; i < 7; i++) {   // little rocks / tufts
+        const rx = ((rng(i + G.floor * 13 + G.seed) * (AW + 200)) - scroll * 1) % (AW + 60), ry = wallH + 20 + rng(i + 40 + G.floor) * (AH - wallH - 40);
+        ac.fillStyle = D2.deco; ac.fillRect(Math.round(rx), Math.round(ry), 10, 6); ac.fillRect(Math.round(rx) + 3, Math.round(ry) - 3, 5, 3);
+      }
+      const size = Math.min(AW, AH) * .11, meX = (G.wild || G.state === 'won') ? AW * .28 : AW * .4, meY = AH * .82;
+      // the wild Pokémon (top-right) and its HP box
+      if (G.wild && G.state !== 'won' || (G.state === 'won' && ms - G.at < 900)) {
+        const wx = AW * .72, wy = AH * .56;
+        const hurt = G.hurt === 'wild' && ms - G.hurtAt < 450, att = G.act === 'wild' && ms - G.actAt < 600;
+        const fade = G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : 1;
+        ac.fillStyle = 'rgba(0,0,0,.22)'; ac.beginPath(); ac.ellipse(wx, wy, size * .8, size * .18, 0, 0, Math.PI * 2); ac.fill();
+        drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0), y: wy, size: size * .95, t, maxH: AH * .26, shiny: G.wild.shiny, dir: 'downleft',
+          anim: hurt ? 'Hurt' : att ? 'Attack' : undefined, animT: hurt ? (ms - G.hurtAt) / 1000 : att ? (ms - G.actAt) / 1000 : undefined, alpha: (hurt && Math.floor(ms / 80) % 2 ? .4 : 1) * fade });
+        hpBox(ac, 10, 10, Math.min(250, AW * .62), G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
+      }
+      // your Pokémon
+      const hurtMe = G.hurt === 'me' && ms - G.hurtAt < 450, attMe = G.act === 'me' && ms - G.actAt < 600;
+      ac.fillStyle = 'rgba(0,0,0,.22)'; ac.beginPath(); ac.ellipse(meX, meY, size * .9, size * .2, 0, 0, Math.PI * 2); ac.fill();
+      drawCreature(ac, P.sp, { x: meX + (attMe ? size * .4 : 0), y: meY, size, t, maxH: AH * .3, shiny: P.shiny, dir: walking ? 'right' : 'downright', walking,
+        anim: G.state === 'lost' ? 'Hurt' : hurtMe ? 'Hurt' : attMe ? 'Attack' : (G.state === 'won' || (G.state === 'chest' && G.chest && G.chest.open)) ? 'Hop' : undefined,
+        animT: hurtMe ? (ms - G.hurtAt) / 1000 : attMe ? (ms - G.actAt) / 1000 : (G.state === 'won' || G.state === 'chest') ? ((ms - G.at) / 1000) % Math.max(.4, animLength(P.sp, 'Hop') + .3) : undefined,
+        alpha: hurtMe && Math.floor(ms / 80) % 2 ? .4 : 1 });
+      if (G.wild || G.state === 'won' || G.state === 'lost') hpBox(ac, AW - Math.min(250, AW * .62) - 10, AH - 70, Math.min(250, AW * .62), petName(), G.me.level, G.meHp, G.me.maxHp, true);
+      // treasure / egg props
+      if (G.state === 'chest' && G.chest) {
+        const cxp = AW * .68, cyp = AH * .7;
+        PX.draw(ac, G.chest.open ? 'chestOpen' : 'chest', cxp, cyp, 64, { rot: G.chest.open ? 0 : Math.sin(ms / 60) * .06 });
+        if (G.chest.item) { const k = Math.min(1, (ms - G.at) / 600); PX.draw(ac, Game.ITEMS[G.chest.item].icon, cxp, cyp - 30 - k * 34, 48); }
+      }
+      if (G.state === 'egg') PX.draw(ac, 'egg_legend_0', AW * .68, AH * .66 - Math.abs(Math.sin(t * 3)) * 6, 64);
+      // floor label
+      if (walking) {
+        const k = Math.min(1, (ms - G.at) / 400);
+        ac.globalAlpha = k; ac.fillStyle = 'rgba(15,20,45,.6)'; ac.fillRect(0, AH * .14, AW, 54);
+        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '700 30px "Pixelify Sans", system-ui';
+        ac.fillText(`${G.D.name}  B${G.floor}F`, AW / 2, AH * .14 + 38); ac.textAlign = 'left'; ac.globalAlpha = 1;
+      }
+    };
+    arenaGame = G; requestAnimationFrame(G.loop);
+    nextFloor();
   }
 
   // ======================= game events =======================

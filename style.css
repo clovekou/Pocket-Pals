@@ -259,3 +259,21 @@ p { line-height: 1.55; margin: 6px 0; }
 .pslot .acts button.alt { background: #fff; color: var(--ink); box-shadow: inset 0 -3px 0 var(--soft); }
 .pslot .tag { font-family: var(--pixel); font-size: 12px; font-weight: 700; background: var(--yellow); color: var(--ink); border: 2px solid var(--line); border-radius: 8px; padding: 2px 8px; }
 .pslot.empty { justify-content: center; color: var(--muted); font-family: var(--pixel); background: #f1eedf; border-style: dashed; min-height: 62px; }
+
+/* explore: message panel under the dungeon view */
+#arenaPanel { flex: none; margin: 0 10px calc(10px + var(--safe-b)); background: var(--cream); border: 3px solid var(--line); border-radius: 16px;
+  box-shadow: inset 0 0 0 2px #fff, 0 4px 0 rgba(0, 0, 0, .35); padding: 12px 14px; color: var(--ink); min-height: 132px; display: flex; flex-direction: column; gap: 10px; }
+.ep-msg { font-size: 16px; font-weight: 800; line-height: 1.4; min-height: 44px; }
+.ep-msg .ic { width: 26px; height: 26px; vertical-align: -7px; }
+.ep-msg small { display: block; color: var(--muted); font-size: 12px; font-weight: 700; margin-top: 2px; }
+.ep-btns { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
+.ep-btns:empty { display: none; }
+.ep-btns .btn { padding: 10px 8px; font-size: 15px; }
+.itemrow { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #fff; border: 3px solid var(--line); border-radius: 14px; margin-bottom: 8px; }
+.itemrow img.px { width: 40px; height: 40px; }
+.itemrow .ii { flex: 1; min-width: 0; }
+.itemrow .ii b { font-family: var(--pixel); font-size: 16px; }
+.itemrow .ii small { display: block; color: var(--muted); font-size: 12px; }
+.itemrow .cnt { font-family: var(--pixel); font-size: 18px; font-weight: 700; min-width: 34px; text-align: right; }
+.itemrow button { border: 2px solid var(--line); border-radius: 10px; padding: 6px 12px; font-family: var(--pixel); font-weight: 700; background: var(--red); color: #fff; box-shadow: inset 0 -3px 0 var(--red-d); }
+.itemrow button:disabled { opacity: .4; }
