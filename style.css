@@ -282,3 +282,29 @@ p { line-height: 1.55; margin: 6px 0; }
 .ep-btns.wrap { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); }
 .ep-btns.wrap .btn { font-size: 13px; padding: 8px 4px; }
 .ep-msg small { display: block; }
+
+/* online */
+#friendsBtn { position: relative; }
+.badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--red); color: #fff;
+  font-family: var(--pixel); font-style: normal; font-size: 12px; line-height: 16px; border: 2px solid var(--line); text-align: center; }
+.trainer { display: flex; align-items: center; gap: 10px; background: #fff; border: 3px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; }
+.trainer b { font-family: var(--pixel); font-size: 18px; display: block; }
+.trainer small { color: var(--muted); font-family: var(--pixel); }
+.trainer .sp { flex: 1; min-width: 0; }
+.fcard { display: flex; align-items: center; gap: 10px; background: #fff; border: 3px solid var(--line); border-radius: 14px; padding: 8px 10px; margin-bottom: 8px; }
+.fcard img.face, .fcard canvas { width: 52px; height: 52px; border-radius: 10px; border: 2px solid var(--line); background: #e6f2ff; image-rendering: pixelated; flex: none; }
+.fcard .fi { flex: 1; min-width: 0; }
+.fcard .fi b { font-family: var(--pixel); font-size: 16px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fcard .fi small { color: var(--muted); font-size: 12px; display: block; }
+.fcard .acts { display: flex; flex-direction: column; gap: 5px; }
+.fcard .acts button { border: 2px solid var(--line); border-radius: 10px; padding: 5px 10px; font-family: var(--pixel); font-weight: 700; font-size: 13px; background: var(--red); color: #fff; box-shadow: inset 0 -3px 0 var(--red-d); white-space: nowrap; }
+.fcard .acts button.alt { background: #fff; color: var(--ink); box-shadow: inset 0 -3px 0 var(--soft); }
+.fcard .acts button.gold { background: var(--yellow); color: var(--ink); box-shadow: inset 0 -3px 0 #d9a800; }
+.searchrow { display: flex; gap: 8px; margin-bottom: 12px; }
+.searchrow input { flex: 1; min-width: 0; border: 3px solid var(--line); border-radius: 12px; padding: 9px 12px; font-size: 16px; background: #fff; }
+.searchrow button { border: 3px solid var(--line); background: var(--red); color: #fff; border-radius: 12px; padding: 0 14px; font-family: var(--pixel); font-weight: 700; box-shadow: inset 0 -3px 0 var(--red-d); }
+.tradeline { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 6px 0; }
+.tradeline .ic { width: 28px; height: 28px; }
+.note-ok { color: #2f8a3f; } .note-bad { color: var(--red); }
+.pslot.locked { opacity: .75; }
+.google { background: #fff !important; color: var(--ink) !important; }

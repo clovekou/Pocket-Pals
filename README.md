@@ -41,6 +41,15 @@ You can also double-click `index.html` to play, but the dashboard only works thr
   target makes a branch), egg rarity, whether it's a starter, and ATK/DEF/SPD.
 - Press **Save changes**, then refresh the game.
 
+## Online play
+Sign in with Google, pick a unique username (plus a random unique player ID), and your save follows
+you to any device. Add friends by username, battle their main, or trade Pokémon (offered Pokémon are
+locked until both players confirm; your main can never be traded). Pokémon remember their Original
+Trainer. Needs a free Firebase project: see **[ONLINE-SETUP.md](ONLINE-SETUP.md)**.
+
+## Training games
+**Games** on the bottom bar: Poké Ball Catch (Speed), Rock Smash (Attack) and Protect (Defence).
+
 ## Party
 Keep up to 6 Pokémon. Your main (marked with a ▼) is the one you care for; the others
 wander, nap, play and chat with each other in the background, and their needs pause while

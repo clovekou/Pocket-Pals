@@ -566,7 +566,8 @@
     scrim.classList.remove('hidden'); sheetLocked = locked;
     paintMinis(sheet);
   }
-  function closeSheet() { sheet.className = 'hidden'; scrim.classList.add('hidden'); sheet.innerHTML = ''; sheetLocked = false; }
+  function closeSheet() {
+    onlineOpen = false; sheet.className = 'hidden'; scrim.classList.add('hidden'); sheet.innerHTML = ''; sheetLocked = false; }
   scrim.addEventListener('click', () => { if (!sheetLocked) closeSheet(); });
   const head = title => `<div class="sh-head"><h2>${title}</h2><button class="x" data-close aria-label="Close">✕</button></div>`;
   sheet.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeSheet(); });
@@ -610,6 +611,7 @@
     sheet.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => {
       Game.pickStarter(+b.dataset.st); closeSheet(); Sound.play('hatch');
       toast('Your egg is here! Tap it 3 times to hatch.', 3500);
+      setTimeout(() => toast('{i:egg_legend_0} Bonus: a Mystery Egg is in your Bag → Items! Hatch your starter first, then use it.', 5500), 1800);
       setTimeout(() => toast('Tip: swipe ← → for the Dex, ↑ for its card, ↓ for settings.', 4500), 3800);
     }));
   }
@@ -716,14 +718,14 @@
       const pic = m.egg ? `<img class="face" src="${PX.url(`egg_${s.tier || 'common'}_${Math.min(2, m.taps || 0)}`)}" alt="">` : face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny });
       return `<div class="pslot ${isMain ? 'main' : ''}">${pic}<div class="pi"><b>${m.egg ? 'Egg' : esc(memberName(m))}${m.shiny && !m.egg ? '{i:sparkle}' : ''}</b>
         <small>${m.egg ? 'Waiting to hatch' : `${ELEMENTS[s.el].label}${lv}${isMain ? '' : ' · resting'}`}</small>${needBar(m)}</div>
-        <div class="acts">${isMain ? '<span class="tag">{i:arrow}Main</span>' : `<button data-sw="${i}">Make main</button><button class="alt" data-tobox="${i}">To Box</button>`}</div></div>`;
+        <div class="acts">${isMain ? '<span class="tag">{i:arrow}Main</span>' : m.locked ? '<span class="tag">{i:lock}In a trade</span>' : `<button data-sw="${i}">Make main</button><button class="alt" data-tobox="${i}">To Box</button>`}</div></div>`;
     };
     const roomInParty = party.length + 1 < Game.PARTY_MAX;
     const boxSlot = (m, i) => {
       const s = SPECIES_BY_ID[m.sp], face = portraitUrl(m.sp, m.shiny, 'Normal');
       return `<div class="pslot">${face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny })}<div class="pi"><b>${esc(memberName(m))}${m.shiny ? '{i:sparkle}' : ''}</b>
         <small>${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)} · in the PC</small></div>
-        <div class="acts"><button data-frombox="${i}" ${roomInParty ? '' : 'disabled'}>To party</button><button class="alt" data-relbox="${i}">Release</button></div></div>`;
+        <div class="acts">${m.locked ? '<span class="tag">{i:lock}In a trade</span>' : `<button data-frombox="${i}" ${roomInParty ? '' : 'disabled'}>To party</button><button class="alt" data-relbox="${i}">Release</button>`}</div></div>`;
     };
     const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
     openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.</p>
@@ -785,6 +787,8 @@
           <div class="row"><span>Weight</span><b>${weightLabel(p.weight)}</b></div>
           <div class="row"><span>Bond</span><b>${'{i:heart}'.repeat(hearts)}${'{i:heartEmpty}'.repeat(5 - hearts)} ${p.bond}%</b></div>
           <div class="row"><span>Favourite berry</span><b>${p.berryKnown ? FLAVORS[s.fav].label : '???'}</b></div>
+          <div class="row"><span>Original Trainer</span><b>${p.ot ? `${esc(p.ot.name)}${p.ot.code ? ` (${esc(p.ot.code)})` : ''}` : '—'}</b></div>
+          ${p.receivedFrom ? `<div class="row"><span>Received from</span><b>${esc(p.receivedFrom.name)} (trade)</b></div>` : ''}
           <div class="row"><span>Slip-ups</span><b>${p.mistakes}</b></div>
           <div class="row"><span>Genes</span><b>ATK ${p.genes.atk}% · DEF ${p.genes.def}% · SPD ${p.genes.spd}%</b></div>
         </div>`;
@@ -908,12 +912,13 @@
       <label class="toggle"><span><b>Your name</b><small>What your Pokémon calls you</small></span><input id="setPlayer" maxlength="14" placeholder="partner" value="${esc(S.settings.player || '')}" style="width:140px;border:2px solid var(--line);border-radius:10px;padding:7px 9px;font:inherit;font-size:16px"></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Fast time (testing)</b><small>1 second = 1 game minute. Normally 1 real minute = 1 game minute.</small></span><span class="sw"><input type="checkbox" id="setFast" ${S.settings.fast ? 'checked' : ''}><i></i></span></label>
-      <div class="btns"><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
+      <div class="btns"><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
     $('#setPlayer').addEventListener('input', e => { S.settings.player = e.target.value.slice(0, 14); Game.save(); });
     $('#setFast').addEventListener('change', e => { Game.setFast(e.target.checked); toast(e.target.checked ? 'Fast time ON' : 'Fast time OFF'); });
     $('#howTo').addEventListener('click', openManual);
+    $('#openOnline').addEventListener('click', () => openOnline());
     $('#openCard').addEventListener('click', () => openCard());
     $('#resetBtn').addEventListener('click', () => dialog('Reset everything?', 'Your creature, Dex, streak and medals will be erased.', [
       { label: 'Cancel', cls: 'alt' },
@@ -1381,13 +1386,35 @@
     if (!file) return false;
     if (!exploreImg || exploreImg._file !== file) { exploreImg = new Image(); exploreImg._file = file; exploreImg.src = 'backgrounds/' + encodeURIComponent(file); }
     if (!exploreImg.complete || !exploreImg.naturalWidth) return false;
-    // walking deeper slowly zooms in; each new floor starts a fresh walk
-    const walkK = G.state === 'walk' ? Math.min(1, (ms - G.at) / 1700) : 1;
-    const zoom = 1.04 + .06 * walkK + Math.sin(ms / 2400) * .006;
-    const s = Math.max(AW / exploreImg.naturalWidth, AH / exploreImg.naturalHeight) * zoom;
-    const w = exploreImg.naturalWidth * s, h = exploreImg.naturalHeight * s;
     ac.imageSmoothingEnabled = false;
-    ac.drawImage(exploreImg, (AW - w) / 2 + Math.sin(ms / 3100) * 6, AH - h + (h - AH) * .25, w, h);
+    const iw = exploreImg.naturalWidth, ih = exploreImg.naturalHeight;
+    if (iw / ih > 1.3) {
+      // wide panorama: fill the height and slide sideways in step with the walk.
+      // Copies alternate normal / mirrored, so the scroll never shows a seam.
+      const s2 = AH / ih, w = iw * s2;
+      const last = G.panAt || ms; G.panAt = ms;
+      if (G.state === 'walk') {
+        const p = Game.pet(), walk = p && spriteAnim(p.sp, p.shiny, 'Walk');
+        const cycle = walk ? walk.dur.reduce((x, y) => x + y, 0) / 60 : .6;   // seconds per step cycle
+        const scale = Math.min(AW, AH) * .11 / 10;                              // sprite pixels -> screen pixels
+        const speed = (16 * scale) / Math.max(.25, cycle);                      // one stride per walk cycle
+        G.pan = (G.pan || 0) + speed * Math.min(.05, (ms - last) / 1000);
+      }
+      const off = ((G.pan || 0) % (w * 2) + w * 2) % (w * 2);
+      for (let k = -1; k <= Math.ceil(AW / w) + 1; k++) {
+        const x = Math.floor(k * w - off), flip = ((k % 2) + 2) % 2 === 1;
+        if (x > AW || x + w < 0) continue;
+        if (flip) { ac.save(); ac.translate(x + w, 0); ac.scale(-1, 1); ac.drawImage(exploreImg, 0, 0, w + 1, AH); ac.restore(); }
+        else ac.drawImage(exploreImg, x, 0, w + 1, AH);
+      }
+    } else {
+      // tall picture: walking deeper slowly zooms in; each new floor starts a fresh walk
+      const walkK = G.state === 'walk' ? Math.min(1, (ms - G.at) / 1700) : 1;
+      const zoom = 1.04 + .06 * walkK + Math.sin(ms / 2400) * .006;
+      const s = Math.max(AW / iw, AH / ih) * zoom;
+      const w = iw * s, h = ih * s;
+      ac.drawImage(exploreImg, (AW - w) / 2 + Math.sin(ms / 3100) * 6, AH - h + (h - AH) * .25, w, h);
+    }
     const v = ac.createRadialGradient(AW / 2, AH * .55, AH * .3, AW / 2, AH * .55, AH * .85);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(5,8,25,.35)');
     ac.fillStyle = v; ac.fillRect(0, 0, AW, AH);
@@ -1757,6 +1784,220 @@
     nextFloor();
   }
 
+  // ======================= online: account, friends, trades, battles =======================
+  const ON = () => Online.state;
+  let onlineTab = 'friends', onlineOpen = false, searchResult = null, searchMsg = '';
+  const fmtTrainer = t => t ? `${esc(t.name)}${t.code ? ` <span class="muted">(${esc(t.code)})</span>` : ''}` : '—';
+  function monFace(sp, shiny) { const f = portraitUrl(sp, shiny, 'Normal'); return f ? `<img class="face" src="${f}" alt="">` : miniCanvas(sp, { px: 52, shiny }); }
+  function monLine(m) { if (!m) return '—'; const s = SPECIES_BY_ID[m.sp]; return `${m.shiny ? '{i:sparkle}' : ''}${esc(m.name || (s ? s.name : '?'))} Lv ${m.level || Game.memberLevel(m)}`; }
+  function updateBadge() {
+    const n = ON().enabled && ON().profile ? Online.pending() : 0;
+    const b = $('#friendsBadge'); b.textContent = n; b.classList.toggle('hidden', !n);
+  }
+  function openOnline(tab) {
+    if (tab) onlineTab = tab;
+    onlineOpen = true;
+    const S2 = ON();
+    let body = '';
+    if (!S2.enabled) {
+      body = `<p>Online play lets you sign in with Google, save your progress to your account, add friends, battle and trade.</p>
+        <p class="muted">It isn't switched on for this game yet. The owner needs to connect a free Firebase project (see <b>ONLINE-SETUP.md</b> in the game's files) — then this screen turns into your trainer card and friends list.</p>`;
+    } else if (S2.error && !S2.ready) {
+      body = `<p class="note-bad">Couldn't connect: ${esc(S2.error)}</p><div class="btns"><button class="btn alt" id="onRetry">Try again</button></div>`;
+    } else if (!S2.ready) {
+      body = '<p class="muted">Connecting…</p>';
+    } else if (!S2.user) {
+      body = `<p>Sign in to save your progress to your account, play on any device, and add friends to battle and trade with.</p>
+        <div class="btns"><button class="btn google" id="onSignIn">{i:pokeball} Sign in with Google</button></div>
+        ${S2.error ? `<p class="note-bad">${esc(S2.error)}</p>` : ''}`;
+    } else if (S2.needsUsername) {
+      body = `<p>Welcome, trainer! Choose a <b>username</b> — it's how friends find you, and nobody else can have it.</p>
+        <div class="searchrow"><input id="unIn" maxlength="16" placeholder="e.g. AshKetchum" autocapitalize="off" autocomplete="off"><button id="unGo">Create</button></div>
+        <p class="muted" id="unMsg">3–16 letters, numbers or _. You'll also get a unique player ID.</p>`;
+    } else if (S2.conflict) {
+      const c = S2.conflict;
+      body = `<p>This device and your account have different saves. Which one do you want to keep?</p>
+        <div class="fcard"><div class="fi"><b>Account (cloud) save</b><small>${esc(c.cloudInfo.name)} · Dex ${c.cloudInfo.dex} · party ${c.cloudInfo.party}</small></div><div class="acts"><button data-cf="cloud">Use this</button></div></div>
+        <div class="fcard"><div class="fi"><b>This device</b><small>${esc(c.localInfo.name)} · Dex ${c.localInfo.dex} · party ${c.localInfo.party}</small></div><div class="acts"><button class="alt" data-cf="local">Use this</button></div></div>
+        <p class="muted">The other one will be replaced.</p>`;
+    } else {
+      const P = S2.profile, nReq = S2.incoming.length, uid = S2.user.uid;
+      const actTrades = S2.trades.filter(t => (t.status === 'offered' && t.to === uid) || (t.status === 'countered' && t.from === uid)).length;
+      const tabs = [['friends', `Friends (${S2.friends.length})`], ['requests', `Requests${nReq ? ` (${nReq})` : ''}`], ['trades', `Trades${actTrades ? ` (${actTrades})` : ''}`], ['add', 'Add']];
+      body = `<div class="trainer">${ic('friends').replace('class="ic"', 'class="px" style="width:40px;height:40px"')}<div class="sp"><b>${esc(P.username)}</b><small>ID ${esc(P.code)}</small></div><button class="btn alt" id="onSignOut" style="width:auto;padding:8px 12px">Sign out</button></div>
+        <div class="tabs">${tabs.map(([k, l]) => `<button data-ot="${k}" class="${onlineTab === k ? 'on' : ''}">${l}</button>`).join('')}</div>` + onlineTabBody(onlineTab);
+    }
+    openSheet(head('Friends') + body);
+    wireOnline();
+  }
+  function onlineTabBody(tab) {
+    const S2 = ON(), uid = S2.user.uid;
+    if (tab === 'friends') {
+      if (!S2.friends.length) return '<p class="muted">No friends yet. Use <b>Add</b> to search for a username.</p>';
+      return S2.friends.map((f, i) => {
+        const m = f.showcase && f.showcase.main;
+        return `<div class="fcard">${m ? monFace(m.sp, m.shiny) : `<img class="face" src="${PX.url('egg_common_0')}" alt="">`}<div class="fi"><b>${esc(f.username)}</b><small>${esc(f.code || '')}</small><small>Main: ${m ? monLine(m) : 'none yet'}</small></div>
+          <div class="acts"><button data-fb="${i}">{i:sword} Battle</button><button class="gold" data-ft="${i}">{i:trade} Trade</button></div></div>`;
+      }).join('') + '<p class="muted" style="margin-top:10px">Battles use your friend\'s current main. Trades never include your main.</p>';
+    }
+    if (tab === 'requests') {
+      const inc = S2.incoming.map(r => `<div class="fcard"><img class="face" src="${PX.url('friends')}" alt=""><div class="fi"><b>${esc(r.fromName)}</b><small>${esc(r.fromCode || '')} wants to be friends</small></div>
+        <div class="acts"><button data-ra="${r.id}">Accept</button><button class="alt" data-rd="${r.id}">Decline</button></div></div>`).join('');
+      const out = S2.outgoing.map(r => `<div class="fcard"><img class="face" src="${PX.url('friends')}" alt=""><div class="fi"><b>${esc(r.toName)}</b><small>Waiting for them to accept…</small></div>
+        <div class="acts"><button class="alt" data-rc="${r.id}">Cancel</button></div></div>`).join('');
+      return (inc || '<p class="muted">No requests right now.</p>') + (out ? `<h4 style="font-family:var(--pixel);margin:14px 0 8px">Sent</h4>${out}` : '');
+    }
+    if (tab === 'trades') {
+      const order = { offered: 0, countered: 0, accepted: 1, done: 2, declined: 3, cancelled: 3 };
+      const list = S2.trades.slice().sort((a, b) => (order[a.status] - order[b.status]) || ((b.createdAt && b.createdAt.seconds) || 0) - ((a.createdAt && a.createdAt.seconds) || 0)).slice(0, 20);
+      if (!list.length) return '<p class="muted">No trades yet. Open a friend and tap <b>Trade</b> to offer one of your Pokémon.</p>';
+      return list.map(t => {
+        const mineFrom = t.from === uid, other = mineFrom ? t.toName : t.fromName;
+        const give = mineFrom ? t.offer : t.counter, get = mineFrom ? t.counter : t.offer;
+        let status = '', acts = '';
+        if (t.status === 'offered') {
+          status = mineFrom ? `Waiting for <b>${esc(other)}</b> to pick a Pokémon to give you…` : `<b>${esc(other)}</b> offers you <b>${monLine(t.offer)}</b>`;
+          acts = mineFrom ? `<button class="alt" data-tx="${t.id}">Cancel</button>` : `<button class="gold" data-tc="${t.id}">Pick mine</button><button class="alt" data-tx="${t.id}">Decline</button>`;
+        } else if (t.status === 'countered') {
+          status = mineFrom ? `<b>${esc(other)}</b> will give <b>${monLine(t.counter)}</b> for your <b>${monLine(t.offer)}</b>` : `Waiting for <b>${esc(other)}</b> to confirm…`;
+          acts = mineFrom ? `<button class="gold" data-tk="${t.id}">Confirm</button><button class="alt" data-tx="${t.id}">Cancel</button>` : `<button class="alt" data-tx="${t.id}">Cancel</button>`;
+        } else if (t.status === 'accepted') status = 'Trading…';
+        else if (t.status === 'done') status = `Traded with <b>${esc(other)}</b>: you got <b>${monLine(get)}</b>`;
+        else status = `<span class="muted">Trade with ${esc(other)} was ${t.status}.</span>`;
+        const pics = `${t.offer ? monFace(t.offer.sp, t.offer.shiny) : ''}`;
+        return `<div class="fcard">${pics}<div class="fi"><small>${status}</small></div><div class="acts">${acts}</div></div>`;
+      }).join('');
+    }
+    // add
+    const r = searchResult;
+    return `<div class="searchrow"><input id="srIn" placeholder="Exact username" autocapitalize="off" autocomplete="off"><button id="srGo">Search</button></div>
+      ${r ? `<div class="fcard">${r.showcase && r.showcase.main ? monFace(r.showcase.main.sp, r.showcase.main.shiny) : `<img class="face" src="${PX.url('friends')}" alt="">`}<div class="fi"><b>${esc(r.username)}</b><small>${esc(r.code || '')}</small><small>Pokédex ${(r.showcase && r.showcase.dex) || 0}</small></div>
+        <div class="acts"><button id="srAdd">Add friend</button></div></div>` : ''}
+      <p class="muted" id="srMsg">${esc(searchMsg || 'Usernames are unique, so search for the exact name your friend chose.')}</p>`;
+  }
+  function wireOnline() {
+    const on = (sel, ev, fn) => sheet.querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn));
+    const safe = fn => async e => { try { await fn(e); } catch (er) { toast(er.message || String(er)); } };
+    on('#onRetry', 'click', () => location.reload());
+    on('#onSignIn', 'click', safe(async () => { await Online.signIn(); }));
+    on('#onSignOut', 'click', safe(async () => { await Online.signOut(); toast('Signed out. Your progress stays on this device.'); }));
+    on('[data-ot]', 'click', e => { onlineTab = e.currentTarget.dataset.ot; openOnline(); });
+    on('[data-cf]', 'click', safe(async e => { await Online.resolveConflict(e.currentTarget.dataset.cf === 'cloud'); V.loaded = null; toast('Save chosen — synced to your account.'); openOnline(); }));
+    const unIn = $('#unIn');
+    if (unIn) {
+      let t = null;
+      unIn.addEventListener('input', () => {
+        clearTimeout(t); const v = unIn.value.trim(), msg = $('#unMsg');
+        if (!Online.NAME_RE.test(v)) { msg.textContent = '3–16 letters, numbers or _.'; msg.className = 'muted'; return; }
+        t = setTimeout(async () => { const free = await Online.usernameFree(v).catch(() => null); if (unIn.value.trim() !== v) return; msg.textContent = free ? `"${v}" is available!` : `"${v}" is taken.`; msg.className = free ? 'note-ok' : 'note-bad'; }, 350);
+      });
+      on('#unGo', 'click', safe(async () => { const p = await Online.createProfile(unIn.value); toast(`Welcome, ${p.username}! Your ID is ${p.code}.`, 4500); openOnline('add'); }));
+    }
+    on('#srGo', 'click', safe(async () => {
+      const v = $('#srIn').value; searchResult = await Online.findUser(v);
+      searchMsg = searchResult ? '' : `No trainer called "${v}".`; openOnline('add');
+    }));
+    on('#srAdd', 'click', safe(async () => { await Online.addFriend(searchResult); searchMsg = `Friend request sent to ${searchResult.username}!`; searchResult = null; openOnline('add'); }));
+    const req = id => ON().incoming.find(r => r.id === id) || ON().outgoing.find(r => r.id === id);
+    on('[data-ra]', 'click', safe(async e => { await Online.respond(req(e.currentTarget.dataset.ra), true); toast('You are now friends!'); }));
+    on('[data-rd]', 'click', safe(async e => { await Online.respond(req(e.currentTarget.dataset.rd), false); }));
+    on('[data-rc]', 'click', safe(async e => { await Online.cancelRequest(req(e.currentTarget.dataset.rc)); }));
+    const trade = id => ON().trades.find(t => t.id === id);
+    on('[data-tx]', 'click', safe(async e => { await Online.declineTrade(trade(e.currentTarget.dataset.tx)); }));
+    on('[data-tk]', 'click', safe(async e => { await Online.confirmTrade(trade(e.currentTarget.dataset.tk)); toast('Trade confirmed — swapping…'); }));
+    on('[data-tc]', 'click', e => pickForTrade(`Pick a Pokémon to give ${trade(e.currentTarget.dataset.tc).fromName}`, async key => { await Online.counterTrade(trade(e.currentTarget.dataset.tc), key); toast('Sent! They just need to confirm.'); openOnline('trades'); }));
+    on('[data-ft]', 'click', e => {
+      const f = ON().friends[+e.currentTarget.dataset.ft];
+      pickForTrade(`Offer a Pokémon to ${f.username}`, async key => { await Online.offerTrade(f, key); toast(`Offer sent to ${f.username}. Your Pokémon is locked until the trade is done.`, 4000); openOnline('trades'); });
+    });
+    on('[data-fb]', 'click', safe(async e => {
+      const f = ON().friends[+e.currentTarget.dataset.fb];
+      const team = await Online.friendTeam(f);
+      if (!team || !team.main) { toast(`${f.username} doesn't have a main Pokémon yet.`); return; }
+      if (!guard()) return;
+      closeSheet(); onlineOpen = false; startFriendBattle(f, team.main);
+    }));
+  }
+  function pickForTrade(title, onPick) {
+    const list = Game.tradeable();
+    if (!list.length) { toast('You need a Pokémon in your party or PC Box (not your main) to trade.'); return; }
+    openSheet(head('Choose a Pokémon') + `<p class="muted">${esc(title)}. Your main can't be traded. The one you pick is locked until the trade finishes or is cancelled.</p>
+      <div class="partylist">${list.map((x, i) => `<div class="pslot">${monFace(x.pet.sp, x.pet.shiny)}<div class="pi"><b>${monLine(x.pet)}</b><small>${x.where === 'box' ? 'PC Box' : 'Party'} · OT ${x.pet.ot ? esc(x.pet.ot.name) : '—'}</small></div><div class="acts"><button data-pick="${i}">Choose</button></div></div>`).join('')}</div>
+      <div class="btns"><button class="btn alt" id="pickBack">← Back</button></div>`);
+    sheet.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try { await onPick(list[+b.dataset.pick].pet.key); } catch (er) { toast(er.message || String(er)); b.disabled = false; }
+    }));
+    $('#pickBack').addEventListener('click', () => openOnline());
+  }
+  Online.on((s, ev) => {
+    updateBadge();
+    if (ev && ev.traded) {
+      const m = ev.received, sp = m && SPECIES_BY_ID[m.sp];
+      if (ev.ok) { Sound.play('evolve'); toast(`{i:trade} Trade complete! You received ${sp ? sp.name : 'a Pokémon'}.`, 5000); }
+    }
+    if (s.battles.length) {
+      Online.markBattlesSeen().then(list => list.forEach(b => toast(`{i:sword} ${b.fromName} battled your ${b.toMon && SPECIES_BY_ID[b.toMon.sp] ? SPECIES_BY_ID[b.toMon.sp].name : 'Pokémon'} and ${b.winner === s.user.uid ? 'lost' : 'won'}!`, 5000)));
+    }
+    if (s.conflict && !onlineOpen) openOnline();
+    // refresh the friends screen if it's open (but not while typing)
+    if (onlineOpen && !sheet.classList.contains('hidden') && sheet.querySelector('.trainer, #onSignIn, #unIn, [data-cf]') && !sheet.contains(document.activeElement && document.activeElement.tagName === 'INPUT' ? document.activeElement : null)) openOnline();
+  });
+  $('#friendsBtn').addEventListener('click', () => openOnline());
+
+  // ---------- friend battle (uses your friend's current main) ----------
+  function startFriendBattle(friend, theirs) {
+    const p = Game.pet();
+    panel.classList.remove('hidden');
+    openArena(`{i:sword} vs ${friend.username}`);
+    const me = Game.battler(p.sp, Game.level(), true);
+    const opp = { id: theirs.sp, level: theirs.level, atk: theirs.atk, def: theirs.def, spd: theirs.spd, maxHp: Math.round(22 + theirs.level * 2.2 + theirs.def * .25), shiny: theirs.shiny, name: theirs.name || SPECIES_BY_ID[theirs.sp].name };
+    const G = { state: 'battle', at: now(), meHp: me.maxHp, oppHp: opp.maxHp, act: null, actAt: 0, hurt: null, hurtAt: 0, over: false };
+    preloadSpecies(opp.id, opp.shiny);
+    say(`<b>${esc(friend.username)}</b> sends out <b>${esc(opp.name)}</b> (Lv ${opp.level})!`, `Your ${esc(petName())} is Lv ${me.level}.`);
+    buttons([{ label: '{i:sword} Battle!', cls: 'red', fn: go }, { label: 'Not now', cls: 'alt', fn: () => G.finish(true) }]);
+    function go() {
+      let turn = me.spd >= opp.spd ? 'me' : 'opp';
+      const step = () => {
+        if (arenaGame !== G) return;
+        const A = turn === 'me' ? me : opp, D = turn === 'me' ? opp : me, crit = Math.random() < .07;
+        const dmg = Math.max(2, Math.round((A.atk / Math.max(1, D.def)) * (A.level * .45 + 6) * (.85 + Math.random() * .3) * (crit ? 1.5 : 1)));
+        G.act = turn; G.actAt = now(); Sound.play('hit');
+        setTimeout(() => {
+          if (arenaGame !== G) return;
+          if (turn === 'me') G.oppHp -= dmg; else G.meHp -= dmg;
+          G.hurt = turn === 'me' ? 'opp' : 'me'; G.hurtAt = now();
+          say(`${turn === 'me' ? esc(petName()) : `${esc(friend.username)}'s ${esc(opp.name)}`} attacks!${crit ? ' A critical hit!' : ''}`, `${dmg} damage`);
+          if (G.oppHp <= 0 || G.meHp <= 0) return setTimeout(() => end(G.oppHp <= 0), 700);
+          turn = turn === 'me' ? 'opp' : 'me'; setTimeout(step, 750);
+        }, 380);
+      };
+      setTimeout(step, 400);
+    }
+    function end(won) {
+      G.state = won ? 'won' : 'lost'; G.at = now(); Sound.play(won ? 'level' : 'sad');
+      say(won ? `You beat ${esc(friend.username)}'s ${esc(opp.name)}!` : `${esc(friend.username)}'s ${esc(opp.name)} won this time…`, won ? `${esc(petName())} feels proud!` : 'Train in the Games menu and try again.');
+      Online.recordBattle(friend, won, { sp: p.sp, level: me.level, shiny: !!p.shiny }, { sp: opp.id, level: opp.level, shiny: !!opp.shiny }).catch(() => {});
+      Game.exploreEnd({ floor: 0, wins: won ? 1 : 0, lost: !won });
+      buttons([{ label: 'Done', cls: 'red', fn: () => G.finish(true) }]);
+    }
+    G.finish = () => { if (G.over) return; G.over = true; closeArena(); Talk.say(G.state === 'won' ? 'exploreBack' : G.state === 'lost' ? 'exploreLose' : 'pet', { prio: 2 }); };
+    G.loop = () => {
+      if (arenaGame !== G) return;
+      requestAnimationFrame(G.loop);
+      const ms = now(), t = ms / 1000;
+      if (!drawExploreBg({ state: 'battle', at: 0 }, ms)) { const g2 = ac.createLinearGradient(0, 0, 0, AH); g2.addColorStop(0, '#5aa0e6'); g2.addColorStop(.55, '#bfe3ff'); g2.addColorStop(.56, '#7cc35a'); g2.addColorStop(1, '#4f9a3f'); ac.fillStyle = g2; ac.fillRect(0, 0, AW, AH); }
+      const size = Math.min(AW, AH) * .11, wx = AW * .72, wy = AH * .56, mx = AW * .28, my = AH * .84;
+      const oh = G.hurt === 'opp' && ms - G.hurtAt < 450, oa = G.act === 'opp' && ms - G.actAt < 600, mh = G.hurt === 'me' && ms - G.hurtAt < 450, ma = G.act === 'me' && ms - G.actAt < 600;
+      for (const [x, y, s2] of [[wx, wy, size * .8], [mx, my, size * .9]]) { ac.fillStyle = 'rgba(0,0,0,.22)'; ac.beginPath(); ac.ellipse(x, y, s2, s2 * .22, 0, 0, Math.PI * 2); ac.fill(); }
+      drawCreature(ac, opp.id, { x: wx + (oa ? -size * .4 : 0), y: wy, size: size * .95, t, maxH: AH * .26, shiny: opp.shiny, dir: 'downleft', anim: oh ? 'Hurt' : oa ? 'Attack' : undefined, animT: oh ? (ms - G.hurtAt) / 1000 : oa ? (ms - G.actAt) / 1000 : undefined, alpha: (oh && Math.floor(ms / 80) % 2 ? .4 : 1) * (G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : 1) });
+      drawCreature(ac, p.sp, { x: mx + (ma ? size * .4 : 0), y: my, size, t, maxH: AH * .3, shiny: p.shiny, dir: 'downright', anim: mh ? 'Hurt' : ma ? 'Attack' : G.state === 'won' ? 'Hop' : undefined, animT: mh ? (ms - G.hurtAt) / 1000 : ma ? (ms - G.actAt) / 1000 : G.state === 'won' ? ((ms - G.at) / 1000) % Math.max(.4, animLength(p.sp, 'Hop') + .3) : undefined, alpha: mh && Math.floor(ms / 80) % 2 ? .4 : 1 });
+      hpBox(ac, 10, 10, Math.min(250, AW * .62), `${friend.username}'s ${opp.name}`.slice(0, 22), opp.level, G.oppHp, opp.maxHp, false);
+      hpBox(ac, AW - Math.min(250, AW * .62) - 10, AH - 70, Math.min(250, AW * .62), petName(), me.level, G.meHp, me.maxHp, true);
+    };
+    arenaGame = G; requestAnimationFrame(G.loop);
+  }
+
   // ======================= game events =======================
   Game.on((ev, d) => {
     if (ev === 'level') { toast(`{i:up} Level up! Lv ${d}`); Sound.play('level'); if (!Game.pet().asleep) Talk.say('level', { vars: { lv: d } }); }
@@ -1843,6 +2084,7 @@
   }, { passive: false });
   ['gesturestart', 'gesturechange'].forEach(ev => document.addEventListener(ev, e => e.preventDefault()));
   Talk.init({ sound: Sound.play, player: () => (ST().settings.player || '').trim() || 'partner' });
+  Online.init(); updateBadge();
   if (!ST().player.starterPicked) openStarter();
   else setTimeout(greet, 900);
   requestAnimationFrame(frame);

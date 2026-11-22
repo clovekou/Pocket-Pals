@@ -71,6 +71,7 @@ const Game = (() => {
     S.player.party = (S.player.party || []).filter(m => m && !m.egg && known(m.sp)).slice(0, PARTY_MAX - 1);
     if (S.pet && !known(S.pet.sp)) { S.pet = null; S.ceremony = null; S.player.starterPicked = false; }
     if (S.ceremony) finishEnding();
+    ensureKeys();
     // a broken streak shows as 0 straight away
     if (S.player.lastCareDay && dayNum() > S.player.lastCareDay + 1) { S.player.streak = 0; S.player.lastMilestone = 0; }
     return S;
@@ -193,7 +194,10 @@ const Game = (() => {
     emit('newegg');
   }
   function pickStarter(id) {
+    const first = !S.player.starterPicked;
     S.player.starterPicked = true;
+    // welcome gift: a Mystery Egg with a random first-stage Pokémon (Bag -> Items)
+    if (first && !S.player.starterGift) { S.player.starterGift = true; S.player.bag = S.player.bag || {}; S.player.bag.mysteryEgg = (S.player.bag.mysteryEgg || 0) + 1; }
     S.pet = makeEgg(id, rollShiny());
     S.lastTick = Date.now();
     save();
@@ -217,7 +221,7 @@ const Game = (() => {
       tr: { atk: 0, def: 0, spd: 0 },
       berryKnown: false, bond: 0, bondToday: 0, bondDay: dayNum(), medals: [],
       mistakes: 0, mistakeCd: 0, goodTicks: 0, neglect: 0, asleep: false,
-      declinedLevel: 0, farewellAt: FAREWELL_AGE, hatchedAt: Date.now(),
+      declinedLevel: 0, farewellAt: FAREWELL_AGE, hatchedAt: Date.now(), key: newKey(), ot: trainer(),
     };
     register(e.sp, e.shiny);
     checkMedals();
@@ -450,7 +454,7 @@ const Game = (() => {
   }
   function switchMain(i) {
     const p = S.pet, m = S.player.party[i];
-    if (!p || p.egg || S.ceremony || !m) return false;
+    if (!p || p.egg || S.ceremony || !m || m.locked) return false;
     p.asleep = false;
     S.player.party[i] = p;
     S.pet = m;
@@ -459,7 +463,7 @@ const Game = (() => {
     return true;
   }
   function releaseMember(i) {
-    const m = S.player.party[i]; if (!m) return false;
+    const m = S.player.party[i]; if (!m || m.locked) return false;
     S.player.history.unshift({ sp: m.sp, shiny: m.shiny, name: m.name, level: 1 + Math.floor(m.ageMin / MIN_PER_LEVEL), ageMin: m.ageMin, end: 'release', date: Date.now(), medals: (m.medals || []).length });
     S.player.history = S.player.history.slice(0, 60);
     S.player.party.splice(i, 1);
@@ -576,6 +580,7 @@ const Game = (() => {
       genes: { atk: 95 + rnd(16), def: 95 + rnd(16), spd: 95 + rnd(16) }, tr: { atk: 0, def: 0, spd: 0 },
       berryKnown: false, bond: 0, bondToday: 0, bondDay: dayNum(), medals: [], mistakes: 0, mistakeCd: 0, goodTicks: 0,
       neglect: 0, asleep: false, declinedLevel: 0, farewellAt: FAREWELL_AGE, hatchedAt: Date.now(), caught: true,
+      key: newKey(), ot: trainer(),
     };
   }
   /** add to the party if there's room, otherwise to the PC box */
@@ -599,11 +604,11 @@ const Game = (() => {
     S.player.box.splice(i, 1); S.player.party.push(m); save(); emit('party'); return true;
   }
   function partyToBox(i) {
-    const m = S.player.party[i]; if (!m) return false;
+    const m = S.player.party[i]; if (!m || m.locked) return false;
     S.player.party.splice(i, 1); S.player.box.push(m); save(); emit('party'); return true;
   }
   function releaseBox(i) {
-    const m = S.player.box[i]; if (!m) return false;
+    const m = S.player.box[i]; if (!m || m.locked) return false;
     S.player.history.unshift({ sp: m.sp, shiny: m.shiny, name: m.name, level: memberLevel(m), ageMin: m.ageMin, end: 'release', date: Date.now(), medals: (m.medals || []).length });
     S.player.box.splice(i, 1); save(); emit('party'); return true;
   }
@@ -616,6 +621,61 @@ const Game = (() => {
     if (r.lost) { p.ene = clamp(p.ene - 15); p.joy = clamp(p.joy - 8); }
     else { p.joy = clamp(p.joy + 6 + (r.wins || 0) * 3); addBond(2); }
     afterCare();
+  }
+
+  // ---------------- identity, trainers, trading ----------------
+  function newKey() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  let currentTrainer = null;                 // set by the online module when signed in
+  function trainer() { return currentTrainer ? { ...currentTrainer } : { name: (S && S.settings && S.settings.player) || 'You' }; }
+  function allPets() { return [S.pet, ...(S.player.party || []), ...(S.player.box || [])].filter(Boolean); }
+  function ensureKeys() { allPets().forEach(m => { if (!m.egg && !m.key) m.key = newKey(); if (!m.egg && !m.ot) m.ot = trainer(); }); }
+  /** called when signed in: Pokémon you raised before signing in get your account as their Original Trainer */
+  function setTrainer(t) {
+    currentTrainer = t ? { name: t.name, code: t.code } : null;
+    if (!t) return;
+    allPets().forEach(m => { if (!m.egg && (!m.ot || (!m.ot.code && !m.receivedFrom))) m.ot = { name: t.name, code: t.code }; });
+    save();
+  }
+  function findPet(key) {
+    if (S.pet && S.pet.key === key) return { where: 'main', pet: S.pet };
+    let i = S.player.party.findIndex(m => m.key === key); if (i >= 0) return { where: 'party', index: i, pet: S.player.party[i] };
+    i = S.player.box.findIndex(m => m.key === key); if (i >= 0) return { where: 'box', index: i, pet: S.player.box[i] };
+    return null;
+  }
+  /** Pokémon you may offer in a trade: never your main, never one already locked in another trade */
+  function tradeable() {
+    return [...S.player.party.map((m, i) => ({ where: 'party', index: i, pet: m })), ...S.player.box.map((m, i) => ({ where: 'box', index: i, pet: m }))]
+      .filter(x => !x.pet.egg && !x.pet.locked);
+  }
+  function lockPet(key, tradeId) { const f = findPet(key); if (!f || f.where === 'main') return false; f.pet.locked = tradeId; save(); emit('party'); return true; }
+  function unlockTrade(tradeId) { let n = 0; allPets().forEach(m => { if (m.locked === tradeId) { delete m.locked; n++; } }); if (n) { save(); emit('party'); } return n; }
+  function snapshot(m) { const c = JSON.parse(JSON.stringify(m)); delete c.locked; return c; }
+  /** finish a trade: give away `key`, receive `incoming` (keeps its Original Trainer) */
+  function completeTrade(key, incoming, fromTrainer) {
+    const f = findPet(key);
+    if (!f || f.where === 'main') return false;
+    if (f.where === 'party') S.player.party.splice(f.index, 1); else S.player.box.splice(f.index, 1);
+    const m = snapshot(incoming);
+    m.key = m.key || newKey(); m.receivedFrom = fromTrainer; m.receivedAt = Date.now(); m.asleep = false;
+    if (!m.ot) m.ot = fromTrainer;
+    register(m.sp, m.shiny);
+    if (S.player.party.length + 1 < PARTY_MAX) S.player.party.push(m); else S.player.box.push(m);
+    S.player.trades = (S.player.trades || 0) + 1;
+    save(); emit('party');
+    return true;
+  }
+  /** for cloud saves */
+  function exportSave() { return JSON.stringify(S); }
+  function importSave(json) {
+    try { localStorage.setItem(SAVE_KEY, typeof json === 'string' ? json : JSON.stringify(json)); } catch (e) { return false; }
+    load(); S.lastTick = Math.min(S.lastTick || Date.now(), Date.now()); save(); emit('change'); emit('party');
+    return true;
+  }
+  /** what friends see: your main + party, as battle-ready numbers */
+  function showcase() {
+    const card = m => m && !m.egg ? { sp: m.sp, shiny: !!m.shiny, name: m.name || '', level: memberLevel(m), ot: m.ot || null } : null;
+    const main = S.pet && !S.pet.egg ? Object.assign(card(S.pet), { atk: stat('atk'), def: stat('def'), spd: stat('spd') }) : null;
+    return { main, party: S.player.party.map(card).filter(Boolean), dex: registeredCount(), updatedAt: Date.now() };
   }
 
   // ---------------- battle stats ----------------
@@ -632,7 +692,8 @@ const Game = (() => {
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
     ITEMS, EXPLORE_MAX_FLOOR, FRAGMENTS_TO_SUMMON, isSpecial, pickMysterySpecies, rollLegend, catchLegend, addFragment, summonLegend,
-    box, boxToParty, partyToBox, releaseBox, exploreCheck, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
+    box, boxToParty, partyToBox, releaseBox, exploreCheck,
+    setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
     canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
     stat, registered, registeredCount, shinyCount, careBonus, isFinal,
     LEGEND_UNLOCK, FAREWELL_AGE,
