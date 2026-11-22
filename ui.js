@@ -233,7 +233,7 @@
     if (!im.complete || !im.naturalWidth) return false;          // built-in scenery until it loads
     const s = Math.max(W / im.naturalWidth, H / im.naturalHeight); // cover the whole stage
     const w = im.naturalWidth * s, h = im.naturalHeight * s;
-    cx.drawImage(im, (W - w) / 2, H - h, w, h);                   // keep the bottom (the ground) in view
+    cx.drawImage(im, (W - w) / 2, (H - h) * .5, w, h);            // centred, so the top of the scene isn't cut off
     if (cfg.night !== false) {
       if (phase === 'night') { cx.fillStyle = 'rgba(10,14,45,.5)'; cx.fillRect(0, 0, W, H); }
       else if (phase === 'dusk') { cx.fillStyle = 'rgba(90,40,100,.18)'; cx.fillRect(0, 0, W, H); }
@@ -791,12 +791,12 @@
     } else if (cardTab === 'battle') {
       const row = (k, label, col, note) => { const v = Game.stat(k); return `<div class="stat"><div class="top"><span>${label}</span><span>${v}</span></div><div class="trk"><i style="width:${Math.min(100, v / 2.5)}%;background:${col}"></i></div><small>${note}</small></div>`; };
       const defLeft = 720 - p.goodTicks;
-      body = row('atk', '{i:sword} Attack', '#e8503a', `Strength training ${p.tr.atk}/100 — from the training bag`) +
-        row('def', '{i:shield} Defence', '#4f93c4', `Discipline ${p.tr.def}/100 — +1 per 12 h of good care (next in ${fmtDur(defLeft)} if every need stays ≥ 40)`) +
+      body = row('atk', '{i:sword} Attack', '#e8503a', `Strength training ${p.tr.atk}/100 — from Rock Smash`) +
+        row('def', '{i:shield} Defence', '#4f93c4', `Defence training ${p.tr.def}/100 — from Protect, and +1 per 12 h of good care`) +
         row('spd', '{i:speed} Speed', '#58b868', `Speed training ${p.tr.spd}/100 — from Poké Ball Catch`) +
         `<p class="muted">Stat = species base × genes + level + training.</p>
-        <div class="rows"><div class="row"><span>Best Poké Ball Catch</span><b>${S.player.gameHi}</b></div><div class="row"><span>Most bag hits</span><b>${S.player.strHi}</b></div></div>
-        <div class="btns"><button class="btn red" id="goTrain">{i:train} Train strength</button></div>`;
+        <div class="rows"><div class="row"><span>Best Poké Ball Catch</span><b>${S.player.gameHi}</b></div><div class="row"><span>Best Protect</span><b>${S.player.defHi || 0}</b></div></div>
+        <div class="btns"><button class="btn red" id="goTrain">{i:pokeball} Training games</button></div>`;
     } else if (cardTab === 'medals') {
       body = `<div class="medals">${MEDALS.map(m => `<div class="medal ${p.medals.includes(m.id) ? '' : 'off'}" title="${m.desc}">${ic(m.icon)}${m.label}</div>`).join('')}</div>
         <p class="muted" style="margin-top:12px">${p.medals.length}/8 for ${esc(petName())} · ${S.player.totalMedals} medals earned in total.</p>
@@ -822,7 +822,7 @@
     openSheet(head('Summary') + `<div class="tabs">${tabs.map(t => `<button data-tab="${t}" class="${t === cardTab ? 'on' : ''}">${TAB_LABEL[t]}</button>`).join('')}</div>` + body);
     sheet.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { cardTab = b.dataset.tab; renderCard(); }));
     const ns = $('#nameSave'); if (ns) ns.addEventListener('click', () => { Game.rename($('#nameIn').value); toast('Name saved!'); renderCard(); });
-    const gt = $('#goTrain'); if (gt) gt.addEventListener('click', () => { closeSheet(); startTrain(); });
+    const gt = $('#goTrain'); if (gt) gt.addEventListener('click', () => openGames());
   }
 
   // ---------- dex ----------
@@ -924,7 +924,7 @@
     openSheet(head('How to play') + `<div class="manual">
       <h4>Time</h4><ul><li>1 real minute = 1 game minute. +1 level every hour.</li><li>It keeps living while the app is closed (up to 2 weeks of catch-up).</li></ul>
       <h4>Needs</h4><ul><li>FOOD −2/min, ENE −1/min, HYG −1/min (−4 more per poop), HAPPY −1/min (faster if hungry or dirty).</li><li>Letting a need drop to 10 or less is a <b>slip-up</b>: it delays evolution by 1 level and cools the bond.</li></ul>
-      <h4>Care</h4><ul><li>{i:pecha}{i:aspear}{i:cheri} <b>Pecha, Aspear and Cheri Berries</b> +25 food. One is its hidden favourite (+35 food, +happy, bond).</li><li>{i:poffin} <b>Poffin</b> +food +happy but adds weight. Over 50 weight = sluggish.</li><li>{i:pokeball} <b>Poké Ball Catch</b> trains SPEED and burns weight. {i:train} <b>Bag</b> trains ATTACK.</li><li>{i:bath} <b>Bath</b> clears poops. {i:hand} <b>Tap</b> to pet it. {i:sleep} <b>Sleep</b> restores energy; needs drop much slower.</li></ul>
+      <h4>Care</h4><ul><li>{i:pecha}{i:aspear}{i:cheri} <b>Pecha, Aspear and Cheri Berries</b> +25 food. One is its hidden favourite (+35 food, +happy, bond).</li><li>{i:poffin} <b>Poffin</b> +food +happy but adds weight. Over 50 weight = sluggish.</li><li>{i:pokeball} <b>Poké Ball Catch</b> trains SPEED and burns weight. {i:rock} <b>Rock Smash</b> trains ATTACK. {i:shield} <b>Protect</b> trains DEFENCE.</li><li>{i:bath} <b>Bath</b> clears poops. {i:hand} <b>Tap</b> to pet it. {i:sleep} <b>Sleep</b> restores energy; needs drop much slower.</li></ul>
       <h4>Evolution</h4><ul><li>When it reaches its evolution level and every need is ≥ 40, a button appears — you choose to evolve or keep its form.</li></ul>
       <h4>Endings</h4><ul><li>{i:heartGold} <b>Farewell</b>: final form + 3 days. Blesses the next egg.</li><li>{i:rain} <b>Run-away</b>: all needs at 0 for 1 hour. One act of care cancels it. Curses the next egg.</li><li>{i:hand} <b>Release</b>: hold your finger on it for 3 seconds.</li></ul>
       <h4>Eggs</h4><ul><li>Eggs hatch into a first-stage Pokémon — Common, Rare or (after ${Game.LEGEND_UNLOCK} registered) Legendary — favouring ones you haven't raised yet.</li><li>Streak + bond improve the shiny odds (1/48 → best 1/8). A farewell doubles them for the next egg.</li></ul>
@@ -1006,9 +1006,8 @@
     if (a === 'party') return openParty();
     if (V.anim) return;
     if (a === 'feed') return openFeed();
-    if (a === 'play') { if (!guard()) return; if (Game.pet().ene < 10) { Talk.say('tooTired'); Sound.play('no'); return; } return startCatch(); }
+    if (a === 'play') return openGames();
     if (a === 'explore') return startExplore();
-    if (a === 'train') { if (!guard()) return; if (Game.pet().ene < 15) { Talk.say('tooTired'); Sound.play('no'); return; } return startTrain(); }
     if (a === 'bath') {
       if (!guard(false)) return;
       if (now() < V.bathUntil) return;
@@ -1106,68 +1105,157 @@
     arenaGame = G; requestAnimationFrame(G.loop);
   }
 
-  function startTrain() {
+  // ---------- training games menu ----------
+  function openGames() {
     if (!guard()) return;
-    if (Game.pet().ene < 15) { toast('Too tired to train… let it sleep.'); return; }
-    openArena('{i:train} Training Bag');
     const p = Game.pet();
-    const G = { hits: 0, t0: now(), dur: 15000, a: 0, av: 0, punchAt: 0, over: false, endAt: 0, pops: [] };
-    const size = Math.min(AW, AH) * .12;
-    G.down = () => {
+    const card = (id, icon, title, stat, desc) => `<button class="food" data-game="${id}" style="grid-column:1/-1">${ic(icon).replace('class="ic"', 'class="px"')}<span><b>${title}</b><small>${stat} · ${desc}</small></span></button>`;
+    openSheet(head('Training games') + `<div class="foods">
+      ${card('catch', 'pokeball', 'Poké Ball Catch', '{i:speed} Builds SPEED', 'drag to catch the falling Poké Balls')}
+      ${card('smash', 'rock', 'Rock Smash', '{i:sword} Builds ATTACK', 'tap the rocks before they sink back down')}
+      ${card('protect', 'shield', 'Protect', '{i:shield} Builds DEFENCE', 'tap the incoming attacks before they hit')}
+      </div><p class="muted" style="margin-top:12px">Training: ATK ${p.tr.atk}/100 · DEF ${p.tr.def}/100 · SPD ${p.tr.spd}/100. Each game uses some energy.</p>`);
+    sheet.querySelectorAll('[data-game]').forEach(b => b.addEventListener('click', () => {
+      if (Game.pet().ene < 15) { closeSheet(); Talk.say('tooTired'); Sound.play('no'); return; }
+      closeSheet();
+      ({ catch: startCatch, smash: startRockSmash, protect: startProtect })[b.dataset.game]();
+    }));
+  }
+
+  // ---------- Rock Smash (ATTACK) ----------
+  function startRockSmash() {
+    if (!guard()) return;
+    openArena('{i:rock} Rock Smash');
+    const p = Game.pet();
+    const G = { hits: 0, misses: 0, t0: now(), dur: 20000, rocks: [], next: 0, over: false, endAt: 0, pops: [], attackAt: -9 };
+    const cols = 3, rows = 3;
+    const slot = i => ({ x: AW * (.2 + (i % cols) * .3), y: AH * (.2 + Math.floor(i / cols) * .2) });
+    G.down = pos => {
       if (G.over) return;
-      G.hits++; G.av += 3.2 + Math.random(); G.punchAt = now(); Sound.play('hit');
-      const pop = G.hits % 4 === 0 && G.hits / 4 <= 18 ? 'STR +1' : '+1';
-      G.pops.push({ txt: pop, x: AW * .62 + (Math.random() - .5) * 40, y: AH * .45, age: 0 });
+      const r = G.rocks.find(r => !r.smashed && Math.hypot(pos.x - r.x, pos.y - r.y) < 46);
+      if (!r) return;
+      r.smashed = true; r.smashAt = now(); G.hits++; G.attackAt = now(); Sound.play('hit');
+      G.pops.push({ txt: '+1', x: r.x, y: r.y - 30, age: 0 });
     };
     G.finish = early => {
       if (G.over) { if (early) closeArena(); return; }
       G.over = true; G.endAt = now();
-      G.result = Game.trainStrength(G.hits);
+      G.result = Game.trainStrength(G.hits * 2);
       if (early) { closeArena(); report(); }
     };
     const report = () => {
       const r = G.result || {};
       if (r.hearts) addHearts(5);
-      toast(`{i:train} ${G.hits} hits! ATK training +${r.atk || 0}${r.hi ? ' · New record!' : ''}`, 3500);
-      Talk.say(G.hits >= 20 ? 'trainGood' : 'trainBad');
+      toast(`{i:rock} Smashed ${G.hits} rocks! ATK training +${r.atk || 0}${r.hi ? ' · New record!' : ''}`, 3500);
+      Talk.say(G.hits >= 12 ? 'trainGood' : 'trainBad');
     };
     let last = now();
     G.loop = () => {
       if (arenaGame !== G) return;
+      requestAnimationFrame(G.loop);
       const ms = now(), dt = Math.min(.05, (ms - last) / 1000); last = ms; const t = ms / 1000;
       const left = Math.max(0, G.dur - (ms - G.t0));
       if (!G.over && left <= 0) G.finish(false);
       if (G.over && ms - G.endAt > 1800) { closeArena(); report(); return; }
-      G.av += -G.a * 28 * dt; G.av *= Math.pow(.2, dt); G.a += G.av * dt; G.a = Math.max(-1.1, Math.min(1.1, G.a));
-      // draw
-      ac.fillStyle = '#f3ecdc'; ac.fillRect(0, 0, AW, AH);
-      ac.fillStyle = '#d9cdb2'; ac.fillRect(0, AH * .8, AW, AH * .2);
-      ac.fillStyle = '#8a6c48'; ac.fillRect(0, 0, AW, 14);
-      const bw = size * 1.1, bh = size * 2.4;
-      const ax = AW * .62, ay = 14, len = Math.max(20, AH * .8 - size * .35 - bh - ay);
-      ac.save(); ac.translate(ax, ay); ac.rotate(-G.a * .12);
-      ac.strokeStyle = '#2b2438'; ac.lineWidth = 3; ac.beginPath(); ac.moveTo(0, 0); ac.lineTo(0, len); ac.stroke();
-      ac.imageSmoothingEnabled = false;
-      ac.drawImage(PX.get('bag'), 0, 0, 32, 32, -bh / 2, len, bh, bh);
-      ac.restore();
-      const punch = Math.max(0, 1 - (ms - G.punchAt) / 160);
-      const idle = spriteAnim(p.sp, p.shiny, 'Idle');
-      const px = AW * .62 - bw * .5 - Math.min(idle.fw * (size / 10), AW * .5) * .42;
-      const atkT = (ms - G.punchAt) / 1000, atk = atkT < animLength(p.sp, 'Attack');
-      drawCreature(ac, p.sp, { x: px, y: AH * .8, size, t, maxH: AH * .35, shiny: p.shiny, dir: 'right', anim: atk ? 'Attack' : 'Idle', animT: atk ? atkT : undefined });
-      if (punch > .3) star(ac, AW * .62 - bw * .55, AH * .8 - size * 1.1, size * .25 * punch, t, '#ffd23d');
-      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = Math.max(0, 1 - pp.age * 1.6); ac.fillStyle = pp.txt === '+1' ? '#2b2438' : '#e8503a'; ac.font = '800 20px system-ui'; ac.fillText(pp.txt, pp.x, pp.y - pp.age * 70); ac.globalAlpha = 1; return pp.age < .6; });
-      $('#arenaInfo').innerHTML = icons(`{i:train}${G.hits} &nbsp;{i:sword}+${Math.min(18, Math.floor(G.hits / 4))} &nbsp;${Math.ceil(left / 1000)}s`);
-      ac.textAlign = 'center';
-      if (G.over) {
-        ac.fillStyle = 'rgba(0,0,0,.45)'; ac.fillRect(0, 0, AW, AH);
-        ac.fillStyle = '#fff'; ac.font = '800 28px system-ui'; ac.fillText(`${G.hits} hits!`, AW / 2, AH * .42);
-        ac.font = '700 16px system-ui'; ac.fillText(`Attack training +${(G.result && G.result.atk) || 0}`, AW / 2, AH * .42 + 30);
-      } else if (ms - G.t0 < 2000) {
-        ac.fillStyle = '#2b2438'; ac.font = '700 16px system-ui'; ac.fillText('Tap fast! ~4 hits = +1 strength', AW / 2, AH * .9);
+      if (!G.over && ms > G.next) {                          // pop up a rock in a free hole
+        const used = new Set(G.rocks.filter(r => !r.gone).map(r => r.i));
+        const free = [...Array(cols * rows).keys()].filter(i => !used.has(i));
+        if (free.length) {
+          const i = free[Math.floor(Math.random() * free.length)], s0 = slot(i);
+          const life = Math.max(650, 1400 - G.hits * 25);
+          G.rocks.push({ i, x: s0.x, y: s0.y, born: ms, life, smashed: false });
+        }
+        G.next = ms + Math.max(320, 800 - G.hits * 18);
       }
+      G.rocks.forEach(r => { if (!r.smashed && ms - r.born > r.life) { r.gone = true; } if (r.smashed && ms - r.smashAt > 400) r.gone = true; });
+      G.rocks = G.rocks.filter(r => !r.gone || ms - r.born < 100);
+      // draw: rocky ground with 9 holes
+      const bgr = ac.createLinearGradient(0, 0, 0, AH); bgr.addColorStop(0, '#6b5640'); bgr.addColorStop(1, '#4a3b2c');
+      ac.fillStyle = bgr; ac.fillRect(0, 0, AW, AH);
+      for (let i = 0; i < 40; i++) { ac.fillStyle = 'rgba(0,0,0,.12)'; ac.fillRect(rng(i) * AW, rng(i + 70) * AH, 6, 4); }
+      for (let i = 0; i < cols * rows; i++) { const s0 = slot(i); ac.fillStyle = '#2e241b'; ac.beginPath(); ac.ellipse(s0.x, s0.y + 18, 40, 13, 0, 0, Math.PI * 2); ac.fill(); }
+      for (const r of G.rocks) {
+        const age = ms - r.born, up = Math.min(1, age / 140), down = r.smashed ? 0 : Math.max(0, 1 - (r.life - age) / 160);
+        if (r.smashed) { PX.draw(ac, 'rubble', r.x, r.y + 6, 64, { alpha: Math.max(0, 1 - (ms - r.smashAt) / 400) }); continue; }
+        PX.draw(ac, 'rock', r.x, r.y + 18 - 26 * up * (1 - down), 64);
+      }
+      const size = Math.min(AW, AH) * .12, atk = (ms - G.attackAt) / 1000;
+      drawCreature(ac, p.sp, { x: AW / 2, y: AH * .9, size, t, maxH: AH * .22, shiny: p.shiny, dir: 'front',
+        anim: atk < animLength(p.sp, 'Attack') ? 'Attack' : undefined, animT: atk < animLength(p.sp, 'Attack') ? atk : undefined });
+      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = Math.max(0, 1 - pp.age * 1.8); ac.fillStyle = '#fff'; ac.font = '800 20px "Pixelify Sans", system-ui'; ac.fillText(pp.txt, pp.x - 10, pp.y - pp.age * 60); ac.globalAlpha = 1; return pp.age < .55; });
+      $('#arenaInfo').innerHTML = icons(`{i:rock}${G.hits} &nbsp;{i:sword}+${Math.min(18, Math.floor(G.hits / 2))} &nbsp;${Math.ceil(left / 1000)}s`);
+      ac.textAlign = 'center';
+      if (G.over) { ac.fillStyle = 'rgba(0,0,0,.45)'; ac.fillRect(0, 0, AW, AH); ac.fillStyle = '#fff'; ac.font = '700 30px "Pixelify Sans", system-ui'; ac.fillText(`${G.hits} rocks smashed!`, AW / 2, AH * .45); ac.font = '700 17px "Pixelify Sans", system-ui'; ac.fillText(`Attack training +${(G.result && G.result.atk) || 0}`, AW / 2, AH * .45 + 30); }
+      else if (ms - G.t0 < 2200) { ac.fillStyle = '#fff'; ac.font = '700 17px "Pixelify Sans", system-ui'; ac.fillText('Tap the rocks to smash them!', AW / 2, AH * .74); }
       ac.textAlign = 'left';
+    };
+    arenaGame = G; requestAnimationFrame(G.loop);
+  }
+
+  // ---------- Protect (DEFENCE) ----------
+  function startProtect() {
+    if (!guard()) return;
+    openArena('{i:shield} Protect');
+    const p = Game.pet();
+    const G = { blocks: 0, lives: 3, t0: now(), dur: 25000, orbs: [], next: 0, over: false, endAt: 0, pops: [], hitAt: -9, shieldAt: -9 };
+    const center = () => ({ x: AW / 2, y: AH * .55 });
+    G.down = pos => {
+      if (G.over) return;
+      let best = null, bd = 56;
+      for (const o of G.orbs) { const d = Math.hypot(pos.x - o.x, pos.y - o.y); if (!o.dead && d < bd) { best = o; bd = d; } }
+      if (!best) return;
+      best.dead = true; best.blockAt = now(); G.blocks++; G.shieldAt = now(); Sound.play('catch');
+      G.pops.push({ txt: 'Blocked!', x: best.x, y: best.y, age: 0 });
+    };
+    G.finish = early => {
+      if (G.over) { if (early) closeArena(); return; }
+      G.over = true; G.endAt = now();
+      G.result = Game.trainDefense(G.blocks);
+      if (early) { closeArena(); report(); }
+    };
+    const report = () => {
+      const r = G.result || {};
+      if (r.hearts) addHearts(5);
+      toast(`{i:shield} Blocked ${G.blocks} attacks! DEF training +${r.def || 0}${r.hi ? ' · New record!' : ''}`, 3500);
+      Talk.say(G.blocks >= 15 ? 'trainGood' : 'trainBad');
+    };
+    let last = now();
+    G.loop = () => {
+      if (arenaGame !== G) return;
       requestAnimationFrame(G.loop);
+      const ms = now(), dt = Math.min(.05, (ms - last) / 1000); last = ms; const t = ms / 1000;
+      const left = Math.max(0, G.dur - (ms - G.t0)), c = center();
+      if (!G.over && (left <= 0 || G.lives <= 0)) G.finish(false);
+      if (G.over && ms - G.endAt > 1800) { closeArena(); report(); return; }
+      if (!G.over && ms > G.next) {                           // attacks fly in from the edges
+        const a = Math.random() * Math.PI * 2, rr = Math.hypot(AW, AH) * .55;
+        G.orbs.push({ x: c.x + Math.cos(a) * rr, y: c.y + Math.sin(a) * rr, speed: 90 + G.blocks * 6 + Math.random() * 40 });
+        G.next = ms + Math.max(380, 1100 - G.blocks * 30);
+      }
+      for (const o of G.orbs) {
+        if (o.dead) continue;
+        const dx = c.x - o.x, dy = c.y - o.y, d = Math.hypot(dx, dy);
+        if (d < 34) { o.dead = true; o.hit = true; G.lives--; G.hitAt = ms; Sound.play('miss'); continue; }
+        o.x += dx / d * o.speed * dt; o.y += dy / d * o.speed * dt;
+      }
+      G.orbs = G.orbs.filter(o => !o.dead || (o.blockAt && ms - o.blockAt < 300));
+      // draw: dark arena with a glowing ring
+      const bgr = ac.createRadialGradient(c.x, c.y, 20, c.x, c.y, Math.max(AW, AH) * .7); bgr.addColorStop(0, '#3b3a78'); bgr.addColorStop(1, '#14122e');
+      ac.fillStyle = bgr; ac.fillRect(0, 0, AW, AH);
+      ac.strokeStyle = 'rgba(160,190,255,.25)'; ac.lineWidth = 3; ac.beginPath(); ac.arc(c.x, c.y, 60 + Math.sin(t * 3) * 3, 0, Math.PI * 2); ac.stroke();
+      const size = Math.min(AW, AH) * .1, hurt = ms - G.hitAt < 400;
+      drawCreature(ac, p.sp, { x: c.x, y: c.y + size * .8, size, t, maxH: AH * .18, shiny: p.shiny, dir: 'front', anim: hurt ? 'Hurt' : undefined, animT: hurt ? (ms - G.hitAt) / 1000 : undefined, alpha: hurt && Math.floor(ms / 80) % 2 ? .4 : 1 });
+      if (ms - G.shieldAt < 250) PX.draw(ac, 'shield', c.x, c.y, 64, { alpha: 1 - (ms - G.shieldAt) / 250 });
+      for (const o of G.orbs) {
+        if (o.blockAt) PX.draw(ac, 'sparkle', o.x, o.y, 32, { alpha: 1 - (ms - o.blockAt) / 300 });
+        else PX.draw(ac, 'orb', o.x, o.y, 40, { rot: t * 4 });
+      }
+      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = Math.max(0, 1 - pp.age * 1.8); ac.fillStyle = '#bfe0ff'; ac.font = '800 16px "Pixelify Sans", system-ui'; ac.fillText(pp.txt, pp.x - 26, pp.y - 20 - pp.age * 50); ac.globalAlpha = 1; return pp.age < .55; });
+      $('#arenaInfo').innerHTML = icons(`{i:shield}${G.blocks} &nbsp;${'{i:heart}'.repeat(Math.max(0, G.lives))}${'{i:heartEmpty}'.repeat(3 - Math.max(0, G.lives))} &nbsp;${Math.ceil(left / 1000)}s`);
+      ac.textAlign = 'center';
+      if (G.over) { ac.fillStyle = 'rgba(0,0,0,.45)'; ac.fillRect(0, 0, AW, AH); ac.fillStyle = '#fff'; ac.font = '700 30px "Pixelify Sans", system-ui'; ac.fillText(`${G.blocks} blocked!`, AW / 2, AH * .3); ac.font = '700 17px "Pixelify Sans", system-ui'; ac.fillText(`Defence training +${(G.result && G.result.def) || 0}`, AW / 2, AH * .3 + 30); }
+      else if (ms - G.t0 < 2200) { ac.fillStyle = '#fff'; ac.font = '700 17px "Pixelify Sans", system-ui'; ac.fillText('Tap the attacks before they hit!', AW / 2, AH * .18); }
+      ac.textAlign = 'left';
     };
     arenaGame = G; requestAnimationFrame(G.loop);
   }
@@ -1745,6 +1833,7 @@
   window.addEventListener('pagehide', () => Game.save());
 
   PX.hydrate();
+  PX.onUpdate(() => { PX.hydrate(); if (els && els.name) els.name.dataset.sig = ''; }); // egg picture loaded
   // phones: stop double-tap zoom / pinch zoom from shifting the layout (text fields still work normally)
   let lastTouchEnd = 0;
   document.addEventListener('touchend', e => {

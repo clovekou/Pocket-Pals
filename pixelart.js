@@ -415,6 +415,22 @@ const PX = (() => {
       g.poly([[16, 6], [20, 13], [16, 25], [12, 13]], '#fff4b0', true);
       g.dots([[5, 5], [27, 8], [26, 24], [4, 22]], '#fff7c9');
     },
+    rock: g => {
+      g.poly([[4, 26], [6, 14], [12, 7], [21, 6], [27, 12], [29, 26]], '#9aa0b0');
+      g.line(12, 12, 15, 18, '#6b7080', true); g.line(15, 18, 13, 23, '#6b7080', true); g.line(20, 10, 22, 16, '#6b7080', true);
+      g.rect(10, 9, 4, 2, '#d3d7e2', true);
+    },
+    rubble: g => {
+      g.ell(9, 24, 5, 4, '#9aa0b0').ell(20, 25, 6, 4, '#8a90a0').ell(15, 18, 4, 3, '#a8aebd').ell(25, 19, 3, 3, '#9aa0b0');
+    },
+    orb: g => {   // incoming attack
+      g.ell(16, 16, 11, 11, '#5a2a8a'); g.ell(16, 16, 7, 7, '#8a4fd0', true); g.ell(13, 13, 3, 3, '#d9b8ff', true);
+    },
+    shield: g => {
+      g.poly([[16, 3], [27, 7], [26, 18], [16, 29], [6, 18], [5, 7]], '#4f93c4');
+      g.poly([[16, 7], [23, 10], [22, 18], [16, 25]], '#7fb8e6');
+    },
+    games: g => { D.pokeball(g); },
     // ---- explore ----
     map: g => {
       g.poly([[3, 7], [11, 4], [21, 7], [29, 4], [29, 25], [21, 28], [11, 25], [3, 28]], '#f3e2b3');
@@ -508,5 +524,106 @@ const PX = (() => {
   function hydrate(root = document) {
     root.querySelectorAll('img[data-icon]').forEach(im => { const u = url(im.dataset.icon); if (im.src !== u) im.src = u; });
   }
-  return { get, url, draw, hydrate, names: () => Object.keys(D) };
+  // ---------- the egg picture (assets/egg.png) replaces the drawn eggs ----------
+  const listeners = [];
+  (function loadEgg() {
+    if (typeof document === 'undefined') return;
+    const im = new Image();
+    im.onload = () => {
+      try {
+        const W = im.naturalWidth, H = im.naturalHeight;
+        const big = document.createElement('canvas'); big.width = W; big.height = H;
+        const bg = big.getContext('2d'); bg.drawImage(im, 0, 0);
+        const px = bg.getImageData(0, 0, W, H).data;
+        // the picture is pixel art drawn big: find how many screen pixels make one art pixel
+        const runs = [];
+        for (const yy of [Math.floor(H * .35), Math.floor(H * .5), Math.floor(H * .65)]) {
+          let run = 1;
+          for (let x = 1; x < W; x++) {
+            const i = (yy * W + x) * 4, j = i - 4;
+            const same = Math.abs(px[i] - px[j]) + Math.abs(px[i + 1] - px[j + 1]) + Math.abs(px[i + 2] - px[j + 2]) + Math.abs(px[i + 3] - px[j + 3]) < 24;
+            if (same) run++; else { if (run >= 3) runs.push(run); run = 1; }
+          }
+        }
+        runs.sort((a, b) => a - b);
+        let block = runs.length ? runs[Math.floor(runs.length * .2)] : 1;
+        if (!(block >= 2 && block <= 40)) block = Math.max(1, Math.round(Math.max(W, H) / 30));
+        const nw = Math.round(W / block), nh = Math.round(H / block), size = Math.max(nw, nh, 1);
+        // sample the centre of each art pixel into a small, square canvas
+        const base = document.createElement('canvas'); base.width = size; base.height = size;
+        const g = base.getContext('2d'), out = g.createImageData(size, size), ox = Math.floor((size - nw) / 2), oy = size - nh;
+        for (let y = 0; y < nh; y++) for (let x = 0; x < nw; x++) {
+          const sx = Math.min(W - 1, Math.floor((x + .5) * W / nw)), sy = Math.min(H - 1, Math.floor((y + .5) * H / nh));
+          const i = (sy * W + sx) * 4, o = ((y + oy) * size + x + ox) * 4;
+          out.data[o] = px[i]; out.data[o + 1] = px[i + 1]; out.data[o + 2] = px[i + 2]; out.data[o + 3] = px[i + 3] > 100 ? 255 : 0;
+        }
+        // the picture has a solid background: clear everything connected to the border that matches it
+        {
+          const d = out.data, at = (x, y) => (y * size + x) * 4;
+          const bgc = [d[at(0, 0)], d[at(0, 0) + 1], d[at(0, 0) + 2]];
+          const near = i => d[i + 3] > 0 && Math.abs(d[i] - bgc[0]) + Math.abs(d[i + 1] - bgc[1]) + Math.abs(d[i + 2] - bgc[2]) < 60;
+          const seen = new Uint8Array(size * size), stack = [];
+          for (let k = 0; k < size; k++) stack.push([k, 0], [k, size - 1], [0, k], [size - 1, k]);
+          while (stack.length) {
+            const [x, y] = stack.pop();
+            if (x < 0 || y < 0 || x >= size || y >= size || seen[y * size + x]) continue;
+            seen[y * size + x] = 1;
+            const i = at(x, y);
+            if (d[i + 3] === 0 || near(i)) { d[i + 3] = 0; stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]); }
+          }
+        }
+        g.putImageData(out, 0, 0);
+        const tint = (tier) => {      // green spots -> blue (rare) / gold (legendary)
+          const c = document.createElement('canvas'); c.width = size; c.height = size;
+          const cg = c.getContext('2d'); cg.drawImage(base, 0, 0);
+          if (tier === 'common') return c;
+          const d = cg.getImageData(0, 0, size, size);
+          for (let i = 0; i < d.data.length; i += 4) {
+            const r = d.data[i], gg = d.data[i + 1], b = d.data[i + 2];
+            if (gg > r + 12 && gg > b + 12) {
+              const l = (r + gg + b) / 3 / 255;
+              const [R2, G2, B2] = tier === 'rare' ? [70, 130, 230] : [235, 175, 40];
+              d.data[i] = R2 * (.55 + l * .6); d.data[i + 1] = G2 * (.55 + l * .6); d.data[i + 2] = B2 * (.55 + l * .6);
+            }
+          }
+          cg.putImageData(d, 0, 0); return c;
+        };
+        const crack = (c, k) => {     // zig-zag cracks across the top half
+          const cg = c.getContext('2d'); cg.fillStyle = '#2b2438';
+          const pts = [[.2, .42], [.32, .36], [.42, .44], [.52, .34], [.62, .42], [.74, .35], [.84, .43]];
+          const upto = k === 1 ? 4 : pts.length;
+          for (let i = 0; i < upto - 1; i++) {
+            const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], steps = Math.max(2, Math.round(size * .14));
+            for (let t = 0; t <= steps; t++) cg.fillRect(Math.round((x0 + (x1 - x0) * t / steps) * size), Math.round((y0 + (y1 - y0) * t / steps) * size), 1, 1);
+          }
+          return c;
+        };
+        ['common', 'rare', 'legend'].forEach(tier => {
+          for (let k = 0; k <= 2; k++) {
+            const c = tint(tier);
+            if (k) crack(c, k);
+            // pad into the 32-grid size the drawing code expects
+            const sq = document.createElement('canvas'); sq.width = sq.height = Math.max(32, size);
+            sq.getContext('2d').drawImage(c, Math.floor((sq.width - size) / 2), sq.height - size);
+            cache[`egg_${tier}_${k}`] = sq; delete urls[`egg_${tier}_${k}`];
+          }
+        });
+        listeners.forEach(f => f());
+      } catch (e) { /* opened as a local file: keep the drawn eggs */ }
+    };
+    im.src = 'assets/egg.png';
+  })();
+  /** draw: like PX.draw but for sprites bigger than 32 (keeps whole pixels) */
+  const draw0 = draw;
+  function drawAny(ctx, name, x, y, size, opts) {
+    const c = get(name);
+    if (c.width === N) return draw0(ctx, name, x, y, size, opts);
+    const w = size, s = w / c.width;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    if (opts && opts.alpha != null) ctx.globalAlpha *= opts.alpha;
+    if (opts && opts.rot) { ctx.translate(x, y); ctx.rotate(opts.rot); ctx.drawImage(c, -w / 2, -w / 2, w, c.height * s); }
+    else ctx.drawImage(c, Math.round(x - w / 2), Math.round(y - w / 2), w, c.height * s);
+    ctx.restore();
+  }
+  return { get, url, draw: drawAny, hydrate, names: () => Object.keys(D), onUpdate: f => listeners.push(f) };
 })();

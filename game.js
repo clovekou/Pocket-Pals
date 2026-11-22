@@ -303,6 +303,18 @@ const Game = (() => {
     addBond(2);
     afterCare(); return { atk: p.tr.atk - before, hi, hearts: hits >= 20 };
   }
+  function trainDefense(blocks) {
+    const b = blocked(); if (b) return { error: b };
+    const p = S.pet; registerCare();
+    const before = p.tr.def;
+    p.tr.def = Math.min(100, p.tr.def + Math.min(18, Math.floor(blocks / 3)));
+    p.ene = dropTo(p.ene, 12, 5); p.food = dropTo(p.food, 5, 5);
+    p.weight = Math.max(0, p.weight - Math.floor(blocks / 3));
+    p.joy = clamp(p.joy + 6);
+    const hi = blocks > (S.player.defHi || 0); if (hi) S.player.defHi = blocks;
+    addBond(2);
+    afterCare(); return { def: p.tr.def - before, hi, hearts: blocks >= 15 };
+  }
   function toggleSleep() {
     const b = blocked(false); if (b) return { error: b };
     S.pet.asleep = !S.pet.asleep; save(); emit('change');
@@ -616,7 +628,7 @@ const Game = (() => {
   return {
     load, save, reset, update, setFast, on: f => listeners.push(f),
     get state() { return S; }, pet, sp, level, lowest, msPerMin,
-    pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, toggleSleep, clean, caress, rename,
+    pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
     ITEMS, EXPLORE_MAX_FLOOR, FRAGMENTS_TO_SUMMON, isSpecial, pickMysterySpecies, rollLegend, catchLegend, addFragment, summonLegend,
