@@ -26,7 +26,10 @@
       if (ac.state === 'suspended') ac.resume();
     }
     function play(n) {
-      if (!ST().settings.sound || !ac) return;
+      try { playUnsafe(n); } catch (e) { /* audio hiccup (e.g. Safari after locking the screen) — ignore */ }
+    }
+    function playUnsafe(n) {
+      if (!ST().settings.sound || !ac || ac.state === 'closed') return;
       const seq = SFX[n]; if (!seq) return;
       let t = ac.currentTime + .01;
       for (const [f, d] of seq) {
@@ -822,7 +825,7 @@
       if (p.egg) {
         V.eggWobbleUntil = now() + 400; Sound.play('tap');
         const r2 = Game.eggTap();
-        if (r2 === 'hatched') onHatched(); else Talk.say('eggTap');
+        if (r2 !== 'hatched') Talk.say('eggTap'); // hatching itself is handled by the 'hatch' event
       } else if (p.asleep) { Talk.say('petAsleep'); }
       else {
         const sad = Game.lowest() < 25;
@@ -1070,14 +1073,27 @@
 
   let last = now(), hudAt = 0;
   function frame() {
+    requestAnimationFrame(frame);            // schedule first: one bad frame must never stop the game
+    try { frameBody(); } catch (e) { reportError(e); }
+  }
+  function frameBody() {
     const ms = now(), dt = Math.min(.05, (ms - last) / 1000); last = ms; const t = ms / 1000;
     Game.update(Date.now());
     const cp = Game.pet();
     if (cp && !cp.egg && V.loaded !== cp.sp + ':' + cp.shiny) { V.loaded = cp.sp + ':' + cp.shiny; preloadSpecies(cp.sp, cp.shiny); SPECIES_BY_ID[cp.sp].next.forEach(n => preloadSpecies(n, cp.shiny)); }
     if (!arenaGame) { stepView(t, dt); draw(t, ms); }
-    if (ms - hudAt > 250) { hud(); hudAt = ms; chatter(ms); }
-    requestAnimationFrame(frame);
+    if (ms - hudAt > 250) { hudAt = ms; hud(); chatter(ms); }
   }
+  // show (once) what went wrong, so it can be reported — the game keeps running regardless
+  const seenErrors = new Set();
+  function reportError(e) {
+    const msg = (e && (e.message || e)) + '';
+    console.error(e);
+    if (seenErrors.has(msg)) return;
+    seenErrors.add(msg);
+    try { toast('Something went wrong (' + msg.slice(0, 80) + ') — the game kept running.', 6000); } catch (_) {}
+  }
+  window.__pocketPalError = reportError;
   document.addEventListener('visibilitychange', () => { if (document.hidden) Game.save(); });
   window.addEventListener('pagehide', () => Game.save());
 

@@ -26,7 +26,11 @@ const Game = (() => {
   let S = null;
   const listeners = [];
   let quiet = false;
-  const emit = (ev, d) => { if (!quiet || ev === 'save') listeners.forEach(f => f(ev, d)); };
+  const emit = (ev, d) => {
+    if (quiet && ev !== 'save') return;
+    // a UI error while reacting to an event must never break the game state
+    listeners.forEach(f => { try { f(ev, d); } catch (e) { if (typeof window !== 'undefined' && window.__pocketPalError) window.__pocketPalError(e); } });
+  };
   const clamp = v => Math.max(0, Math.min(100, v));
   const dropTo = (v, amt, floor) => (v <= floor ? v : Math.max(floor, v - amt));
   const rnd = n => Math.floor(Math.random() * n);

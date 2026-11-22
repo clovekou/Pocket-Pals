@@ -134,18 +134,21 @@ const Talk = (() => {
     closeAt = performance.now() + (queue.length ? 6000 : 2600 + cur.text.length * 35);
   }
   function loop() {
+    requestAnimationFrame(loop);              // schedule first so an error can't freeze the dialogue
+    try { step(); } catch (e) { if (window.__pocketPalError) window.__pocketPalError(e); }
+  }
+  function step() {
     const now = performance.now(); // same clock as lastType/closeAt
     if (cur && typing) {
       const want = Math.min(cur.text.length, shown + Math.floor((now - lastType) / 1000 * CPS));
       if (want > shown) {
-        if (Math.floor(want / 3) > Math.floor(shown / 3) && /\S/.test(cur.text[want - 1] || '')) sound(cur.emo ? 'blip' : 'blipLow');
+        if (Math.floor(want / 3) > Math.floor(shown / 3) && /\S/.test(cur.text[want - 1] || '')) { try { sound(cur.emo ? 'blip' : 'blipLow'); } catch (e) {} }
         shown = want; lastType = now; textEl.textContent = cur.text.slice(0, shown);
         if (shown >= cur.text.length) { typing = false; afterTyped(); }
       }
     } else if (cur && closeAt && now > closeAt) {
       next();
     }
-    requestAnimationFrame(loop);
   }
   function clear() { queue = []; cur = null; box && box.classList.add('hidden'); prio = 0; }
 
