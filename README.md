@@ -41,6 +41,12 @@ You can also double-click `index.html` to play, but the dashboard only works thr
   target makes a branch), egg rarity, whether it's a starter, and ATK/DEF/SPD.
 - Press **Save changes**, then refresh the game.
 
+## Party
+Keep up to 6 Pokémon. Your main (marked with a ▼) is the one you care for; the others
+wander, nap, play and chat with each other in the background, and their needs pause while
+they rest. Open **Party** to switch your main (or tap one on the home screen), release one,
+or take a new egg once your main is Lv 5.
+
 ## Backgrounds
 In the dashboard's **Backgrounds** section you can upload your own scene pictures
 (PNG/JPG/GIF/WebP) and pick one for every scene or a different one per landscape
@@ -49,8 +55,9 @@ images are stored in `backgrounds/`, so they go online too when you push. Scenes
 picture use the built-in animated scenery.
 
 ## Look
-Dark, glassy mobile UI with 32×32 pixel-art icons for every item and button (berries,
-candy, poop, stars, hearts, eggs, medals…), drawn in code in `pixelart.js` — no emoji.
+Pokémon-game style UI: cream menu boxes, HP-style need bars, a Pokédex-red menu header and a
+pixel font. 32×32 pixel-art icons drawn in code in `pixelart.js` (Pecha/Aspear/Cheri berries,
+Poffins, Poké Balls, Gym-style badges, eggs…) — no emoji.
 
 ## Talking
 The Pokémon talks in a Mystery Dungeon-style text box, using the emotion portrait

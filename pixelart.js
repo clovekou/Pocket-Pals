@@ -325,6 +325,103 @@ const PX = (() => {
       g.rect(7, 14, 18, 14, '#ffc93d'); g.rect(10, 6, 3, 9, '#9aa3b3'); g.rect(19, 6, 3, 9, '#9aa3b3'); g.rect(10, 5, 12, 3, '#9aa3b3');
       g.rect(15, 19, 2, 5, OUT, true);
     },
+    // ---- Pokémon-style items ----
+    pecha: g => {   // sweet: soft pink peach-like berry
+      g.ell(16, 19, 11, 10, '#ffa3c7');
+      g.line(16, 10, 16, 15, '#e0679a', true); g.line(15, 15, 17, 15, '#e0679a', true);
+      g.poly([[16, 9], [9, 4], [8, 7], [13, 10]], LEAF).poly([[17, 9], [24, 4], [25, 7], [20, 10]], LEAF);
+      g.rect(9, 15, 3, 2, '#ffe1ee', true); g.set(9, 17, '#ffe1ee', true);
+    },
+    aspear: g => {  // sour: yellow pear-shaped berry with bumps
+      g.ell(16, 21, 10, 8.5, '#f3d23c').ell(16, 12, 6.5, 6, '#f3d23c');
+      g.dots([[11, 20], [15, 24], [20, 19], [18, 13], [13, 14], [22, 23]], '#c9a414');
+      g.line(16, 6, 17, 3, STEM, true, 2);
+      g.poly([[17, 5], [24, 3], [23, 6]], LEAF);
+      g.rect(11, 10, 2, 3, '#fff6b8', true);
+    },
+    cheri: g => {   // spicy: twin red berries on joined stems
+      g.ell(10, 21, 7, 7, '#e8282b').ell(22, 21, 7, 7, '#e8282b');
+      g.line(10, 14, 15, 5, '#3f9a3a', true, 2); g.line(22, 14, 17, 5, '#3f9a3a', true, 2);
+      g.poly([[15, 5], [9, 2], [8, 5]], LEAF).poly([[17, 5], [23, 2], [24, 5]], LEAF);
+      g.rect(6, 18, 2, 2, '#ff9c9c', true); g.rect(18, 18, 2, 2, '#ff9c9c', true);
+    },
+    oran: g => {    // the food icon: round blue berry
+      g.ell(16, 18, 11, 11, '#4a86e8');
+      g.dots([[11, 16], [17, 13], [21, 19], [14, 23], [19, 24]], '#2e5fb8');
+      g.line(16, 7, 16, 3, STEM, true, 2);
+      g.poly([[16, 6], [8, 2], [7, 5], [12, 8]], LEAF).poly([[17, 6], [25, 3], [25, 6], [21, 8]], LEAF);
+      g.rect(10, 12, 3, 2, '#cfe1ff', true);
+    },
+    poffin: g => {  // treat: little iced muffin
+      g.poly([[7, 18], [25, 18], [23, 28], [9, 28]], '#d99a52');
+      g.rect(9, 20, 2, 7, '#b77b3a', true); g.rect(15, 20, 2, 8, '#b77b3a', true); g.rect(21, 20, 2, 7, '#b77b3a', true);
+      g.ell(16, 15, 12, 7, '#ff8fbd');
+      g.dots([[11, 13], [16, 11], [21, 14], [13, 17], [19, 16]], '#fff3a0');
+      g.rect(12, 10, 3, 2, '#ffd3e6', true);
+    },
+    pokeball: g => {
+      g.ell(16, 16, 13.5, 13.5, '#ee1515');
+      for (let y = 16; y < 32; y++) for (let x = 0; x < 32; x++) if (g.get(x, y)) g.set(x, y, '#f4f4f4');
+      g.rect(3, 15, 27, 3, '#2b2438', true);
+      g.ell(16, 16.5, 5, 5, '#2b2438', true).ell(16, 16.5, 3, 3, '#ffffff', true);
+      g.rect(8, 7, 4, 2, '#ff9a9a', true); g.rect(7, 9, 2, 2, '#ff9a9a', true);
+    },
+    greatball: g => {
+      D.pokeball(g);
+      for (let y = 0; y < 15; y++) for (let x = 0; x < 32; x++) { const p = g.get(x, y); if (p && p.c === '#ee1515') g.set(x, y, '#2f6fe0'); }
+      g.poly([[5, 9], [10, 6], [11, 9], [7, 12]], '#ee1515', true).poly([[27, 9], [22, 6], [21, 9], [25, 12]], '#ee1515', true);
+      g.rect(8, 7, 3, 2, '#9cc0ff', true);
+    },
+    ultraball: g => {
+      D.pokeball(g);
+      for (let y = 0; y < 15; y++) for (let x = 0; x < 32; x++) { const p = g.get(x, y); if (p && (p.c === '#ee1515' || p.c === '#ff9a9a')) g.set(x, y, '#2d2d33'); }
+      g.rect(9, 3, 3, 12, '#ffcb05', true); g.rect(20, 3, 3, 12, '#ffcb05', true);
+    },
+    pokedex: g => {
+      g.rect(5, 3, 22, 26, '#e3350d');
+      g.ell(11, 9, 4, 4, '#ffffff', true).ell(11, 9, 3, 3, '#3fa9f5', true); g.rect(10, 7, 1, 1, '#ffffff', true);
+      g.ell(18, 7, 1.4, 1.4, '#ff6a6a', true).ell(21, 7, 1.4, 1.4, '#ffd23d', true).ell(24, 7, 1.4, 1.4, '#58d068', true);
+      g.rect(8, 15, 16, 11, '#2b2438', true); g.rect(9, 16, 14, 9, '#a8e0b0', true);
+      g.rect(10, 18, 6, 1, '#4f8f5a', true); g.rect(10, 21, 9, 1, '#4f8f5a', true);
+    },
+    arrow: g => {   // "this is your main" marker
+      g.poly([[4, 8], [28, 8], [16, 26]], '#ffcb05');
+      g.poly([[9, 11], [16, 11], [14, 18]], '#fff3a8', true);
+    },
+    chat: g => {    // speech bubble with dots
+      g.ell(16, 13, 13, 10, '#ffffff', true);
+      g.poly([[9, 19], [15, 21], [7, 29]], '#ffffff', true);
+      [10, 16, 22].forEach(x => g.rect(x - 1, 12, 3, 3, '#2b2438', true));
+    },
+    note: g => {    // music note
+      g.rect(18, 5, 3, 17, '#2b2438', true); g.poly([[21, 5], [28, 9], [28, 13], [21, 9]], '#2b2438', true);
+      g.ell(14, 23, 6, 5, '#ff6fb5');
+    },
+    party: g => {   // three little Poké Balls
+      [[10, 20], [22, 20], [16, 10]].forEach(([x, y]) => {
+        g.ell(x, y, 7, 7, '#ee1515');
+        for (let yy = y; yy < y + 8; yy++) for (let xx = x - 8; xx < x + 8; xx++) { const p = g.get(xx, yy); if (p && p.c === '#ee1515') g.set(xx, yy, '#f4f4f4'); }
+        g.rect(x - 7, y - 1, 14, 2, '#2b2438', true); g.ell(x, y, 2.2, 2.2, '#2b2438', true); g.ell(x, y, 1.2, 1.2, '#ffffff', true);
+      });
+    },
+    // Gym-style badges
+    badgeBoulder: g => { g.poly([[11, 4], [21, 4], [28, 11], [28, 21], [21, 28], [11, 28], [4, 21], [4, 11]], '#a8aab8'); g.rect(10, 9, 4, 3, '#e6e8f2', true); },
+    badgeCascade: g => { g.poly([[16, 3], [25, 16], [26, 22], [16, 29], [6, 22], [7, 16]], '#4fb6ff'); g.rect(11, 14, 3, 5, '#d6f0ff', true); },
+    badgeThunder: g => {
+      const pts = []; for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8, r = i % 2 ? 7 : 14; pts.push([16 + Math.cos(a) * r, 16 + Math.sin(a) * r]); }
+      g.poly(pts, '#ffa43a'); g.ell(16, 16, 4, 4, '#ffd98a', true);
+    },
+    badgeRainbow: g => {
+      [['#ff6a6a', 16, 8], ['#ffd23d', 24, 16], ['#58d068', 16, 24], ['#4f9bff', 8, 16]].forEach(([c, x, y]) => g.ell(x, y, 6, 6, c));
+      g.ell(16, 16, 4, 4, '#ffffff');
+    },
+    badgeSoul: g => { g.ell(11, 13, 7, 7, '#ff6fb5').ell(21, 13, 7, 7, '#ff6fb5'); g.poly([[4, 15], [28, 15], [16, 28]], '#ff6fb5'); g.rect(8, 9, 3, 2, '#ffd0e6', true); },
+    badgeMarsh: g => { g.ell(16, 16, 13, 13, '#ffcb05'); g.ell(16, 16, 7, 7, null); g.ell(16, 16, 4, 4, '#ffcb05'); g.rect(8, 8, 3, 3, '#fff3b0', true); },
+    badgeVolcano: g => { D.flame(g); },
+    badgeEarth: g => {
+      g.poly([[16, 3], [25, 10], [27, 19], [20, 27], [16, 29], [12, 27], [5, 19], [7, 10]], '#4fbf4a');
+      g.line(16, 6, 16, 27, '#2f7f2c', true); g.line(16, 14, 22, 10, '#2f7f2c', true); g.line(16, 19, 10, 15, '#2f7f2c', true);
+    },
   };
   // eggs (3 rarities × 0–2 cracks)
   const EGG = { common: ['#fbf6ea', '#6fbf73'], rare: ['#e6f1ff', '#4f93c4'], legend: ['#fff1c4', '#e0a81f'] };

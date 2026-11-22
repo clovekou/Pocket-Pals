@@ -260,6 +260,7 @@
     const p = Game.pet();
     if (t > V.nextBlink) { V.blinkUntil = t + .14; V.nextBlink = t + 2.5 + Math.random() * 3; }
     V.moving = false;
+    syncPals(t); stepPals(t, dt);
     // rise smoothly above the dialogue box while talking, settle back afterwards
     V.lift += (talkLift() - V.lift) * Math.min(1, dt * 8);
     if (Talk.busy && !V.anim) {           // keep clear of the portrait square on the left
@@ -276,6 +277,70 @@
     } else if (p && p.asleep) { V.x += (.5 - V.x) * Math.min(1, dt * 2); }
     V.hearts = V.hearts.filter(h => { h.age += dt; h.y -= h.vy * dt; return h.age < h.life; });
     V.fx = V.fx.filter(f => { f.age += dt; f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 60 * dt; return f.age < f.life; });
+  }
+
+  // ---------- party Pokémon in the background ----------
+  const PAL_ACTS = ['wander', 'wander', 'sleep', 'play', 'chat', 'chat'];
+  V.pals = [];
+  function syncPals(t) {
+    const party = Game.party();
+    const sig = party.map(m => m.sp + (m.shiny ? 's' : '')).join(',');
+    if (V.palSig === sig) return;
+    V.palSig = sig;
+    V.pals = party.map((m, i) => {
+      const old = V.pals.find(p => p.sp === m.sp && p.shiny === m.shiny);
+      return old || { sp: m.sp, shiny: m.shiny, x: .12 + Math.random() * .76, tx: .5, flip: Math.random() < .5, act: 'wander', until: 0, t0: t,
+        depth: .62 + (i % 3) * .04 + Math.random() * .02 };
+    });
+    party.forEach(m => preloadSpecies(m.sp, m.shiny));
+  }
+  function stepPals(t, dt) {
+    const pals = V.pals;
+    pals.forEach((p, i) => {
+      if (t > p.until) {                                  // pick a new activity
+        p.act = PAL_ACTS[Math.floor(Math.random() * PAL_ACTS.length)];
+        p.until = t + 7 + Math.random() * 9; p.t0 = t;
+        p.tx = .1 + Math.random() * .8;
+        if (p.act === 'chat') {                           // walk over to a friend (another pal, or the main)
+          const others = pals.filter(q => q !== p);
+          p.friend = others.length && Math.random() < .85 ? others[Math.floor(Math.random() * others.length)] : 'main';
+        }
+      }
+      let target = p.tx;
+      if (p.act === 'chat') {
+        const fx = p.friend === 'main' ? V.x : p.friend.x;
+        target = Math.max(.06, Math.min(.94, fx + (p.x < fx ? -1 : 1) * (p.friend === 'main' ? .24 : .15)));
+        if (p.friend !== 'main' && p.friend.act !== 'chat') { p.friend.act = 'chat'; p.friend.friend = p; p.friend.until = p.until; p.friend.t0 = t; }
+      }
+      p.moving = false;
+      if (p.act === 'wander' || p.act === 'chat') {
+        const d = target - p.x;
+        if (Math.abs(d) > .006) { p.x += Math.sign(d) * Math.min(Math.abs(d), dt * .05); p.flip = d < 0; p.moving = true; }
+        else if (p.act === 'chat') { const fx = p.friend === 'main' ? V.x : p.friend.x; p.flip = fx < p.x; }
+        else if (Math.random() < dt * .3) p.tx = .1 + Math.random() * .8;
+      }
+    });
+  }
+  function drawPal(p, t) {
+    const fy = H * p.depth - V.lift * .5;
+    const size = baseSize() * .55 * stageScale(p.sp), x = p.x * W;
+    cx.fillStyle = 'rgba(0,0,0,.14)'; cx.beginPath(); cx.ellipse(x, fy, size * .8, size * .16, 0, 0, Math.PI * 2); cx.fill();
+    const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
+    const pos = drawCreature(cx, p.sp, {
+      x, y: fy, size, t: t + p.depth * 10, maxH: H * .22, shiny: p.shiny, sleep: sleeping, walking: p.moving, flip: p.flip,
+      anim: playing ? 'Hop' : undefined, animT: playing ? ((t - p.t0) % Math.max(.4, animLength(p.sp, 'Hop') + .5)) : undefined,
+    });
+    const top = pos ? pos.top : fy - size * 2;
+    if (sleeping) {
+      const ph = (t * .4 + p.depth) % 1;
+      PX.draw(cx, 'z', x + size * .5, top - 4 - ph * 18, 16, { alpha: 1 - ph });
+    } else if (p.act === 'chat' && !p.moving) {
+      const turn = Math.floor((t - p.t0) / 1.6) % 2 === (p.friend !== 'main' && V.pals.indexOf(p) > V.pals.indexOf(p.friend) ? 1 : 0);
+      if (turn) PX.draw(cx, Math.floor((t - p.t0) / 3.2) % 3 === 2 ? 'note' : 'chat', x + (p.flip ? -1 : 1) * size * .4, top - 12, 24);
+    } else if (playing && Math.sin(t * 3 + p.depth * 20) > .85) {
+      PX.draw(cx, 'note', x, top - 10, 20);
+    }
+    p.hit = { x, top, fy, w: Math.max(28, size * 1.2) };
   }
 
   function drawPet(t, ms) {
@@ -295,17 +360,20 @@
     const x = V.x * W;
     cx.fillStyle = 'rgba(0,0,0,.18)'; cx.beginPath(); cx.ellipse(x, fy, size * .85, size * .18, 0, 0, Math.PI * 2); cx.fill();
     const hopT = (ms - V.hopAt) / 1000, hopping = hopT < animLength(p.sp, 'Hop') && !p.asleep;
-    drawCreature(cx, p.sp, {
+    const mainPos = drawCreature(cx, p.sp, {
       x, y: fy, size, t, maxH: H * .42, shiny: p.shiny, sleep: p.asleep, blink: t < V.blinkUntil,
       eat: ms < V.eatUntil, flip: V.flip, walking: V.moving,
       anim: hopping ? 'Hop' : (!V.moving && ms >= V.eatUntil && !p.asleep && Game.lowest() < 15 ? 'Hurt' : undefined),
       animT: hopping ? hopT : undefined,
     });
+    if (mainPos && Game.party().length) {               // ▼ marks your main when others are around
+      PX.draw(cx, 'arrow', x, mainPos.top - 16 - Math.abs(Math.sin(t * 3)) * 6, 24);
+    }
     if (p.shiny && !p.asleep && Math.sin(t * 1.3) > .97) addSparkles(x + (Math.random() - .5) * size * 2, fy - size * (1 + Math.random() * 1.2), 1, '#fff');
     if (ms < V.eatUntil) {
       const k = (V.eatUntil - ms) / 2500, dir = V.flip ? -1 : 1;
       const bx = x + dir * size * .9, by = fy - size * 1.2;
-      PX.draw(cx, V.eatIcon || 'berrySweet', bx, by, Math.max(16, Math.round((size * .7 * k + 8) / 8) * 8));
+      PX.draw(cx, V.eatIcon || 'pecha', bx, by, Math.max(16, Math.round((size * .7 * k + 8) / 8) * 8));
       if (Math.random() < .2) V.fx.push({ kind: 'crumb', x: bx, y: by, vx: (Math.random() - .5) * 60, vy: -30, life: .5, age: 0, col: V.eatColor });
     }
     if (p.asleep) {
@@ -429,7 +497,7 @@
     if (p && !p.egg) for (let i = 0; i < p.poops; i++) drawPoop(POOP_X[i] * W, feetY() - 2 + i * 4, t, i);
     if (V.anim && V.anim.type === 'evolve') drawEvolve(t, ms);
     else if (V.anim) drawEnding(t, ms);
-    else { drawPet(t, ms); drawBath(t, ms); }
+    else { V.pals.slice().sort((a, b) => a.depth - b.depth).forEach(p => drawPal(p, t)); drawPet(t, ms); drawBath(t, ms); }
     drawFx();
   }
 
@@ -461,13 +529,14 @@
       b.fill.style.width = v + '%';
       b.val.textContent = p.egg ? '–' : Math.round(v);
       b.el.classList.toggle('low', !p.egg && v <= 20);
+      b.el.classList.toggle('mid', !p.egg && v > 20 && v <= 50);
     }
     const asleep = !p.egg && p.asleep;
     const li = PX.url(asleep ? 'wake' : 'sleep'); if (els.lightIcon.src !== li) els.lightIcon.src = li;
     els.lightLbl.textContent = asleep ? 'Wake' : 'Sleep';
     document.querySelectorAll('#actions button').forEach(b => {
       const a = b.dataset.act;
-      const off = (p.egg && a !== 'dex') || (asleep && ['feed', 'play', 'train'].includes(a));
+      const off = (p.egg && a !== 'dex' && a !== 'party') || (asleep && ['feed', 'play', 'train'].includes(a));
       b.classList.toggle('off', off);
     });
     els.hint.textContent = !S.player.starterPicked ? '' : p.egg ? 'Tap the egg 3× to hatch it' : '';
@@ -516,7 +585,7 @@
         if (!c.isConnected && c.dataset.painted) return;
         const px = +c.dataset.px, g = c.getContext('2d'), id = +c.dataset.mini;
         g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, px, px);
-        drawCreature(g, id, { x: px / 2, y: px * .9, size: px * .3 * Math.min(1.05, stageScale(id)), maxH: px * .8, t: .3, shiny: !!c.dataset.shiny, silhouette: c.dataset.sil ? '#544883' : false, still: true });
+        drawCreature(g, id, { x: px / 2, y: px * .9, size: px * .3 * Math.min(1.05, stageScale(id)), maxH: px * .8, t: .3, shiny: !!c.dataset.shiny, silhouette: c.dataset.sil ? '#9da2b8' : false, still: true });
         c.dataset.painted = 1;
       };
       paint();
@@ -550,22 +619,22 @@
     if (!guard()) return;
     const p = Game.pet(), s = Game.sp();
     const known = p.berryKnown;
-    openSheet(head('Feed') + `<div class="foods">
-      ${FLAVORS.map((f, i) => `<button class="food" data-f="${i}">${ic(['berrySweet', 'berrySour', 'berrySpicy'][i]).replace('class="ic"', 'class="px"')}<span><b>${f.label}</b><small>+25 food${known && s.fav === i ? ' · favourite!' : ''}</small></span>${known && s.fav === i ? '<span class="heart">{i:heart}</span>' : ''}</button>`).join('')}
-      <button class="food" data-f="candy">${ic('candy').replace('class="ic"', 'class="px"')}<span><b>Candy</b><small>+10 food, +12 joy, fattening</small></span></button>
-      </div><p class="muted" style="margin-top:12px">${known ? `It loves the ${FLAVORS[s.fav].label.toLowerCase()}.` : 'Every creature has a hidden favourite berry. Try them all!'}</p>`);
+    openSheet(head('Berries') + `<div class="foods">
+      ${FLAVORS.map((f, i) => `<button class="food" data-f="${i}">${ic(f.icon).replace('class="ic"', 'class="px"')}<span><b>${f.label}</b><small>${f.taste} · +25 food${known && s.fav === i ? ' · favourite!' : ''}</small></span>${known && s.fav === i ? '<span class="heart">{i:heart}</span>' : ''}</button>`).join('')}
+      <button class="food" data-f="candy">${ic('poffin').replace('class="ic"', 'class="px"')}<span><b>Poffin</b><small>Treat · +12 happy, fattening</small></span></button>
+      </div><p class="muted" style="margin-top:12px">${known ? `Its favourite is the ${FLAVORS[s.fav].label} (${FLAVORS[s.fav].taste.toLowerCase()}).` : 'Every Pokémon has a hidden favourite berry. Try them all!'}</p>`);
     sheet.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
       const f = b.dataset.f; closeSheet();
       const foodBefore = Game.pet().food;
       if (f === 'candy') {
         const r = Game.feedCandy(); if (r.error) return;
-        startEat('#ff8fb3', 'candy');
-        toast(Game.pet().weight > 50 ? 'Yum! …but it\'s getting chubby (sluggish).' : 'Sweet! +JOY');
+        startEat('#ff8fb3', 'poffin');
+        toast(Game.pet().weight > 50 ? 'Yum! …but it\'s getting chubby (sluggish).' : 'Yum! +Happy');
         Talk.say(Game.pet().weight > 50 ? 'candyHeavy' : 'candy');
       } else {
         const r = Game.feedBerry(+f); if (r.error) return;
-        startEat(FLAVORS[+f].color, ['berrySweet', 'berrySour', 'berrySpicy'][+f]);
-        const berry = FLAVORS[+f].label.toLowerCase();
+        startEat(FLAVORS[+f].color, FLAVORS[+f].icon);
+        const berry = FLAVORS[+f].label;
         if (r.fav) { addHearts(6); toast(r.first ? `{i:heart} It LOVES ${berry}s! Favourite found.` : '{i:heart} Its favourite!'); Talk.say(r.first ? 'favFirst' : 'fav', { vars: { berry } }); }
         else { toast('+25 food'); Talk.say(foodBefore >= 90 ? 'berryFull' : 'berry'); }
       }
@@ -612,6 +681,61 @@
     Talk.clear(); Talk.say(type, { prio: 2 });
   }
 
+  // ---------- party ----------
+  function memberName(m) { return m.name || SPECIES_BY_ID[m.sp].name; }
+  function askSwitch(i) {
+    const m = Game.party()[i]; if (!m) return;
+    const p = Game.pet();
+    if (!p || p.egg) { toast('Hatch your egg first, then you can switch.'); return; }
+    dialog(`Make ${esc(memberName(m))} your main?`, `${esc(memberName(m))} comes to the front and ${esc(petName())} goes to rest with the party.`, [
+      { label: 'Not now', cls: 'alt' },
+      { label: '{i:arrow} Make main', cls: 'red', fn: () => doSwitch(i) },
+    ]);
+  }
+  function doSwitch(i) {
+    if (!Game.switchMain(i)) return;
+    V.x = .5; V.loaded = null; Talk.clear();
+    Sound.play('wake'); addHearts(3);
+    toast(`${petName()} is now your main!`);
+    setTimeout(() => Talk.say('backHappy', { prio: 2 }), 400);
+  }
+  function openParty() {
+    const p = Game.pet(), party = Game.party(), chk = Game.eggCheck();
+    const needBar = m => {
+      if (m.egg) return '';
+      const v = Math.min(m.food, m.joy, m.ene, m.hyg), col = v > 50 ? 'var(--hp-hi)' : v > 20 ? 'var(--hp-mid)' : 'var(--hp-lo)';
+      return `<div class="mini"><i style="width:${v}%;background:${col}"></i></div>`;
+    };
+    const slot = (m, i, isMain) => {
+      const s = SPECIES_BY_ID[m.sp], lv = m.egg ? '' : ` · Lv ${Game.memberLevel(m)}`;
+      const face = !m.egg && portraitUrl(m.sp, m.shiny, m.joy < 25 ? 'Sad' : 'Normal');
+      const pic = m.egg ? `<img class="face" src="${PX.url(`egg_${s.tier || 'common'}_${Math.min(2, m.taps || 0)}`)}" alt="">` : face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny });
+      return `<div class="pslot ${isMain ? 'main' : ''}">${pic}<div class="pi"><b>${m.egg ? 'Egg' : esc(memberName(m))}${m.shiny && !m.egg ? '{i:sparkle}' : ''}</b>
+        <small>${m.egg ? 'Waiting to hatch' : `${ELEMENTS[s.el].label}${lv}${isMain ? '' : ' · resting'}`}</small>${needBar(m)}</div>
+        <div class="acts">${isMain ? '<span class="tag">{i:arrow}Main</span>' : `<button data-sw="${i}">Make main</button><button class="alt" data-rel="${i}">Release</button>`}</div></div>`;
+    };
+    const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
+    openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.</p>
+      <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="pslot empty">Empty slot</div>'.repeat(empties)}</div>
+      <div class="btns"><button class="btn ${chk.ok ? 'gold' : 'alt'}" id="takeEgg" ${chk.ok ? '' : 'disabled'}>{i:egg_rare_0} Get a new egg</button></div>
+      <p class="muted" style="text-align:center">${chk.ok ? 'Your main joins the party and the egg becomes your new main.' : esc(chk.why)}</p>`);
+    sheet.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', () => { closeSheet(); doSwitch(+b.dataset.sw); }));
+    sheet.querySelectorAll('[data-rel]').forEach(b => b.addEventListener('click', () => {
+      const m = party[+b.dataset.rel];
+      dialog(`Release ${esc(memberName(m))}?`, 'It goes back to the wild and is remembered under Companions in the Pokédex. This can\'t be undone.', [
+        { label: 'Cancel', cls: 'alt', fn: () => openParty() },
+        { label: 'Release', cls: 'red', fn: () => { Game.releaseMember(+b.dataset.rel); toast(`${memberName(m)} was released. Bye!`); openParty(); } },
+      ]);
+    }));
+    const te = $('#takeEgg');
+    if (te) te.addEventListener('click', () => {
+      if (!Game.takeEgg()) return;
+      closeSheet(); V.x = .5; V.loaded = null; Talk.clear(); Sound.play('hatch');
+      toast('A new egg! Tap it 3 times to hatch.', 3500);
+      Talk.say('newEgg', { prio: 2 });
+    });
+  }
+
   // ---------- stat card ----------
   let cardTab = 'profile';
   function openCard(tab) {
@@ -624,6 +748,7 @@
   function renderCard() {
     const p = Game.pet(), s = Game.sp(), S = ST(), el = ELEMENTS[s.el];
     const tabs = ['profile', 'battle', 'medals', 'progress'];
+    const TAB_LABEL = { profile: 'Info', battle: 'Stats', medals: 'Badges', progress: 'Trainer' };
     let body = '';
     if (cardTab === 'profile') {
       const hearts = Math.round(p.bond / 20);
@@ -647,9 +772,9 @@
       const defLeft = 720 - p.goodTicks;
       body = row('atk', '{i:sword} Attack', '#e8503a', `Strength training ${p.tr.atk}/100 — from the training bag`) +
         row('def', '{i:shield} Defence', '#4f93c4', `Discipline ${p.tr.def}/100 — +1 per 12 h of good care (next in ${fmtDur(defLeft)} if every need stays ≥ 40)`) +
-        row('spd', '{i:speed} Speed', '#58b868', `Speed training ${p.tr.spd}/100 — from Star Catch`) +
+        row('spd', '{i:speed} Speed', '#58b868', `Speed training ${p.tr.spd}/100 — from Poké Ball Catch`) +
         `<p class="muted">Stat = species base × genes + level + training.</p>
-        <div class="rows"><div class="row"><span>Best Star Catch</span><b>${S.player.gameHi}</b></div><div class="row"><span>Most bag hits</span><b>${S.player.strHi}</b></div></div>
+        <div class="rows"><div class="row"><span>Best Poké Ball Catch</span><b>${S.player.gameHi}</b></div><div class="row"><span>Most bag hits</span><b>${S.player.strHi}</b></div></div>
         <div class="btns"><button class="btn red" id="goTrain">{i:train} Train strength</button></div>`;
     } else if (cardTab === 'medals') {
       body = `<div class="medals">${MEDALS.map(m => `<div class="medal ${p.medals.includes(m.id) ? '' : 'off'}" title="${m.desc}">${ic(m.icon)}${m.label}</div>`).join('')}</div>
@@ -673,7 +798,7 @@
         ${SPECIES.some(x => x.tier === 'legend') ? `<div class="row"><span>Legendaries</span><b>${Game.registeredCount() >= Game.LEGEND_UNLOCK ? 'Can appear!' : `Unlock at ${Game.LEGEND_UNLOCK} registered`}</b></div>` : ''}
       </div>`;
     }
-    openSheet(head('Stat card') + `<div class="tabs">${tabs.map(t => `<button data-tab="${t}" class="${t === cardTab ? 'on' : ''}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>` + body);
+    openSheet(head('Summary') + `<div class="tabs">${tabs.map(t => `<button data-tab="${t}" class="${t === cardTab ? 'on' : ''}">${TAB_LABEL[t]}</button>`).join('')}</div>` + body);
     sheet.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { cardTab = b.dataset.tab; renderCard(); }));
     const ns = $('#nameSave'); if (ns) ns.addEventListener('click', () => { Game.rename($('#nameIn').value); toast('Name saved!'); renderCard(); });
     const gt = $('#goTrain'); if (gt) gt.addEventListener('click', () => { closeSheet(); startTrain(); });
@@ -716,7 +841,7 @@
       body = H.length ? H.map(h => `<div class="hist">${miniCanvas(h.sp, { px: 56, shiny: h.shiny })}<div><b>${esc(h.name || SPECIES_BY_ID[h.sp].name)}</b> ${h.shiny ? '{i:sparkle}' : ''}<br><span class="muted">${SPECIES_BY_ID[h.sp].name} · Lv ${h.level} · ${fmtDur(h.ageMin)} · ${h.medals} medals<br>${endLbl[h.end] || ''} · ${new Date(h.date).toLocaleDateString()}</span></div></div>`).join('')
         : '<p class="muted">Your past companions will be remembered here.</p>';
     }
-    openSheet(head('Dex') + `<div class="tabs"><button data-dt="dex" class="${dexTab === 'dex' ? 'on' : ''}">Dex</button><button data-dt="hist" class="${dexTab === 'hist' ? 'on' : ''}">Companions</button></div>` + body);
+    openSheet(head('Pokédex') + `<div class="tabs"><button data-dt="dex" class="${dexTab === 'dex' ? 'on' : ''}">Pokédex</button><button data-dt="hist" class="${dexTab === 'hist' ? 'on' : ''}">Companions</button></div>` + body);
     sheet.querySelectorAll('[data-dt]').forEach(b => b.addEventListener('click', () => { dexTab = b.dataset.dt; renderDex(); }));
     if (dexTab === 'dex') {
       $('#dexF').value = dexFilter;
@@ -758,7 +883,7 @@
   // ---------- settings ----------
   function openSettings() {
     const S = ST();
-    openSheet(head('Settings') + `
+    openSheet(head('Options') + `
       <label class="toggle"><span><b>Your name</b><small>What your Pokémon calls you</small></span><input id="setPlayer" maxlength="14" placeholder="partner" value="${esc(S.settings.player || '')}" style="width:140px;border:2px solid var(--line);border-radius:10px;padding:7px 9px;font:inherit;font-size:16px"></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Fast time (testing)</b><small>1 second = 1 game minute. Normally 1 real minute = 1 game minute.</small></span><span class="sw"><input type="checkbox" id="setFast" ${S.settings.fast ? 'checked' : ''}><i></i></span></label>
@@ -777,12 +902,12 @@
   function openManual() {
     openSheet(head('How to play') + `<div class="manual">
       <h4>Time</h4><ul><li>1 real minute = 1 game minute. +1 level every hour.</li><li>It keeps living while the app is closed (up to 2 weeks of catch-up).</li></ul>
-      <h4>Needs</h4><ul><li>FOOD −2/min, ENE −1/min, HYG −1/min (−4 more per poop), JOY −1/min (faster if hungry or dirty).</li><li>Letting a need drop to 10 or less is a <b>slip-up</b>: it delays evolution by 1 level and cools the bond.</li></ul>
-      <h4>Care</h4><ul><li>{i:berrySweet} <b>Berries</b> +25 food. One flavour is its hidden favourite (+35 food, +joy, bond).</li><li>{i:candy} <b>Candy</b> +food +joy but adds weight. Over 50 weight = sluggish.</li><li>{i:star} <b>Star Catch</b> trains SPEED and burns weight. {i:train} <b>Bag</b> trains ATTACK.</li><li>{i:bath} <b>Bath</b> clears poops. {i:hand} <b>Tap</b> to pet it. {i:sleep} <b>Sleep</b> restores energy; needs drop much slower.</li></ul>
+      <h4>Needs</h4><ul><li>FOOD −2/min, ENE −1/min, HYG −1/min (−4 more per poop), HAPPY −1/min (faster if hungry or dirty).</li><li>Letting a need drop to 10 or less is a <b>slip-up</b>: it delays evolution by 1 level and cools the bond.</li></ul>
+      <h4>Care</h4><ul><li>{i:pecha}{i:aspear}{i:cheri} <b>Pecha, Aspear and Cheri Berries</b> +25 food. One is its hidden favourite (+35 food, +happy, bond).</li><li>{i:poffin} <b>Poffin</b> +food +happy but adds weight. Over 50 weight = sluggish.</li><li>{i:pokeball} <b>Poké Ball Catch</b> trains SPEED and burns weight. {i:train} <b>Bag</b> trains ATTACK.</li><li>{i:bath} <b>Bath</b> clears poops. {i:hand} <b>Tap</b> to pet it. {i:sleep} <b>Sleep</b> restores energy; needs drop much slower.</li></ul>
       <h4>Evolution</h4><ul><li>When it reaches its evolution level and every need is ≥ 40, a button appears — you choose to evolve or keep its form.</li></ul>
       <h4>Endings</h4><ul><li>{i:heartGold} <b>Farewell</b>: final form + 3 days. Blesses the next egg.</li><li>{i:rain} <b>Run-away</b>: all needs at 0 for 1 hour. One act of care cancels it. Curses the next egg.</li><li>{i:hand} <b>Release</b>: hold your finger on it for 3 seconds.</li></ul>
-      <h4>Eggs</h4><ul><li>Every egg hatches into a ${SPECIES.filter(x => !x.prev).map(x => x.name).join(' / ')}.</li><li>Streak + bond improve the shiny odds (1/48 → best 1/8). A farewell doubles them for the next egg.</li></ul>
-      <h4>Gestures</h4><ul><li>Swipe ← → Dex · ↑ Stat card · ↓ Settings · hold 3 s = release.</li></ul>
+      <h4>Eggs</h4><ul><li>Eggs hatch into a first-stage Pokémon — Common, Rare or (after ${Game.LEGEND_UNLOCK} registered) Legendary — favouring ones you haven't raised yet.</li><li>Streak + bond improve the shiny odds (1/48 → best 1/8). A farewell doubles them for the next egg.</li></ul>
+      <h4>Gestures</h4><ul><li>Swipe ← → Pokédex · ↑ Summary · ↓ Options · hold 3 s = release.</li></ul>
       </div>`);
   }
 
@@ -820,6 +945,8 @@
       return;
     }
     if (now() - P.t0 > 700) return; // long-ish press that wasn't a release
+    const palHit = !hitPet(x, y) && V.pals.find(p => p.hit && Math.abs(x - p.hit.x) < p.hit.w && y > p.hit.top - 10 && y < p.hit.fy + 8);
+    if (palHit) { askSwitch(V.pals.indexOf(palHit)); return; }
     if (hitPet(x, y)) {
       const p = Game.pet();
       if (p.egg) {
@@ -855,6 +982,7 @@
     if (!ST().player.starterPicked) return;
     const a = b.dataset.act;
     if (a === 'dex') return openDex();
+    if (a === 'party') return openParty();
     if (V.anim) return;
     if (a === 'feed') return openFeed();
     if (a === 'play') { if (!guard()) return; if (Game.pet().ene < 10) { Talk.say('tooTired'); Sound.play('no'); return; } return startCatch(); }
@@ -893,7 +1021,7 @@
   acv.addEventListener('pointermove', e => arenaGame && arenaGame.move && arenaGame.move(aPos(e)));
 
   function startCatch() {
-    openArena('{i:star} Star Catch');
+    openArena('{i:pokeball} Poké Ball Catch');
     const p = Game.pet();
     const G = { score: 0, lives: 3, t0: now(), dur: 30000, items: [], px: .5, vx: 0, nextSpawn: 0, over: false, endAt: 0, pops: [] };
     const size = Math.min(AW, AH) * .09;
@@ -909,7 +1037,7 @@
     const reportCatch = () => {
       const r = G.result || {};
       if (r.hearts) addHearts(5);
-      toast(`{i:star} ${G.score} stars! SPD training +${r.spd || 0}${r.hi ? ' · New record!' : ''}`, 3500);
+      toast(`{i:pokeball} Caught ${G.score} Poké Balls! SPD training +${r.spd || 0}${r.hi ? ' · New record!' : ''}`, 3500);
       Talk.say(G.score >= 8 ? 'playGood' : 'playBad');
     };
     let last = now(), dispX = .5;
@@ -919,7 +1047,7 @@
       const left = Math.max(0, G.dur - (ms - G.t0));
       if (!G.over) {
         if (ms > G.nextSpawn) {
-          G.items.push({ x: .08 + Math.random() * .84, y: -.05, v: .22 + G.score * .012 + Math.random() * .12, rot: Math.random() * 6 });
+          G.items.push({ kind: Math.random() < .12 ? 'ultraball' : Math.random() < .3 ? 'greatball' : 'pokeball', x: .08 + Math.random() * .84, y: -.05, v: .22 + G.score * .012 + Math.random() * .12, rot: Math.random() * 6 });
           G.nextSpawn = ms + Math.max(380, 950 - G.score * 22);
         }
         const py = (AH - size * 1.3) / AH;
@@ -938,18 +1066,18 @@
       ac.fillStyle = g; ac.fillRect(0, 0, AW, AH);
       for (let i = 0; i < 30; i++) { ac.fillStyle = 'rgba(255,255,255,.5)'; ac.fillRect(rng(i) * AW, rng(i + 9) * AH, 2, 2); }
       ac.fillStyle = '#6a5fb0'; ac.fillRect(0, AH - size * .35, AW, size * .35);
-      for (const it of G.items) star(ac, it.x * AW, it.y * AH, size * .32, it.rot, '#ffd23d');
+      for (const it of G.items) PX.draw(ac, it.kind || 'pokeball', it.x * AW, it.y * AH, Math.max(32, Math.round(size * .9 / 16) * 16), { rot: Math.sin(it.rot) * .3 });
       G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = 1 - pp.age * 2; ac.fillStyle = '#fff'; ac.font = '800 18px system-ui'; ac.fillText('+1', pp.x - 8, pp.y - pp.age * 60); ac.globalAlpha = 1; return pp.age < .5; });
       drawCreature(ac, p.sp, { x: dispX * AW, y: AH - size * .35, size, t, maxH: AH * .25, shiny: p.shiny, flip: d < -.002, walking: Math.abs(d) > .01, dir: Math.abs(d) > .01 ? undefined : 'front' });
-      $('#arenaInfo').innerHTML = icons(`{i:star}${G.score} &nbsp;${'{i:heart}'.repeat(Math.max(0, G.lives))}${'{i:heartEmpty}'.repeat(3 - Math.max(0, G.lives))} &nbsp;${Math.ceil(left / 1000)}s`);
+      $('#arenaInfo').innerHTML = icons(`{i:pokeball}${G.score} &nbsp;${'{i:heart}'.repeat(Math.max(0, G.lives))}${'{i:heartEmpty}'.repeat(3 - Math.max(0, G.lives))} &nbsp;${Math.ceil(left / 1000)}s`);
       if (G.over) {
         ac.fillStyle = 'rgba(0,0,0,.45)'; ac.fillRect(0, 0, AW, AH);
         ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '800 28px system-ui';
-        ac.fillText(`${G.score} stars!`, AW / 2, AH * .42);
+        ac.fillText(`${G.score} caught!`, AW / 2, AH * .42);
         ac.font = '700 16px system-ui'; ac.fillText(`Speed training +${(G.result && G.result.spd) || 0}`, AW / 2, AH * .42 + 30); ac.textAlign = 'left';
       } else if (ms - G.t0 < 1800) {
         ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '700 16px system-ui';
-        ac.fillText('Drag to catch the falling stars!', AW / 2, AH * .35); ac.textAlign = 'left';
+        ac.fillText('Drag to catch the falling Poké Balls!', AW / 2, AH * .35); ac.textAlign = 'left';
       }
       requestAnimationFrame(G.loop);
     };

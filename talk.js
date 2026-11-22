@@ -22,7 +22,7 @@ const LINES = {
   fav: [[['Joyous', 'Mmm! My favorite!']], [['Inspired', 'A {berry}! You know me so well!']]],
   berry: [[['Happy', 'Thanks! *munch munch*']], [['Normal', 'Mm, it\'s pretty good!']], [['Happy', 'Yum! That hit the spot.']]],
   berryFull: [[['Dizzy', 'Ugh... I\'m so full... I can\'t eat another bite...']]],
-  candy: [[['Joyous', 'Sweeet!! ...Can I have just one more?']], [['Happy', 'Candy! Best. Day. Ever!']]],
+  candy: [[['Joyous', 'A Poffin! Sweeet!! ...Can I have just one more?']], [['Happy', 'Poffins! Best. Day. Ever!']]],
   candyHeavy: [[['Worried', 'Hmm... I\'m feeling kinda heavy lately...'], ['Sigh', 'Maybe we should play outside more...']]],
 
   playGood: [[['Joyous', 'That was so fun! Did you see how fast I was?!']], [['Determined', 'I\'m getting quicker every day! Let\'s go again sometime!']]],

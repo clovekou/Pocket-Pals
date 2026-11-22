@@ -25,9 +25,9 @@ const ELEMENTS = {
 };
 
 const FLAVORS = [
-  { id: 'sweet', label: 'Sweet berry', color: '#ff6fa8' },
-  { id: 'sour',  label: 'Sour berry',  color: '#e8d43a' },
-  { id: 'spicy', label: 'Spicy berry', color: '#e8503a' },
+  { id: 'sweet', label: 'Pecha Berry',  taste: 'Sweet', icon: 'pecha',  color: '#ffa3c7' },
+  { id: 'sour',  label: 'Aspear Berry', taste: 'Sour',  icon: 'aspear', color: '#f3d23c' },
+  { id: 'spicy', label: 'Cheri Berry',  taste: 'Spicy', icon: 'cheri',  color: '#e8282b' },
 ];
 
 // Species come from species.js (edited in dashboard.html). id = Dex number.
@@ -213,6 +213,8 @@ function drawCreature(ctx, id, o) {
     ctx.drawImage(img, sx, sy, a.fw, a.fh, dx, dy, dw, dh);
   }
   ctx.restore();
+  // where the top of the sprite is on screen (for markers above its head)
+  return { top: dy + (a.measured ? a.top[row] : a.fh * .15) * scale, scale };
 }
 
 const EGG_STYLES = {

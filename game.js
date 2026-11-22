@@ -2,14 +2,14 @@
 // Pocket Pal — game state and rules (no DOM). 1 tick = 1 game minute.
 
 const MEDALS = [
-  { id: 'lv10',    icon: 'medalBronze', label: 'Level 10',      desc: 'Reach level 10' },
-  { id: 'lv25',    icon: 'medalSilver', label: 'Level 25',      desc: 'Reach level 25' },
-  { id: 'lv50',    icon: 'medalGold', label: 'Level 50',      desc: 'Reach level 50' },
-  { id: 'berry',   icon: 'berrySweet', label: 'Favourite',     desc: 'Find its favourite berry' },
-  { id: 'streak7', icon: 'flame', label: '7-day streak',  desc: 'Care 7 days in a row' },
-  { id: 'bond',    icon: 'heart', label: 'Best friends',  desc: 'Max out the bond' },
-  { id: 'final',   icon: 'crown', label: 'Final form',    desc: 'Reach a final form' },
-  { id: 'fit',     icon: 'dumbbell', label: 'Fit',           desc: 'Lv 5+, weight 0, no slip-ups' },
+  { id: 'lv10',    icon: 'badgeBoulder', label: 'Level 10',      desc: 'Reach level 10' },
+  { id: 'lv25',    icon: 'badgeCascade', label: 'Level 25',      desc: 'Reach level 25' },
+  { id: 'lv50',    icon: 'badgeThunder', label: 'Level 50',      desc: 'Reach level 50' },
+  { id: 'berry',   icon: 'badgeRainbow', label: 'Favourite',     desc: 'Find its favourite berry' },
+  { id: 'streak7', icon: 'badgeVolcano', label: '7-day streak',  desc: 'Care 7 days in a row' },
+  { id: 'bond',    icon: 'badgeSoul', label: 'Best friends',  desc: 'Max out the bond' },
+  { id: 'final',   icon: 'badgeEarth', label: 'Final form',    desc: 'Reach a final form' },
+  { id: 'fit',     icon: 'badgeMarsh', label: 'Fit',           desc: 'Lv 5+, weight 0, no slip-ups' },
 ];
 
 const Game = (() => {
@@ -22,6 +22,8 @@ const Game = (() => {
   // registered species before legendaries appear (capped so small rosters can still get them)
   const LEGEND_UNLOCK = Math.max(1, Math.min(15, SPECIES.filter(s => s.tier !== 'legend').length));
   const BOND_DAILY_CAP = 20;
+  const PARTY_MAX = 6;                  // main + up to 5 resting in the background
+  const NEW_EGG_LEVEL = 5;              // main must reach this level before you can take another egg
 
   let S = null;
   const listeners = [];
@@ -40,7 +42,7 @@ const Game = (() => {
     return {
       streak: 0, bestStreak: 0, lastCareDay: 0, lastMilestone: 0, totalMedals: 0,
       lastEnd: 'none', dex: {}, shiny: {}, favKnown: {}, history: [],
-      gameHi: 0, strHi: 0, starterPicked: false,
+      gameHi: 0, strHi: 0, starterPicked: false, party: [],
     };
   }
   function fresh() {
@@ -62,6 +64,7 @@ const Game = (() => {
     const known = id => !!SPECIES_BY_ID[id];
     for (const k of ['dex', 'shiny', 'favKnown']) for (const id of Object.keys(S.player[k])) if (!known(id)) delete S.player[k][id];
     S.player.history = S.player.history.filter(h => known(h.sp));
+    S.player.party = (S.player.party || []).filter(m => m && !m.egg && known(m.sp)).slice(0, PARTY_MAX - 1);
     if (S.pet && !known(S.pet.sp)) { S.pet = null; S.ceremony = null; S.player.starterPicked = false; }
     if (S.ceremony) finishEnding();
     // a broken streak shows as 0 straight away
@@ -408,6 +411,47 @@ const Game = (() => {
     emit('newegg');
   }
 
+  // ---------------- party ----------------
+  // Party members rest in the background: their needs and age are paused until they become the main again.
+  function party() { return S.player.party; }
+  function eggCheck() {
+    const p = S.pet;
+    if (!p || S.ceremony) return { ok: false, why: 'Not right now.' };
+    if (p.egg) return { ok: false, why: 'Hatch your current egg first.' };
+    if (S.player.party.length + 1 >= PARTY_MAX) return { ok: false, why: `Your party is full (${PARTY_MAX}). Release one to make room.` };
+    if (level() < NEW_EGG_LEVEL) return { ok: false, why: `Raise ${p.name || sp().name} to Lv ${NEW_EGG_LEVEL} first.` };
+    return { ok: true };
+  }
+  function takeEgg() {
+    if (!eggCheck().ok) return false;
+    const id = pickEggSpecies(), shiny = rollShiny();
+    S.pet.asleep = false;
+    S.player.party.push(S.pet);
+    S.pet = makeEgg(id, shiny);
+    S.lastTick = Date.now();
+    save(); emit('newegg'); emit('party');
+    return true;
+  }
+  function switchMain(i) {
+    const p = S.pet, m = S.player.party[i];
+    if (!p || p.egg || S.ceremony || !m) return false;
+    p.asleep = false;
+    S.player.party[i] = p;
+    S.pet = m;
+    S.lastTick = Date.now();
+    save(); emit('party'); emit('change');
+    return true;
+  }
+  function releaseMember(i) {
+    const m = S.player.party[i]; if (!m) return false;
+    S.player.history.unshift({ sp: m.sp, shiny: m.shiny, name: m.name, level: 1 + Math.floor(m.ageMin / MIN_PER_LEVEL), ageMin: m.ageMin, end: 'release', date: Date.now(), medals: (m.medals || []).length });
+    S.player.history = S.player.history.slice(0, 60);
+    S.player.party.splice(i, 1);
+    save(); emit('party');
+    return true;
+  }
+  const memberLevel = m => 1 + Math.floor(m.ageMin / MIN_PER_LEVEL);
+
   // ---------------- battle stats ----------------
   function stat(k) {
     const p = S.pet; if (!p || p.egg) return 0;
@@ -420,6 +464,7 @@ const Game = (() => {
     get state() { return S; }, pet, sp, level, lowest, msPerMin,
     pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, toggleSleep, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
+    party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
     canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
     stat, registered, registeredCount, shinyCount, careBonus, isFinal,
     LEGEND_UNLOCK, FAREWELL_AGE,
