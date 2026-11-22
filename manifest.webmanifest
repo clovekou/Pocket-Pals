@@ -1,0 +1,12 @@
+{
+  "name": "Pocket Pal",
+  "short_name": "Pocket Pal",
+  "description": "Raise, evolve and collect original creatures.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2b2438",
+  "theme_color": "#2b2438",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

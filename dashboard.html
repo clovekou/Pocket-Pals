@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2b2438">
+<title>Sprite Dashboard</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f4efe4; --panel: #fffdf8; --ink: #2b2438; --muted: #776f86; --line: #e4dccb;
+    --accent: #7b61ff; --red: #e8503a; --ok: #3e9a5a; --gold: #f2b51d; --chip: #efe8da;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--accent); }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px 16px 110px; }
+  header { display: flex; align-items: center; gap: 12px; padding: 6px 0 14px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 24px; flex: 1; min-width: 200px; }
+  .back { text-decoration: none; font-weight: 700; background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 999px; white-space: nowrap; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 4px; font-size: 18px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; line-height: 1.45; }
+  .banner { background: #fff1e8; border: 1px solid #f3c6ad; color: #8a3a17; border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; font-size: 14px; line-height: 1.5; }
+  .banner code { background: #0000000d; padding: 1px 6px; border-radius: 6px; }
+
+  /* upload */
+  .drop { border: 2px dashed #cbbfa6; border-radius: 16px; padding: 18px; text-align: center; background: #fbf8f1; transition: .15s; }
+  .drop.over { border-color: var(--accent); background: #f1edff; }
+  .drop p { margin: 4px 0; }
+  .pick { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+  .btn { border: 0; border-radius: 12px; padding: 10px 16px; font-weight: 800; background: var(--ink); color: #fff; cursor: pointer; }
+  .btn.alt { background: var(--chip); color: var(--ink); }
+  .btn.red { background: var(--red); }
+  .btn.ok { background: var(--ok); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .grid2 { display: grid; grid-template-columns: 140px 1fr; gap: 10px; margin-top: 14px; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
+  input[type=text], input[type=number], select { border: 2px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; font-size: 15px; min-width: 0; width: 100%; color: var(--ink); }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .picked { margin-top: 10px; font-size: 14px; color: var(--muted); }
+  .bar { height: 8px; border-radius: 6px; background: var(--chip); overflow: hidden; margin-top: 10px; display: none; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+  .msg { margin-top: 10px; font-size: 14px; font-weight: 700; }
+  .msg.err { color: var(--red); } .msg.good { color: var(--ok); }
+
+  /* tree */
+  .lines { display: flex; flex-direction: column; gap: 10px; }
+  .line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; background: #fbf8f1; border-radius: 14px; padding: 8px 10px; }
+  .node { display: flex; flex-direction: column; align-items: center; font-size: 12px; font-weight: 800; min-width: 70px; }
+  .node canvas { width: 64px; height: 64px; image-rendering: pixelated; }
+  .arrow { color: var(--muted); font-size: 12px; font-weight: 800; text-align: center; }
+  .arrow b { display: block; font-size: 18px; color: var(--ink); line-height: 1; }
+  .branch { display: flex; flex-direction: column; gap: 6px; }
+  .branch > div { display: flex; align-items: center; gap: 6px; }
+
+  /* species list */
+  .species { display: grid; gap: 12px; }
+  .sp { display: grid; grid-template-columns: 112px 1fr; gap: 14px; border: 1px solid var(--line); border-radius: 16px; padding: 12px; background: #fff; }
+  .sp.dirty { border-color: var(--accent); box-shadow: 0 0 0 2px #7b61ff22; }
+  .prev { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .prev canvas { width: 112px; height: 112px; background: #f3ecdc; border-radius: 14px; image-rendering: pixelated; }
+  .prev .tiny { font-size: 11px; color: var(--muted); text-align: center; line-height: 1.3; }
+  .shinyT { font-size: 12px; font-weight: 700; display: flex; gap: 4px; align-items: center; cursor: pointer; }
+  .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; align-content: start; }
+  .fields .wide { grid-column: 1 / -1; }
+  .no { font-size: 13px; font-weight: 800; color: var(--muted); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .chipx { display: inline-flex; align-items: center; gap: 6px; background: var(--chip); border-radius: 999px; padding: 4px 6px 4px 10px; font-size: 14px; font-weight: 700; color: var(--ink); }
+  .chipx button { border: 0; background: #0000001a; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 12px; line-height: 1; }
+  .evo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .evo-row select { width: auto; min-width: 170px; flex: 1; }
+  .evo-row input { width: 90px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 14px; }
+  .check input { width: 18px; height: 18px; }
+  .note { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .spfoot { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 10px; }
+  .spfoot .note { flex: 1; }
+  .del { border: 0; background: none; color: var(--red); font-weight: 800; cursor: pointer; padding: 6px; }
+  .orphans .sp { grid-template-columns: 112px 1fr; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 8px; position: sticky; top: 0; background: var(--panel); padding: 8px 0; z-index: 2; }
+  .toolbar input { flex: 1; }
+  .toolbar select { width: auto; }
+  .more { width: 100%; margin-top: 4px; }
+
+  .savebar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--ink); color: #fff; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; gap: 12px; align-items: center; transform: translateY(110%); transition: transform .2s; z-index: 5; flex-wrap: wrap; }
+  .savebar.show { transform: none; }
+  .savebar span { font-weight: 700; }
+  .savebar .err { color: #ffb4a6; flex-basis: 100%; text-align: center; font-size: 14px; }
+  .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 9; box-shadow: 0 6px 20px #0003; max-width: calc(100% - 32px); }
+  dialog { border: 0; border-radius: 18px; padding: 18px; max-width: 360px; width: calc(100% - 32px); color: var(--ink); }
+  dialog::backdrop { background: #14101e88; }
+  @media (max-width: 560px) {
+    .sp { grid-template-columns: 1fr; }
+    .prev { flex-direction: row; justify-content: flex-start; }
+    .prev canvas { width: 88px; height: 88px; }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🛠️ Sprite Dashboard</h1>
+    <a class="back" href="index.html">▶ Back to game</a>
+  </header>
+
+  <div id="offline" class="banner" hidden>
+    <b>The dashboard needs the Pocket Pal server.</b><br>
+    Open Terminal in the <code>PocketPal</code> folder and run <code>python3 server.py</code>, then open
+    <code>http://localhost:8000/dashboard.html</code>.
+  </div>
+
+  <section class="card">
+    <h2>Upload sprites</h2>
+    <p class="sub">Use a PMD SpriteCollab sprite folder, the same layout as the ones you already have (<code>sprite/</code> with <code>AnimData.xml</code> and the <code>-Anim.png</code> sheets; <code>sprite/0000/Shiny</code> and <code>portrait/</code> are optional). You can pick the folder, a .zip of it, or drag either onto the box. Uploading a Dex number that already exists replaces its sprites.</p>
+    <div class="drop" id="drop">
+      <p><b>Drop a sprite folder or .zip here</b></p>
+      <p class="note">or</p>
+      <div class="pick">
+        <button class="btn alt" id="pickFolder">📁 Choose folder</button>
+        <button class="btn alt" id="pickZip">🗜️ Choose .zip</button>
+      </div>
+      <input type="file" id="folderIn" webkitdirectory directory multiple hidden>
+      <input type="file" id="zipIn" accept=".zip,application/zip" hidden>
+      <div class="picked" id="picked">Nothing selected yet.</div>
+    </div>
+    <div class="grid2">
+      <label class="f">Dex number<input type="number" id="upId" min="1" max="9999" placeholder="e.g. 4"></label>
+      <label class="f">Name<input type="text" id="upName" maxlength="24" placeholder="e.g. Charmander"></label>
+    </div>
+    <div style="margin-top:12px"><button class="btn" id="upload" disabled>⬆️ Upload</button></div>
+    <div class="bar" id="bar"><i></i></div>
+    <div class="msg" id="upMsg"></div>
+  </section>
+
+  <section class="card">
+    <h2>Evolution lines</h2>
+    <p class="sub">How your Pokémon evolve right now. A Pokémon with more than one evolution goes toward the branch you haven't raised yet. Uses the search below.</p>
+    <div class="lines" id="lines"></div>
+  </section>
+
+  <section class="card">
+    <h2>Pokémon</h2>
+    <p class="sub">Set each one's type, what it evolves into and at what level, its egg rarity and its battle stats. Press <b>Save changes</b> at the bottom when you're done; the game uses the new settings next time it's opened or refreshed.</p>
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="Search name, number or type…">
+      <select id="filt">
+        <option value="all">All</option><option value="first">First stages</option><option value="evolves">Evolve into something</option>
+        <option value="final">Final forms</option><option value="starter">Starters</option><option value="legend">Legendary eggs</option>
+        <option value="changed">Unsaved changes</option>
+      </select>
+    </div>
+    <div class="note" id="count" style="margin-bottom:8px"></div>
+    <div class="species" id="list"></div>
+  </section>
+
+  <section class="card orphans" id="orphanCard" hidden>
+    <h2>Sprites not in the game yet</h2>
+    <p class="sub">These sprite folders are in <code>Pokemon-Sprites</code> but aren't set up as Pokémon.</p>
+    <div class="species" id="orphans"></div>
+  </section>
+</div>
+
+<div class="savebar" id="savebar">
+  <span id="dirtyTxt">Unsaved changes</span>
+  <button class="btn alt" id="discard">Discard</button>
+  <button class="btn ok" id="save">💾 Save changes</button>
+  <div class="err" id="saveErr" hidden></div>
+</div>
+
+<dialog id="delDlg">
+  <h3 style="margin:0 0 6px">Remove <span id="delName"></span>?</h3>
+  <p class="sub">It will be taken out of the game, and anything that evolved into it won't evolve any more.</p>
+  <label class="f check"><input type="checkbox" id="delFiles"> Also delete its sprite files</label>
+  <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+    <button class="btn alt" id="delCancel">Cancel</button>
+    <button class="btn red" id="delOk">Remove</button>
+  </div>
+</dialog>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const ELEMENTS = {
+  normal: '#a8a77a', grass: '#4cb04a', fire: '#ee7f30', water: '#4f8fe8', electric: '#e8b10f', ice: '#5fc0e0',
+  fighting: '#c22e28', poison: '#a33ea1', ground: '#c9a44a', flying: '#8f7fe8', psychic: '#f95587', bug: '#91a119',
+  rock: '#b6a136', ghost: '#735797', dragon: '#6f35fc', dark: '#705746', steel: '#8a8aa8', fairy: '#d685ad',
+};
+const TIERS = { common: 'Common', rare: 'Rare', legend: 'Legendary' };
+const cap = s => s[0].toUpperCase() + s.slice(1);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let saved = [], draft = [], sprites = {}, online = false;
+const clone = x => JSON.parse(JSON.stringify(x));
+
+function toast(msg, ms = 2600) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), ms);
+}
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  let j = {};
+  try { j = await r.json(); } catch (e) {}
+  if (!r.ok || j.error) throw new Error(j.error || `Request failed (${r.status})`);
+  return j;
+}
+
+async function load() {
+  try {
+    const st = await api('/api/state');
+    online = true; $('#offline').hidden = true;
+    sprites = st.sprites; saved = st.species; draft = clone(saved);
+  } catch (e) {
+    online = false; $('#offline').hidden = false;
+    sprites = typeof SPRITE_DATA_FALLBACK !== 'undefined' ? SPRITE_DATA_FALLBACK : {};
+  }
+  render();
+}
+
+// ---------------- sprite previews ----------------
+const imgCache = {};
+const img = src => { if (!imgCache[src]) { const i = new Image(); i.src = src; imgCache[src] = i; } return imgCache[src]; };
+const previews = new Set();
+const _bounds = {};
+function bounds(src, im, fw, fh, frames) {   // lowest/highest opaque row of the front-facing row
+  if (_bounds[src]) return _bounds[src];
+  let r = { top: 0, feet: Math.round(fh * .75) };
+  try {
+    const c = document.createElement('canvas'); c.width = fw * frames; c.height = fh;
+    const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, c.width, fh).data;
+    let lo = -1, hi = fh;
+    for (let y = 0; y < fh; y++) for (let x = 0; x < c.width; x++) if (d[(y * c.width + x) * 4 + 3]) { lo = Math.max(lo, y); hi = Math.min(hi, y); break; }
+    if (lo >= 0) r = { top: hi, feet: lo };
+  } catch (e) {}
+  return (_bounds[src] = r);
+}
+function preview(canvas, id, opts = {}) {
+  canvas.dataset.id = id;
+  canvas._opts = opts;
+  previews.add(canvas);
+}
+function drawPreview(c, t) {
+  const id = c.dataset.id, sd = sprites[id];
+  const g = c.getContext('2d');
+  const W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  if (!sd) { g.fillStyle = '#bbb'; g.font = '700 14px system-ui'; g.textAlign = 'center'; g.fillText('no sprite', W / 2, H / 2); return; }
+  const shiny = !!(c._opts.shiny && sd.s);
+  const arr = (shiny ? sd.s : sd.a).Idle; if (!arr) return;
+  const [fw, fh, frames, rows, dur, file] = arr;
+  const src = `Pokemon-Sprites/${sd.f}/${shiny ? 'sprite/0000/Shiny/' : 'sprite/'}${file || 'Idle'}-Anim.png?v=${sd.v}`;
+  const im = img(src); if (!im.complete || !im.naturalWidth) return;
+  const b = bounds(src, im, fw, fh, frames);
+  const a = { fw, fh, frames, dur };
+  const total = a.dur.reduce((x, y) => x + y, 0) || 1;
+  let tick = Math.floor(t * 60) % total, f = 0;
+  for (let acc = 0; f < a.frames - 1; f++) { acc += a.dur[f]; if (tick < acc) break; }
+  const top = b.top, feet = b.feet;
+  const contentH = Math.max(8, feet - top + 1);
+  const scale = Math.max(1, Math.floor(Math.min((H * .8) / contentH, (W * .9) / a.fw)));
+  g.imageSmoothingEnabled = false;
+  const dw = a.fw * scale, dh = a.fh * scale;
+  g.drawImage(im, f * a.fw, 0, a.fw, a.fh, (W - dw) / 2, H * .9 - (feet + 1) * scale, dw, dh);
+}
+(function loop() {
+  const t = performance.now() / 1000;
+  for (const c of previews) { if (!c.isConnected) { previews.delete(c); continue; } drawPreview(c, t); }
+  requestAnimationFrame(loop);
+})();
+function canvasEl(id, size, opts) {
+  const c = document.createElement('canvas'); c.width = size; c.height = size; preview(c, id, opts); return c;
+}
+
+// ---------------- helpers on the draft ----------------
+const byId = () => Object.fromEntries(draft.map(s => [s.id, s]));
+let prevMap = null; // child id -> parent id, rebuilt after evolution links change
+function prevOf(id) {
+  if (!prevMap) { prevMap = {}; draft.forEach(s => s.next.forEach(n => { prevMap[n] = s.id; })); }
+  return prevMap[id] != null ? prevMap[id] : null;
+}
+function ancestors(id) { const out = new Set(); let p = prevOf(id), guard = 0; while (p != null && guard++ < 50) { out.add(p); p = prevOf(p); } return out; }
+function isDirty() { return JSON.stringify(saved) !== JSON.stringify(draft); }
+function updateSavebar() {
+  const d = isDirty();
+  $('#savebar').classList.toggle('show', d);
+  const n = draft.filter(s => JSON.stringify(s) !== JSON.stringify(saved.find(x => x.id === s.id))).length + Math.max(0, saved.length - draft.length);
+  $('#dirtyTxt').textContent = `Unsaved changes (${n} Pokémon)`;
+}
+
+// ---------------- render ----------------
+function render() {
+  prevMap = null;
+  renderLines(); renderList(); renderOrphans(); updateSavebar();
+}
+
+function renderLines() {
+  const box = $('#lines'); box.innerHTML = '';
+  const B = byId();
+  const lineHas = (s, seen = new Set()) => { if (seen.has(s.id)) return false; seen.add(s.id); return matches(s) || s.next.some(n => B[n] && lineHas(B[n], seen)); };
+  const allRoots = draft.filter(s => prevOf(s.id) == null).sort((a, b) => a.id - b.id);
+  if (!allRoots.length) { box.innerHTML = '<p class="sub">No Pokémon yet. Upload some sprites above.</p>'; return; }
+  const matching = allRoots.filter(r => lineHas(r));
+  const roots = matching.slice(0, linesShown);
+  if (!roots.length) { box.innerHTML = '<p class="sub">No evolution lines match the search.</p>'; return; }
+  const node = s => {
+    const d = document.createElement('div'); d.className = 'node';
+    d.append(canvasEl(s.id, 64, {}));
+    d.insertAdjacentHTML('beforeend', `<span>${esc(s.name)}</span>`);
+    return d;
+  };
+  const build = (s, seen = new Set()) => {
+    const frag = document.createDocumentFragment();
+    frag.append(node(s));
+    if (seen.has(s.id)) return frag;
+    seen.add(s.id);
+    const kids = s.next.map(n => B[n]).filter(Boolean);
+    if (kids.length) {
+      const arrow = document.createElement('div'); arrow.className = 'arrow';
+      arrow.innerHTML = `<b>→</b>Lv ${s.evo || '?'}`;
+      frag.append(arrow);
+      if (kids.length === 1) frag.append(build(kids[0], seen));
+      else {
+        const br = document.createElement('div'); br.className = 'branch';
+        kids.forEach(k => { const row = document.createElement('div'); row.append(build(k, seen)); br.append(row); });
+        frag.append(br);
+      }
+    }
+    return frag;
+  };
+  roots.forEach(r => {
+    const line = document.createElement('div'); line.className = 'line';
+    line.append(build(r));
+    const tags = [];
+    if (r.starter) tags.push('⭐ starter');
+    tags.push(TIERS[r.tier] + ' egg');
+    line.insertAdjacentHTML('beforeend', `<span class="note" style="margin-left:auto">${tags.join(' · ')}</span>`);
+    box.append(line);
+  });
+  if (matching.length > roots.length) {
+    const b = document.createElement('button'); b.className = 'btn alt more'; b.textContent = `Show more lines (${matching.length - roots.length} left)`;
+    b.onclick = () => { linesShown += 15; renderLines(); }; box.append(b);
+  }
+}
+
+const PAGE = 20;
+let query = '', filt = 'all', shown = PAGE, linesShown = 15;
+function matches(s) {
+  const q = query.trim().toLowerCase();
+  const prev = prevOf(s.id);
+  if (filt === 'first' && prev != null) return false;
+  if (filt === 'evolves' && !s.next.length) return false;
+  if (filt === 'final' && s.next.length) return false;
+  if (filt === 'starter' && !s.starter) return false;
+  if (filt === 'legend' && !(s.tier === 'legend' && prev == null)) return false;
+  if (filt === 'changed' && JSON.stringify(saved.find(x => x.id === s.id)) === JSON.stringify(s)) return false;
+  if (!q) return true;
+  return String(s.id) === q.replace(/^#?0*/, '') || s.name.toLowerCase().includes(q) || s.el === q;
+}
+function renderList() {
+  const list = $('#list'); list.innerHTML = '';
+  if (!draft.length) { list.innerHTML = '<p class="sub">Nothing here yet.</p>'; $('#count').textContent = ''; return; }
+  const all = draft.filter(matches).sort((a, b) => a.id - b.id);
+  $('#count').textContent = `${all.length} of ${draft.length} Pokémon`;
+  all.slice(0, shown).forEach(s => list.append(speciesCard(s)));
+  if (all.length > shown) {
+    const b = document.createElement('button'); b.className = 'btn alt more'; b.textContent = `Show more (${all.length - shown} left)`;
+    b.onclick = () => { shown += PAGE; renderList(); }; list.append(b);
+  }
+}
+let qTimer = null;
+$('#q').addEventListener('input', e => { clearTimeout(qTimer); qTimer = setTimeout(() => { query = e.target.value; shown = PAGE; linesShown = 15; renderLines(); renderList(); }, 150); });
+$('#filt').addEventListener('change', e => { filt = e.target.value; shown = PAGE; linesShown = 15; renderLines(); renderList(); });
+
+function speciesCard(s) {
+  const B = byId();
+  const sd = sprites[s.id];
+  const before = saved.find(x => x.id === s.id);
+  const el = document.createElement('div');
+  el.className = 'sp' + (JSON.stringify(before) !== JSON.stringify(s) ? ' dirty' : '');
+  el.id = 'sp-' + s.id;
+  const prev = prevOf(s.id);
+  const anc = ancestors(s.id);
+  // what can it evolve into: not itself, not its ancestors, and not something that already evolves from another Pokémon
+  const options = draft.filter(o => o.id !== s.id && !anc.has(o.id) && !s.next.includes(o.id) && (prevOf(o.id) == null || prevOf(o.id) === s.id))
+    .sort((a, b) => a.id - b.id);
+
+  // preview column
+  const pv = document.createElement('div'); pv.className = 'prev';
+  const cv = canvasEl(s.id, 112, { shiny: false }); pv.append(cv);
+  const side = document.createElement('div');
+  side.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:center';
+  if (sd && sd.s) {
+    const lab = document.createElement('label'); lab.className = 'shinyT';
+    lab.innerHTML = '<input type="checkbox"> ✨ shiny'; lab.querySelector('input').onchange = e => { cv._opts.shiny = e.target.checked; };
+    side.append(lab);
+  }
+  side.insertAdjacentHTML('beforeend', `<div class="tiny">${sd ? Object.keys(sd.a).length + ' animations' + (sd.s ? '<br>shiny ✓' : '<br>no shiny') : '⚠️ no sprites'}</div>`);
+  pv.append(side);
+
+  const f = document.createElement('div'); f.className = 'fields';
+  f.innerHTML = `
+    <div class="wide no">#${String(s.id).padStart(4, '0')}${prev != null && B[prev] ? ` · evolves from ${esc(B[prev].name)}` : ' · first stage (hatches from eggs)'}</div>
+    <label class="f">Name<input type="text" data-k="name" maxlength="24" value="${esc(s.name)}"></label>
+    <label class="f">Type<select data-k="el">${Object.keys(ELEMENTS).map(k => `<option value="${k}" ${k === s.el ? 'selected' : ''}>${cap(k)}</option>`).join('')}</select></label>
+    ${prev == null ? `<label class="f">Egg rarity<select data-k="tier">${Object.entries(TIERS).map(([k, v]) => `<option value="${k}" ${k === s.tier ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+    <label class="f check" style="align-self:end;padding-bottom:8px"><input type="checkbox" data-k="starter" ${s.starter ? 'checked' : ''}> Starter choice</label>` : ''}
+    <div class="f wide">Evolves into
+      <div class="chips" data-chips>
+        ${s.next.length ? s.next.map(n => `<span class="chipx">${esc(B[n] ? B[n].name : '#' + n)}<button data-rm="${n}" title="Remove">✕</button></span>`).join('') : '<span class="note">Nothing — this is a final form.</span>'}
+      </div>
+      <div class="evo-row">
+        <select data-add><option value="">+ Add an evolution…</option>${options.map(o => `<option value="${o.id}">#${o.id} ${esc(o.name)}</option>`).join('')}</select>
+        ${s.next.length ? `<label class="f" style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)">at Lv <input type="number" data-k="evo" min="2" max="100" value="${s.evo || 16}"></label>` : ''}
+      </div>
+      ${s.next.length > 1 ? '<span class="note">Branching: it evolves into whichever of these you haven\'t raised yet (random if you have them all).</span>' : ''}
+    </div>
+    <div class="f wide">Battle stats (base)
+      <div class="stats">
+        <label class="f">ATK<input type="number" data-stat="0" min="1" max="255" value="${s.base[0]}"></label>
+        <label class="f">DEF<input type="number" data-stat="1" min="1" max="255" value="${s.base[1]}"></label>
+        <label class="f">SPD<input type="number" data-stat="2" min="1" max="255" value="${s.base[2]}"></label>
+      </div>
+    </div>`;
+  const foot = document.createElement('div'); foot.className = 'spfoot';
+  foot.innerHTML = `<span class="note">${sd ? 'Sprites: Pokemon-Sprites/' + esc(sd.f || '') : ''}</span><button class="del">Remove</button>`;
+  el.append(pv, f, foot);
+
+  // events
+  f.querySelectorAll('[data-k]').forEach(inp => {
+    const k = inp.dataset.k;
+    const ev = inp.type === 'checkbox' || inp.tagName === 'SELECT' ? 'change' : 'input';
+    inp.addEventListener(ev, () => {
+      if (k === 'starter') s.starter = inp.checked;
+      else if (k === 'evo') s.evo = parseInt(inp.value) || 0;
+      else s[k] = inp.value;
+      el.classList.toggle('dirty', JSON.stringify(saved.find(x => x.id === s.id)) !== JSON.stringify(s));
+      if (k === 'name' || k === 'tier' || k === 'starter' || k === 'evo') renderLines();
+      updateSavebar();
+    });
+  });
+  f.querySelectorAll('[data-stat]').forEach(inp => inp.addEventListener('input', () => {
+    s.base[+inp.dataset.stat] = Math.max(1, Math.min(255, parseInt(inp.value) || 1));
+    el.classList.add('dirty'); updateSavebar();
+  }));
+  f.querySelector('[data-add]').addEventListener('change', e => {
+    const v = parseInt(e.target.value); if (!v) return;
+    s.next.push(v);
+    if (!s.evo) s.evo = 16;
+    const target = draft.find(x => x.id === v);
+    if (target) target.starter = false;   // an evolved form can't be a starter
+    render(); document.getElementById('sp-' + s.id)?.scrollIntoView({ block: 'nearest' });
+  });
+  f.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+    s.next = s.next.filter(n => n !== +b.dataset.rm);
+    if (!s.next.length) s.evo = 0;
+    render();
+  }));
+  foot.querySelector('.del').addEventListener('click', () => askDelete(s));
+  return el;
+}
+
+function renderOrphans() {
+  const ids = new Set(draft.map(s => s.id));
+  const orph = Object.entries(sprites).filter(([id]) => !ids.has(+id));
+  $('#orphanCard').hidden = !orph.length;
+  const box = $('#orphans'); box.innerHTML = '';
+  orph.forEach(([id, sd]) => {
+    const el = document.createElement('div'); el.className = 'sp';
+    const pv = document.createElement('div'); pv.className = 'prev'; pv.append(canvasEl(id, 112, {}));
+    const r = document.createElement('div');
+    r.innerHTML = `<div class="no">#${String(id).padStart(4, '0')}</div><p style="margin:4px 0 10px;font-weight:800">${esc(sd.n)}</p><button class="btn">＋ Add to the game</button>`;
+    r.querySelector('button').onclick = () => {
+      draft.push({ id: +id, name: sd.n, el: 'normal', next: [], evo: 0, tier: 'common', starter: false, base: [50, 50, 50] });
+      render(); document.getElementById('sp-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    el.append(pv, r); box.append(el);
+  });
+}
+
+// ---------------- save / discard / delete ----------------
+$('#save').addEventListener('click', async () => {
+  const err = $('#saveErr'); err.hidden = true;
+  const btn = $('#save'); btn.disabled = true;
+  try {
+    const removed = saved.filter(s => !draft.some(d => d.id === s.id));
+    for (const s of removed) await api('/api/delete', { method: 'POST', body: JSON.stringify({ id: s.id, files: !!s._deleteFiles }) });
+    const res = await api('/api/species', { method: 'POST', body: JSON.stringify({ species: draft.map(({ _deleteFiles, ...s }) => s) }) });
+    saved = res.species; draft = clone(saved);
+    if (removed.some(s => s._deleteFiles)) sprites = (await api('/api/state')).sprites;
+    render(); toast('Saved! Refresh the game to see the changes.');
+  } catch (e) { err.textContent = e.message; err.hidden = false; }
+  btn.disabled = false;
+});
+$('#discard').addEventListener('click', () => { draft = clone(saved); $('#saveErr').hidden = true; render(); });
+
+let delTarget = null;
+function askDelete(s) {
+  delTarget = s; $('#delName').textContent = s.name; $('#delFiles').checked = false; $('#delDlg').showModal();
+}
+$('#delCancel').onclick = () => $('#delDlg').close();
+$('#delOk').onclick = () => {
+  const s = delTarget; $('#delDlg').close();
+  const keepSaved = saved.find(x => x.id === s.id);
+  if (keepSaved) keepSaved._deleteFiles = $('#delFiles').checked;
+  draft = draft.filter(x => x.id !== s.id);
+  draft.forEach(x => { x.next = x.next.filter(n => n !== s.id); if (!x.next.length) x.evo = 0; });
+  render();
+};
+window.addEventListener('beforeunload', e => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+// ---------------- upload ----------------
+let pending = null; // { kind: 'files', files: [{path, file}] } | { kind: 'zip', file }
+const ALLOWED = /\.(png|xml|txt)$/i;
+
+function guessFromName(name) {
+  const m = String(name).match(/(\d{1,4})[_\- ]+([A-Za-z][\w\- ']*)/);
+  if (m) { if (!$('#upId').value) $('#upId').value = parseInt(m[1]); if (!$('#upName').value) $('#upName').value = m[2].replace(/[_]/g, ' ').replace(/\.zip$/i, '').trim(); }
+  else {
+    const n = String(name).match(/^(\d{1,4})$/);
+    if (n && !$('#upId').value) $('#upId').value = parseInt(n[1]);
+  }
+}
+function setPending(p, label) {
+  pending = p;
+  $('#picked').textContent = label;
+  $('#upMsg').textContent = ''; $('#upMsg').className = 'msg';
+  refreshUploadBtn();
+}
+function refreshUploadBtn() { $('#upload').disabled = !(pending && online && $('#upId').value && $('#upName').value.trim()); }
+$('#upId').addEventListener('input', refreshUploadBtn);
+$('#upName').addEventListener('input', refreshUploadBtn);
+$('#pickFolder').onclick = () => $('#folderIn').click();
+$('#pickZip').onclick = () => $('#zipIn').click();
+$('#folderIn').addEventListener('change', e => {
+  const files = [...e.target.files].filter(f => ALLOWED.test(f.name)).map(f => ({ path: f.webkitRelativePath || f.name, file: f }));
+  if (!files.length) return setPending(null, 'That folder has no sprite files in it.');
+  const top = files[0].path.split('/')[0];
+  guessFromName(top);
+  setPending({ kind: 'files', files }, `📁 ${top}: ${files.length} files`);
+  e.target.value = '';
+});
+$('#zipIn').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  guessFromName(f.name.replace(/\.zip$/i, ''));
+  setPending({ kind: 'zip', file: f }, `🗜️ ${f.name} (${(f.size / 1024 / 1024).toFixed(1)} MB)`);
+  e.target.value = '';
+});
+
+// drag & drop (folders via webkitGetAsEntry)
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', async e => {
+  const items = [...(e.dataTransfer.items || [])];
+  const entries = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (entries.length === 1 && entries[0].isFile && /\.zip$/i.test(entries[0].name)) {
+    const f = e.dataTransfer.files[0];
+    guessFromName(f.name.replace(/\.zip$/i, ''));
+    return setPending({ kind: 'zip', file: f }, `🗜️ ${f.name} (${(f.size / 1024 / 1024).toFixed(1)} MB)`);
+  }
+  const files = [];
+  const walk = (entry, path) => new Promise(res => {
+    if (entry.isFile) entry.file(f => { if (ALLOWED.test(f.name)) files.push({ path: path + f.name, file: f }); res(); }, res);
+    else if (entry.isDirectory) {
+      const reader = entry.createReader(), all = [];
+      const read = () => reader.readEntries(async batch => {
+        if (!batch.length) { for (const c of all) await walk(c, path + entry.name + '/'); res(); }
+        else { all.push(...batch); read(); }
+      }, res);
+      read();
+    } else res();
+  });
+  for (const en of entries) await walk(en, '');
+  if (!files.length) return setPending(null, 'No sprite files found in what you dropped.');
+  const top = entries[0].name;
+  guessFromName(top);
+  setPending({ kind: 'files', files }, `📁 ${top}: ${files.length} files`);
+});
+
+$('#upload').addEventListener('click', async () => {
+  if (!pending) return;
+  const id = parseInt($('#upId').value), name = $('#upName').value.trim();
+  const msg = $('#upMsg'), bar = $('#bar'), fill = bar.querySelector('i');
+  const token = [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join('');
+  $('#upload').disabled = true; msg.className = 'msg'; msg.textContent = 'Uploading…';
+  bar.style.display = 'block'; fill.style.width = '0%';
+  try {
+    if (pending.kind === 'zip') {
+      fill.style.width = '40%';
+      await api(`/api/stage-zip/${token}`, { method: 'POST', body: pending.file });
+    } else {
+      const files = pending.files; let done = 0;
+      const queue = files.slice();
+      const worker = async () => {
+        while (queue.length) {
+          const it = queue.shift();
+          await api(`/api/stage/${token}/${it.path.split('/').map(encodeURIComponent).join('/')}`, { method: 'PUT', body: it.file });
+          done++; fill.style.width = (done / files.length * 90) + '%';
+        }
+      };
+      await Promise.all(Array.from({ length: 6 }, worker));
+    }
+    msg.textContent = 'Reading sprites…';
+    const res = await api('/api/commit', { method: 'POST', body: JSON.stringify({ token, id, name }) });
+    fill.style.width = '100%';
+    const st = await api('/api/state');
+    sprites = st.sprites;
+    // keep unsaved edits; add the new/updated entry from the server
+    const fresh = st.species.find(s => s.id === res.id);
+    const savedIdx = saved.findIndex(s => s.id === res.id);
+    if (savedIdx >= 0) saved[savedIdx] = clone(fresh); else saved.push(clone(fresh));
+    const di = draft.findIndex(s => s.id === res.id);
+    if (di >= 0) draft[di].name = fresh.name; else draft.push(clone(fresh));
+    render();
+    msg.className = 'msg good';
+    msg.textContent = `✓ ${res.name} uploaded (${res.anims.length} animations${res.shiny ? ', shiny included' : ''}). Now set its type and evolution below.`;
+    pending = null; $('#picked').textContent = 'Nothing selected yet.'; $('#upId').value = ''; $('#upName').value = '';
+    setTimeout(() => document.getElementById('sp-' + res.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+  } catch (e) {
+    msg.className = 'msg err'; msg.textContent = '✕ ' + e.message;
+  }
+  setTimeout(() => { bar.style.display = 'none'; }, 800);
+  refreshUploadBtn();
+});
+
+load();
+</script>
+</body>
+</html>

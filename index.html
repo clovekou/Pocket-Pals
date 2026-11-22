@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#2b2438">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pocket Pal">
+<title>Pocket Pal</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <button id="nameBtn" class="chip" aria-label="Open stat card">
+      <span id="petName">Pocket Pal</span>
+      <span id="petLevel" class="lv"></span>
+    </button>
+    <div id="streak" class="chip" title="Daily care streak">🔥 <b id="streakNum">0</b></div>
+    <button id="settingsBtn" class="chip icon" aria-label="Settings">⚙️</button>
+  </header>
+
+  <section id="bars" aria-label="Needs">
+    <div class="bar" data-k="food"><span class="bi">🍖</span><span class="bl">FOOD</span><div class="track"><i></i></div></div>
+    <div class="bar" data-k="joy"><span class="bi">😊</span><span class="bl">JOY</span><div class="track"><i></i></div></div>
+    <div class="bar" data-k="ene"><span class="bi">⚡</span><span class="bl">ENE</span><div class="track"><i></i></div></div>
+    <div class="bar" data-k="hyg"><span class="bi">🫧</span><span class="bl">HYG</span><div class="track"><i></i></div></div>
+  </section>
+
+  <main id="stage">
+    <canvas id="scene"></canvas>
+    <div id="cerBtns"></div>
+    <div id="toasts" aria-live="polite"></div>
+    <div id="hint"></div>
+    <div id="talk" class="hidden" aria-live="polite">
+      <div class="tk-face"><img alt=""></div>
+      <div class="tk-box"><div class="tk-name"></div><div class="tk-text"></div><div class="tk-next">▼</div></div>
+    </div>
+  </main>
+
+  <nav id="actions">
+    <button data-act="feed"><span>🍓</span>Feed</button>
+    <button data-act="play"><span>⭐</span>Play</button>
+    <button data-act="train"><span>🥊</span>Train</button>
+    <button data-act="bath"><span>🛁</span>Bath</button>
+    <button data-act="light"><span id="lightIcon">🌙</span><b id="lightLbl">Sleep</b></button>
+    <button data-act="dex"><span>📖</span>Dex</button>
+  </nav>
+</div>
+
+<!-- bottom sheet / dialogs -->
+<div id="scrim" class="hidden"></div>
+<div id="sheet" class="hidden" role="dialog" aria-modal="true"></div>
+
+<!-- full-screen minigames -->
+<div id="arena" class="hidden">
+  <div class="arena-top">
+    <div id="arenaTitle"></div>
+    <div id="arenaInfo"></div>
+    <button id="arenaClose" class="chip icon" aria-label="Stop">✕</button>
+  </div>
+  <canvas id="arenaCanvas"></canvas>
+</div>
+
+<script src="sprites.js"></script>
+<script src="species.js"></script>
+<script src="creatures.js"></script>
+<script src="game.js"></script>
+<script src="talk.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>

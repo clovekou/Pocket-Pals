@@ -1,0 +1,6 @@
+# Sprites are not in the repo (large, and Pokémon art is © Nintendo / PMD SpriteCollab CC BY-NC)
+Pokemon-Sprites/
+.DS_Store
+__pycache__/
+*.pyc
+*.tmp
