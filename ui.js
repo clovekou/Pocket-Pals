@@ -42,9 +42,78 @@
         t += d;
       }
     }
-    return { unlock, play };
+    return { unlock, play, ctx: () => ac };
   })();
   document.addEventListener('pointerdown', Sound.unlock, { capture: true });
+
+  // ======================= music =======================
+  // An original, cozy chiptune loop in the style of a handheld-game town theme (16 bars, loops ~45 s).
+  const Music = (() => {
+    const NOTE = n => { const m = /^([A-G])(#?)(\d)$/.exec(n); const i = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] ? 1 : 0); return 440 * Math.pow(2, (i + (+m[3] + 1) * 12 - 69) / 12); };
+    // melody: [note, length in eighths], 8 eighths per bar
+    const MEL = [
+      ['G4', 2], ['E5', 2], ['D5', 1], ['C5', 1], ['D5', 2], ['E5', 3], ['C5', 1], ['A4', 4],
+      ['F4', 1], ['A4', 1], ['C5', 2], ['D5', 1], ['C5', 1], ['A4', 2], ['B4', 2], ['D5', 2], ['G4', 4],
+      ['G4', 2], ['E5', 2], ['F5', 1], ['E5', 1], ['D5', 2], ['E5', 2], ['G5', 2], ['B4', 4],
+      ['A4', 2], ['C5', 1], ['F5', 1], ['E5', 2], ['D5', 2], ['D5', 2], ['B4', 2], ['C5', 4],
+      ['A5', 2], ['G5', 1], ['F5', 1], ['E5', 2], ['C5', 2], ['G5', 3], ['E5', 1], ['C5', 4],
+      ['D5', 2], ['F5', 2], ['A5', 2], ['G5', 1], ['F5', 1], ['E5', 2], ['D5', 2], ['B4', 4],
+      ['A4', 1], ['C5', 1], ['F5', 2], ['E5', 1], ['D5', 1], ['C5', 2], ['B4', 2], ['E5', 2], ['A4', 4],
+      ['D5', 2], ['F5', 1], ['E5', 1], ['D5', 2], ['B4', 2], ['C5', 6], [null, 2],
+    ];
+    // one chord per bar: [bass root, chord tones for the music-box arpeggio]
+    const CH = { C: ['C3', ['C4', 'E4', 'G4']], Am: ['A2', ['A3', 'C4', 'E4']], F: ['F2', ['F3', 'A3', 'C4']], G: ['G2', ['G3', 'B3', 'D4']], Em: ['E2', ['E3', 'G3', 'B3']], Dm: ['D3', ['D4', 'F4', 'A4']] };
+    const BARS = ['C', 'Am', 'F', 'G', 'C', 'Em', 'F', 'G', 'F', 'C', 'Dm', 'G', 'F', 'Am', 'Dm', 'C'];
+    const E8 = 60 / 84 / 2; // eighth note at 84 bpm
+    let master = null, filt = null, timer = null, next = 0, step = 0, melIdx = 0, melLeft = 0;
+    const want = () => ST().settings.music !== false && !document.hidden;
+    function tone(type, f, t, d, vol, dest) {
+      const ac = Sound.ctx(), o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .015);
+      g.gain.exponentialRampToValueAtTime(vol * .55, t + Math.min(.18, d * .5)); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + d + .05);
+    }
+    function schedule() {
+      const ac = Sound.ctx();
+      if (!ac || ac.state !== 'running') return;
+      if (!want()) { if (master) master.gain.setTargetAtTime(0, ac.currentTime, .3); return; }
+      if (!master) {
+        master = ac.createGain(); master.gain.value = 0;
+        filt = ac.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 2200;
+        filt.connect(master); master.connect(ac.destination);
+      }
+      const P = Game.pet(), quiet = P && P.asleep;
+      master.gain.setTargetAtTime(quiet ? .35 : .8, ac.currentTime, .5);
+      if (next < ac.currentTime) next = ac.currentTime + .1;
+      while (next < ac.currentTime + .35) {
+        const bar = Math.floor(step / 8) % BARS.length, beat = step % 8, [root, tri] = CH[BARS[bar]];
+        if (melLeft <= 0) {
+          const [n, len] = MEL[melIdx]; melIdx = (melIdx + 1) % MEL.length; melLeft = len;
+          if (n) tone('square', NOTE(n), next, len * E8 * .95, .045, filt);
+        }
+        melLeft--;
+        if (beat === 0 || beat === 4) tone('triangle', NOTE(root), next, E8 * 3.6, .16, filt);
+        if (beat === 2 || beat === 6) tone('triangle', NOTE(root) * 1.5, next, E8 * 1.8, .1, filt);
+        tone('sine', NOTE(tri[[0, 1, 2, 1][beat % 4]]) * 2, next, E8 * 1.6, .03, filt);
+        next += E8; step = (step + 1) % (BARS.length * 8);
+      }
+    }
+    function start() { if (!timer) timer = setInterval(() => { try { schedule(); } catch (e) { /* audio hiccup */ } }, 90); }
+    return { start };
+  })();
+  document.addEventListener('pointerdown', () => { Sound.unlock(); Music.start(); }, { capture: true });
+  // home-screen apps on iPhone can report a viewport shorter than the screen; stretch the layout to fill it
+  function fitScreen() {
+    const standalone = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    let gap = 0;
+    if (standalone) {
+      const portrait = innerHeight >= innerWidth, sh = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+      gap = Math.max(0, Math.min(120, sh - innerHeight));
+    }
+    document.documentElement.style.setProperty('--vgap', gap + 'px');
+  }
+  fitScreen(); addEventListener('resize', fitScreen); addEventListener('orientationchange', () => setTimeout(fitScreen, 300));
 
   // ======================= helpers =======================
   const rng = i => { const x = Math.sin(i * 12.9898) * 43758.5453; return x - Math.floor(x); };
@@ -566,7 +635,7 @@
     paintMinis(sheet);
   }
   function closeSheet() {
-    onlineOpen = false; sheet.className = 'hidden'; scrim.classList.add('hidden'); sheet.innerHTML = ''; sheetLocked = false; }
+    onlineOpen = false; gateOpen = false; sheet.className = 'hidden'; scrim.classList.add('hidden'); sheet.innerHTML = ''; sheetLocked = false; }
   scrim.addEventListener('click', () => { if (!sheetLocked) closeSheet(); });
   const head = title => `<div class="sh-head"><h2>${title}</h2><button class="x" data-close aria-label="Close">✕</button></div>`;
   sheet.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeSheet(); });
@@ -602,8 +671,45 @@
     return true;
   }
 
+  // ---------- welcome: new players need an account before choosing a starter ----------
+  let gateOpen = false, gatePhase = '';
+  const needsGate = () => Online.state.enabled && !ST().player.starterPicked;
+  function phaseOf(o) {
+    if (!o.ready) return o.error ? 'error' : 'connecting';
+    if (!o.user) return 'signin' + (o.error || '');
+    if (o.needsUsername) return 'username';
+    if (!o.profile || !o.cloudChecked) return 'loading';
+    return 'done';
+  }
+  function openGate() {
+    const o = Online.state, ph = phaseOf(o);
+    gatePhase = ph;
+    if (ph === 'done') {
+      gateOpen = false;
+      if (ST().player.starterPicked) { closeSheet(); V.loaded = null; V.x = .5; toast(`Welcome back, ${o.profile.username}! Your save was loaded.`, 4000); setTimeout(greet, 900); }
+      else openStarter();
+      return;
+    }
+    gateOpen = true;
+    let body;
+    if (ph === 'error') body = `<p class="note-bad">Couldn't connect: ${esc(o.error)}</p><p class="muted">Check your internet connection.</p><div class="btns"><button class="btn alt" id="onRetry">Try again</button></div>`;
+    else if (ph === 'connecting') body = '<p class="muted">Connecting…</p>';
+    else if (ph.startsWith('signin')) body = `<p>Create your trainer account to start your adventure. Your progress is saved to it, so you can play on any device and add friends to battle and trade with.</p>
+        <div class="btns"><button class="btn google" id="onSignIn">{i:pokeball} Sign in with Google</button></div>
+        ${o.error ? `<p class="note-bad">${esc(o.error)}</p>` : ''}`;
+    else if (ph === 'username') body = `<p>Choose a <b>username</b>. It's how friends find you, and nobody else can have it.</p>
+        <div class="searchrow"><input id="unIn" maxlength="16" placeholder="e.g. AshKetchum" autocapitalize="off" autocomplete="off"><button id="unGo">Create</button></div>
+        <p class="muted" id="unMsg">3–16 letters, numbers or _. You'll also get a unique player ID.</p>`;
+    else body = '<p class="muted">Loading your trainer save…</p>';
+    openSheet(`<div class="gate"><img class="gate-egg" src="${PX.url('egg_common_0')}" alt=""><h2>Welcome to Pocket Pals!</h2>${body}</div>`, { dialog: true, locked: true });
+    wireOnline();
+  }
+  Online.on(o => { if (gateOpen && phaseOf(o) !== gatePhase) openGate(); });
+  const startNewGame = () => (needsGate() ? openGate() : openStarter());
+
   // ---------- starter ----------
   function openStarter() {
+    gateOpen = false;
     openSheet(`<h2 style="margin:0 0 4px">${STARTERS.length > 1 ? 'Choose your first partner' : 'Meet your partner'}</h2>
       <p class="muted">Raise it, evolve it, and fill your Dex with all ${SPECIES.length} creatures (shinies too!).</p>
       <div class="starters">${STARTERS.map(id => { const s = SPECIES_BY_ID[id]; return `<button data-st="${id}">${miniCanvas(id, { px: 96 })}${esc(s.name)}<small>${ELEMENTS[s.el].label}</small></button>`; }).join('')}</div>`, { dialog: true, locked: true });
@@ -909,11 +1015,13 @@
     const S = ST();
     openSheet(head('Options') + `
       <label class="toggle"><span><b>Your name</b><small>What your Pokémon calls you</small></span><input id="setPlayer" maxlength="14" placeholder="partner" value="${esc(S.settings.player || '')}" style="width:140px;border:2px solid var(--line);border-radius:10px;padding:7px 9px;font:inherit;font-size:16px"></label>
+      <label class="toggle"><span><b>Music</b><small>Cozy background tune</small></span><span class="sw"><input type="checkbox" id="setMusic" ${S.settings.music !== false ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Fast time (testing)</b><small>1 second = 1 game minute. Normally 1 real minute = 1 game minute.</small></span><span class="sw"><input type="checkbox" id="setFast" ${S.settings.fast ? 'checked' : ''}><i></i></span></label>
       <div class="btns"><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
+    $('#setMusic').addEventListener('change', e => { S.settings.music = e.target.checked; Game.save(); });
     $('#setPlayer').addEventListener('input', e => { S.settings.player = e.target.value.slice(0, 14); Game.save(); });
     $('#setFast').addEventListener('change', e => { Game.setFast(e.target.checked); toast(e.target.checked ? 'Fast time ON' : 'Fast time OFF'); });
     $('#howTo').addEventListener('click', openManual);
@@ -921,7 +1029,7 @@
     $('#openCard').addEventListener('click', () => openCard());
     $('#resetBtn').addEventListener('click', () => dialog('Reset everything?', 'Your creature, Dex, streak and medals will be erased.', [
       { label: 'Cancel', cls: 'alt' },
-      { label: 'Erase', cls: 'red', fn: () => { Game.reset(); V.anim = null; V.x = .5; openStarter(); } },
+      { label: 'Erase', cls: 'red', fn: () => { Game.reset(); V.anim = null; V.x = .5; startNewGame(); } },
     ]));
   }
   function openManual() {
@@ -1889,7 +1997,7 @@
         if (!Online.NAME_RE.test(v)) { msg.textContent = '3–16 letters, numbers or _.'; msg.className = 'muted'; return; }
         t = setTimeout(async () => { const free = await Online.usernameFree(v).catch(() => null); if (unIn.value.trim() !== v) return; msg.textContent = free ? `"${v}" is available!` : `"${v}" is taken.`; msg.className = free ? 'note-ok' : 'note-bad'; }, 350);
       });
-      on('#unGo', 'click', safe(async () => { const p = await Online.createProfile(unIn.value); toast(`Welcome, ${p.username}! Your ID is ${p.code}.`, 4500); openOnline('add'); }));
+      on('#unGo', 'click', safe(async () => { const p = await Online.createProfile(unIn.value); toast(`Welcome, ${p.username}! Your ID is ${p.code}.`, 4500); if (gateOpen) openGate(); else openOnline('add'); }));
     }
     on('#srGo', 'click', safe(async () => {
       const v = $('#srIn').value; searchResult = await Online.findUser(v);
@@ -1941,7 +2049,7 @@
     // refresh the friends screen if it's open (but not while typing)
     if (onlineOpen && !sheet.classList.contains('hidden') && sheet.querySelector('.trainer, #onSignIn, #unIn, [data-cf]') && !sheet.contains(document.activeElement && document.activeElement.tagName === 'INPUT' ? document.activeElement : null)) openOnline();
   });
-  $('#friendsBtn').addEventListener('click', () => openOnline());
+  $('#friendsBtn').addEventListener('click', () => { if (!gateOpen) openOnline(); });
 
   // ---------- friend battle (uses your friend's current main) ----------
   function startFriendBattle(friend, theirs) {
@@ -2083,7 +2191,7 @@
   ['gesturestart', 'gesturechange'].forEach(ev => document.addEventListener(ev, e => e.preventDefault()));
   Talk.init({ sound: Sound.play, player: () => (ST().settings.player || '').trim() || 'partner' });
   Online.init(); updateBadge();
-  if (!ST().player.starterPicked) openStarter();
+  if (!ST().player.starterPicked) startNewGame();
   else setTimeout(greet, 900);
   requestAnimationFrame(frame);
 

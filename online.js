@@ -51,7 +51,7 @@ const Online = (() => {
   async function onUser(user) {
     unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer);
     Object.assign(st, { user, profile: null, needsUsername: false, incoming: [], outgoing: [], friends: [], trades: [], battles: [] });
-    cloudChecked = false;
+    cloudChecked = false; st.cloudChecked = false;
     if (!user) { Game.setTrainer(null); emit(); return; }
     try {
       const doc = await db.collection('users').doc(user.uid).get();
@@ -106,8 +106,8 @@ const Online = (() => {
   // ---------------- cloud save ----------------
   async function checkCloudSave() {
     const snap = await db.collection('saves').doc(me()).get().catch(() => null);
-    cloudChecked = true;
-    if (!snap || !snap.exists) { uploadSave(true); return; }
+    cloudChecked = true; st.cloudChecked = true;
+    if (!snap || !snap.exists) { emit(); uploadSave(true); return; }
     const cloud = snap.data();
     const local = JSON.parse(Game.exportSave());
     const hasLocal = local.player && local.player.starterPicked;
