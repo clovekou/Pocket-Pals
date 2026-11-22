@@ -13,6 +13,34 @@ const Online = (() => {
   };
   const subs = [];
   let db = null, auth = null, unsub = [], syncTimer = null, lastSynced = '', cloudChecked = false;
+  // multi-device sync: every upload is stamped with this device and a revision time, so a device
+  // (or Safari, opened from the widget) can tell when another device saved newer progress
+  const DEVICE = (() => { try { let d = localStorage.getItem('pocketpal.device'); if (!d) { d = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('pocketpal.device', d); } return d; } catch (e) { return 'x'; } })();
+  const lastRevKey = () => 'pocketpal.syncRev.' + me();
+  const lastRev = () => { try { return +localStorage.getItem(lastRevKey()) || 0; } catch (e) { return 0; } };
+  const setLastRev = r => { try { localStorage.setItem(lastRevKey(), String(r || 0)); } catch (e) {} };
+  let pulling = false;
+  function takeCloud(cloud, why) {
+    Game.importSave(cloud.data); lastSynced = cloud.data; setLastRev(cloud.rev); setApplied(cloud.adminRev);
+    if (st.profile) Game.setTrainer({ name: st.profile.username, code: st.profile.code });
+    subs.forEach(f => { try { f(st, { pulled: why }); } catch (e) {} });
+  }
+  /** the game came back on screen: load newer progress saved by another device */
+  async function pullIfNewer() {
+    if (!db || !me() || !st.profile || !cloudChecked || st.conflict || pulling) return;
+    pulling = true;
+    try {
+      const snap = await db.collection('saves').doc(me()).get();
+      const c = snap.exists && snap.data();
+      if (c && c.data && c.device !== DEVICE && (c.rev || 0) > lastRev() && c.data !== Game.exportSave()) takeCloud(c, 'resume');
+    } catch (e) {} finally { pulling = false; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) uploadSave(false).catch(() => {}); // leaving: save now, so the widget and other devices are up to date
+    else pullIfNewer();
+  });
+  addEventListener('pagehide', () => { uploadSave(false).catch(() => {}); });
+
   // admin edits: the save document carries adminRev; we remember the last one we applied on this device
   const revKey = () => 'pocketpal.adminRev.' + me();
   const appliedRev = () => { try { return +localStorage.getItem(revKey()) || 0; } catch (e) { return 0; } };
@@ -122,7 +150,13 @@ const Online = (() => {
     const hasLocal = local.player && local.player.starterPicked;
     if (hasLocal && (cloud.adminRev || 0) > appliedRev() && cloud.data) { applyAdminSave(cloud); emit(); return; }
     if (!hasLocal) setApplied(cloud.adminRev);
-    if (!hasLocal || cloud.data === Game.exportSave()) { Game.importSave(cloud.data); lastSynced = cloud.data; Game.setTrainer({ name: st.profile.username, code: st.profile.code }); emit(); return; }
+    if (!hasLocal || cloud.data === Game.exportSave()) { Game.importSave(cloud.data); lastSynced = cloud.data; setLastRev(cloud.rev); Game.setTrainer({ name: st.profile.username, code: st.profile.code }); emit(); return; }
+    // this device already plays on this account: no question needed, keep whichever is newer
+    if (cloud.device === DEVICE || (!cloud.device && !cloud.adminRev)) { emit(); uploadSave(true); return; } // ours, or saved before devices were tracked
+    if (lastRev() && cloud.data) {
+      if ((cloud.rev || 0) > lastRev()) { takeCloud(cloud, 'login'); emit(); return; }
+      emit(); uploadSave(true); return;
+    }
     setApplied(cloud.adminRev); // either choice starts from the account's latest admin version
     st.conflict = { cloud, cloudInfo: describe(JSON.parse(cloud.data)), localInfo: describe(local) };
     emit();
@@ -133,7 +167,7 @@ const Online = (() => {
   }
   async function resolveConflict(useCloud) {
     const c = st.conflict; st.conflict = null;
-    if (useCloud && c) { Game.importSave(c.cloud.data); lastSynced = c.cloud.data; Game.setTrainer({ name: st.profile.username, code: st.profile.code }); }
+    if (useCloud && c) { Game.importSave(c.cloud.data); lastSynced = c.cloud.data; setLastRev(c.cloud.rev); Game.setTrainer({ name: st.profile.username, code: st.profile.code }); }
     else await uploadSave(true);
     emit();
   }
@@ -170,11 +204,13 @@ const Online = (() => {
     await db.collection('widgets').doc(token).set({ ...c, updated: Date.now() });
   }
   async function uploadSave(force) {
-    if (!db || !me() || !st.profile || !cloudChecked || st.conflict) return;
+    if (!db || !me() || !st.profile || !cloudChecked || st.conflict || pulling) return;
     const data = Game.exportSave();
     if (!force && data === lastSynced) return;
     lastSynced = data;
-    await db.collection('saves').doc(me()).set({ data, updatedAt: now(), adminRev: appliedRev() });
+    const rev = Date.now();
+    await db.collection('saves').doc(me()).set({ data, updatedAt: now(), adminRev: appliedRev(), rev, device: DEVICE });
+    setLastRev(rev);
     await db.collection('users').doc(me()).update({ showcase: Game.showcase() });
     await syncWidget().catch(() => {});
   }

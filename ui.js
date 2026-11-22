@@ -2082,6 +2082,7 @@ if (!code) {
   }
   Online.on((s, ev) => {
     updateBadge();
+    if (ev && ev.pulled) { V.loaded = null; V.anim = null; toast('{i:friends} Synced — loaded your latest progress from your account.', 3500); }
     if (ev && ev.adminEdit) { V.loaded = null; V.anim = null; toast('{i:wrench} An admin updated your Pokémon.', 4500); }
     if (ev && ev.traded) {
       const m = ev.received, sp = m && SPECIES_BY_ID[m.sp];
