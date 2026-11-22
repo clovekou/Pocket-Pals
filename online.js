@@ -193,7 +193,8 @@ const Online = (() => {
     const mood = p.egg ? 'Tap it 3 times to hatch!' : p.asleep ? 'Sleeping… Zzz' : food < 30 ? 'Hungry! Feed me a berry' : joy < 30 ? 'Bored… let\'s play!'
       : ene < 30 ? 'So sleepy…' : hyg < 30 ? 'Needs a bath!' : avg >= 80 ? 'Feeling great!' : 'Doing okay';
     return { uid: me(), trainer: st.profile.username, name, sp: p.sp, shiny: !!p.shiny, egg: !!p.egg, asleep: !!p.asleep,
-      level: p.egg ? 0 : Game.level(), food, joy, ene, hyg, face, mood };
+      level: p.egg ? 0 : Game.level(), food, joy, ene, hyg, face, mood,
+      party: (S.player.party || []).filter(m => m && !m.egg).slice(0, 5).map(m => ({ sp: m.sp, shiny: !!m.shiny, name: m.name || (SPECIES_BY_ID[m.sp] ? SPECIES_BY_ID[m.sp].name : 'Pokémon') })) };
   }
   async function syncWidget(force) {
     const token = Game.state.player.widgetToken;

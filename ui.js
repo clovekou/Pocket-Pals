@@ -739,8 +739,15 @@ if (!code) {
         <li>Press and hold the new widget → <b>Edit Widget</b> → set <b>Script</b> to <b>Pocket Pals</b>.</li>
       </ol>
       <div class="btns"><button class="btn gold" id="wgCopy">{i:card} Copy widget script</button></div>
+      <h4 style="font-family:var(--pixel);margin:16px 0 6px">Mac desktop app</h4>
+      <p class="muted" style="margin:0">Pocket Pals Dock lets your Pokémon walk around your Mac's desktop. When it asks for your key, paste this:</p>
+      <div class="btns"><button class="btn alt" id="wgKey">{i:card} Copy key for Mac app</button></div>
       <p class="muted" style="margin-top:10px">Keep the script to yourself: it has your private widget key. Tapping the widget opens the game.</p>
       <p class="muted">Android: widgets need an installed app, so for now add the game to your home screen from Chrome's ⋮ menu → <b>Add to Home screen</b>.</p>`);
+    $('#wgKey').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(token); toast('Key copied! Paste it into Pocket Pals Dock.', 3500); }
+      catch (e) { const ta = document.createElement('textarea'); ta.value = token; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Key copied!'); }
+    });
     $('#wgCopy').addEventListener('click', async () => {
       const s = widgetScript(token);
       try { await navigator.clipboard.writeText(s); toast('Widget script copied! Paste it into Scriptable.', 3500); }
