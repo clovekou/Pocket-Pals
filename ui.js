@@ -66,7 +66,8 @@
     const BARS = ['C', 'Am', 'F', 'G', 'C', 'Em', 'F', 'G', 'F', 'C', 'Dm', 'G', 'F', 'Am', 'Dm', 'C'];
     const E8 = 60 / 84 / 2; // eighth note at 84 bpm
     let master = null, filt = null, timer = null, next = 0, step = 0, melIdx = 0, melLeft = 0;
-    const want = () => ST().settings.music !== false && !document.hidden;
+    const want = () => ST().settings.music !== false && vol() > 0 && !document.hidden;
+    const vol = () => { const v = ST().settings.musicVol; return (v == null ? 60 : v) / 100; };
     function tone(type, f, t, d, vol, dest) {
       const ac = Sound.ctx(), o = ac.createOscillator(), g = ac.createGain();
       o.type = type; o.frequency.value = f;
@@ -84,7 +85,7 @@
         filt.connect(master); master.connect(ac.destination);
       }
       const P = Game.pet(), quiet = P && P.asleep;
-      master.gain.setTargetAtTime(quiet ? .35 : .8, ac.currentTime, .5);
+      master.gain.setTargetAtTime(vol() * (quiet ? .5 : 1.2), ac.currentTime, .15);
       if (next < ac.currentTime) next = ac.currentTime + .1;
       while (next < ac.currentTime + .35) {
         const bar = Math.floor(step / 8) % BARS.length, beat = step % 8, [root, tri] = CH[BARS[bar]];
@@ -103,17 +104,6 @@
     return { start };
   })();
   document.addEventListener('pointerdown', () => { Sound.unlock(); Music.start(); }, { capture: true });
-  // home-screen apps on iPhone can report a viewport shorter than the screen; stretch the layout to fill it
-  function fitScreen() {
-    const standalone = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-    let gap = 0;
-    if (standalone) {
-      const portrait = innerHeight >= innerWidth, sh = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
-      gap = Math.max(0, Math.min(120, sh - innerHeight));
-    }
-    document.documentElement.style.setProperty('--vgap', gap + 'px');
-  }
-  fitScreen(); addEventListener('resize', fitScreen); addEventListener('orientationchange', () => setTimeout(fitScreen, 300));
 
   // ======================= helpers =======================
   const rng = i => { const x = Math.sin(i * 12.9898) * 43758.5453; return x - Math.floor(x); };
@@ -1016,12 +1006,14 @@
     openSheet(head('Options') + `
       <label class="toggle"><span><b>Your name</b><small>What your Pokémon calls you</small></span><input id="setPlayer" maxlength="14" placeholder="partner" value="${esc(S.settings.player || '')}" style="width:140px;border:2px solid var(--line);border-radius:10px;padding:7px 9px;font:inherit;font-size:16px"></label>
       <label class="toggle"><span><b>Music</b><small>Cozy background tune</small></span><span class="sw"><input type="checkbox" id="setMusic" ${S.settings.music !== false ? 'checked' : ''}><i></i></span></label>
+      <label class="toggle"><span><b>Music volume</b><small id="musicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Fast time (testing)</b><small>1 second = 1 game minute. Normally 1 real minute = 1 game minute.</small></span><span class="sw"><input type="checkbox" id="setFast" ${S.settings.fast ? 'checked' : ''}><i></i></span></label>
       <div class="btns"><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
     $('#setMusic').addEventListener('change', e => { S.settings.music = e.target.checked; Game.save(); });
+    $('#setMusicVol').addEventListener('input', e => { S.settings.musicVol = +e.target.value; $('#musicVolTxt').textContent = e.target.value + '%'; if (+e.target.value > 0 && S.settings.music === false) { S.settings.music = true; $('#setMusic').checked = true; } Game.save(); });
     $('#setPlayer').addEventListener('input', e => { S.settings.player = e.target.value.slice(0, 14); Game.save(); });
     $('#setFast').addEventListener('change', e => { Game.setFast(e.target.checked); toast(e.target.checked ? 'Fast time ON' : 'Fast time OFF'); });
     $('#howTo').addEventListener('click', openManual);
