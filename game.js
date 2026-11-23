@@ -528,9 +528,9 @@ const Game = (() => {
   }
 
   // ---------------- endings ----------------
+  // the farewell ending (a fully grown Pokémon leaving after 3 days) has been removed: your Pokémon stay with you
   function canFarewell() {
-    const p = S.pet;
-    return !!p && !p.egg && !p.asleep && !S.ceremony && isFinal(p.sp) && p.ageMin >= p.farewellAt;
+    return false;
   }
   function postponeFarewell() { if (S.pet) { S.pet.farewellAt = S.pet.ageMin + 24 * 60; save(); } }
   function farewellIn() {

@@ -1237,7 +1237,6 @@ if (!code) {
         <div class="rows">${MEDALS.map(m => `<div class="row"><span>${ic(m.icon)} ${m.label}</span><b>${m.desc}</b></div>`).join('')}</div>`;
     } else {
       const need = Game.evoLevel();
-      const fin = Game.farewellIn();
       const nextMs = [3, 7, 30, 100].find(x => x > S.player.streak);
       const end = S.player.lastEnd;
       body = `<div class="rows">
@@ -1248,7 +1247,6 @@ if (!code) {
         <div class="row"><span>Evolution</span><b>${need == null ? (Game.evoMethods(p.sp).some(m => m.bond != null) ? `When its bond reaches ${Math.min(...Game.evoMethods(p.sp).filter(m => m.bond != null).map(m => m.bond))} (now ${p.bond || 0})` : Game.evoMethods(p.sp).length ? 'With an item' : 'Final form') : `At Lv ${need}${p.mistakes ? ` (+${p.mistakes} for slip-ups)` : ''}${Game.evoMethods(p.sp).filter(m => !m.item && m.time).length ? ' · ' + [...new Set(Game.evoMethods(p.sp).filter(m => !m.item && m.time).map(m => Evolution.SHORT[m.time]))].join(' / ') + ' only' : ''}`}</b></div>
         ${Game.evoMethods(p.sp).some(m => m.item) ? `<div class="row"><span>Items</span><b>${Game.evoMethods(p.sp).filter(m => m.item).map(m => `${ic(Game.ITEMS[m.item].icon)} ${Game.ITEMS[m.item].name}${m.time ? ` (${Evolution.SHORT[m.time]})` : ''}`).join(', ')}</b></div>` : ''}
         ${need == null ? '' : '<div class="row"><span>Also needs</span><b>Awake, every need ≥ 40</b></div>'}
-        <div class="row"><span>Farewell</span><b>${fin == null ? 'After its final form' : fin === 0 ? 'Ready' : 'In ' + fmtDur(fin)}</b></div>
         <div class="row"><span>Egg luck bonus</span><b>+${Game.careBonus()} (streak + bond)</b></div>
         <div class="row"><span>Next egg</span><b>${end === 'farewell' ? 'Blessed {i:sparkle}' : end === 'runaway' ? 'Plain (after a run-away)' : 'Normal'}</b></div>
         ${SPECIES.some(x => x.tier === 'legend') ? `<div class="row"><span>Legendaries</span><b>${Game.registeredCount() >= Game.LEGEND_UNLOCK ? 'Can appear!' : `Unlock at ${Game.LEGEND_UNLOCK} registered`}</b></div>` : ''}
@@ -1505,7 +1503,7 @@ if (!code) {
       <h4>Needs</h4><ul><li>FOOD −2/min, ENE −1/min, HYG −1/min (−4 more per poop), HAPPY −1/min (faster if hungry or dirty).</li><li>Letting a need drop to 10 or less is a <b>slip-up</b>: it delays evolution by 1 level and cools the bond.</li></ul>
       <h4>Care</h4><ul><li>{i:pecha}{i:aspear}{i:cheri} <b>Pecha, Aspear and Cheri Berries</b> +25 food. One is its hidden favourite (+35 food, +happy, bond).</li><li>{i:poffin} <b>Poffin</b> +food +happy but adds weight. Over 50 weight = sluggish.</li><li>{i:pokeball} <b>Poké Ball Catch</b> trains SPEED and burns weight. {i:rock} <b>Rock Smash</b> trains ATTACK. {i:shield} <b>Protect</b> trains DEFENCE.</li><li>{i:bath} <b>Bath</b> clears poops. {i:hand} <b>Tap</b> to pet it. {i:sleep} <b>Sleep</b> restores energy; needs drop much slower.</li></ul>
       <h4>Evolution</h4><ul><li>When it reaches its evolution level and every need is ≥ 40, a button appears — you choose to evolve or keep its form.</li></ul>
-      <h4>Endings</h4><ul><li>{i:heartGold} <b>Farewell</b>: final form + 3 days. Blesses the next egg.</li><li>{i:rain} <b>Run-away</b>: all needs at 0 for 1 hour. One act of care cancels it. Curses the next egg.</li><li>{i:hand} <b>Release</b>: hold your finger on it for 3 seconds.</li></ul>
+      <h4>Endings</h4><ul><li>{i:rain} <b>Run-away</b>: all needs at 0 for 1 hour. One act of care cancels it. Curses the next egg.</li><li>{i:hand} <b>Release</b>: hold your finger on it for 3 seconds.</li></ul>
       <h4>Eggs</h4><ul><li>Eggs hatch into a first-stage Pokémon — Common, Rare or (after ${Game.LEGEND_UNLOCK} registered) Legendary — favouring ones you haven't raised yet.</li><li>Streak + bond improve the shiny odds (1/48 → best 1/8). A farewell doubles them for the next egg.</li></ul>
       <h4>Gestures</h4><ul><li>Swipe ← → Pokédex · ↑ Summary · ↓ Options · hold 3 s = release.</li></ul>
       </div>`);
@@ -2139,10 +2137,12 @@ if (!code) {
   function openItems() {
     const IT = Game.ITEMS, keys = Object.keys(IT), p = Game.pet();
     const have = keys.filter(k => Game.itemCount(k) > 0);
-    const row = k => `<div class="itemrow">${ic(IT[k].icon).replace('class="ic"', 'class="px"')}
-        <div class="ii"><b>${IT[k].name}</b><small>${IT[k].desc}</small>${IT[k].kind === 'evo' ? evoNote(k) : ''}</div><span class="cnt">×${Game.itemCount(k)}</span>
-        ${IT[k].use ? `<button data-use="${k}">Use</button>` : IT[k].kind === 'evo' ? (IT[k].how === 'hold' ? `<button class="gold" data-hold="${k}">Give</button>` : `<button data-evo="${k}">Use</button>`) : ''}</div>`;
-    const group = (title, list) => list.length ? `<h4 class="shoph">${title}</h4>` + list.map(row).join('') : '';
+    // a grid of tiles, three to a row; tap a tile (not its button) to read what the item does
+    const fits = k => IT[k].kind === 'evo' && p && !p.egg && Game.evoUsers(k).includes(p.sp);
+    const tile = k => `<div class="itemtile" data-info="${k}"><span class="icnt">×${Game.itemCount(k)}</span>${fits(k) ? '<span class="ifit">✓</span>' : ''}
+        ${ic(IT[k].icon).replace('class="ic"', 'class="px"')}<b>${IT[k].name}</b>
+        ${IT[k].use ? `<button data-use="${k}">Use</button>` : IT[k].kind === 'evo' ? (IT[k].how === 'hold' ? `<button class="gold" data-hold="${k}">Give</button>` : `<button data-evo="${k}">Use</button>`) : `<span class="inote">${IT[k].kind === 'ball' ? 'Catch wheel' : IT[k].heal ? 'Use in Explore' : IT[k].kind === 'value' ? 'Treasure' : ''}</span>`}</div>`;
+    const group = (title, list) => list.length ? `<h4 class="shoph">${title}</h4><div class="itemgrid">${list.map(tile).join('')}</div>` : '';
     const kindOf = k => IT[k].kind || 'basic';
     const heldRow = p && !p.egg && p.held && IT[p.held] ? `<div class="itemrow held">${ic(IT[p.held].icon).replace('class="ic"', 'class="px"')}
         <div class="ii"><b>${esc(petName())} is holding a ${IT[p.held].name}</b><small>${Game.heldEvo() ? 'It can evolve now — keep its needs at 40+!' : 'It evolves at its next level-up' + (Evolution.WHEN[Game.evoMethods(p.sp).filter(m => m.item === p.held).map(m => m.time)[0]] ? ' ' + Evolution.WHEN[Game.evoMethods(p.sp).filter(m => m.item === p.held).map(m => m.time)[0]] : '') + '.'}</small></div>
@@ -2155,6 +2155,12 @@ if (!code) {
       + fragmentsHtml()
       + `<p class="muted" style="margin-top:12px">Deepest floor reached: B${ST().player.exploreBest || 0}F · Wild battles won: ${ST().player.wildWins || 0}</p>`);
     wireBagTabs();
+    sheet.querySelectorAll('[data-info]').forEach(t => t.addEventListener('click', e => {
+      if (e.target.closest('button')) return;                      // the tile's own Use / Give button
+      const k = t.dataset.info, it = IT[k];
+      dialog(`${ic(it.icon)} ${it.name} ×${Game.itemCount(k)}`, `${it.desc}${it.kind === 'evo' ? '<br>' + evoNote(k) : ''}${it.kind === 'value' ? '<br><small class="muted">Sell it at the Poké Mart for Pokécoins.</small>' : ''}`,
+        [{ label: 'Close', cls: 'alt', fn: () => openFeed('items') }]);
+    }));
     sheet.querySelectorAll('[data-summon]').forEach(b => b.addEventListener('click', () => {
       const id = +b.dataset.summon, nm = SPECIES_BY_ID[id].name;
       dialog(`Summon ${esc(nm)}?`, `Use ${Game.FRAGMENTS_TO_SUMMON} fragments to call ${esc(nm)}. It answers for sure and joins your party (or PC Box if the party is full).`, [
