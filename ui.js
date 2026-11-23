@@ -42,7 +42,53 @@
         t += d;
       }
     }
-    return { unlock, play, ctx: () => ac };
+    // ---- battle sounds: noise-based swoosh and impact (retro handheld style) ----
+    let noiseBuf = null;
+    function noise() {
+      if (!noiseBuf) {
+        noiseBuf = ac.createBuffer(1, ac.sampleRate * .5, ac.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const s = ac.createBufferSource(); s.buffer = noiseBuf; return s;
+    }
+    const ok = () => ST().settings.sound && ac && ac.state !== 'closed';
+    /** the attacker lunges: a quick rising swoosh */
+    function attack() {
+      try {
+        if (!ok()) return;
+        const t = ac.currentTime + .01, n = noise(), f = ac.createBiquadFilter(), g = ac.createGain();
+        f.type = 'bandpass'; f.Q.value = 1.4; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(3200, t + .18);
+        g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .06); g.gain.exponentialRampToValueAtTime(.0001, t + .22);
+        n.connect(f); f.connect(g); g.connect(ac.destination); n.start(t); n.stop(t + .25);
+      } catch (e) {}
+    }
+    /** the hit lands: a crunchy burst plus a falling thump; critical hits get a second, sharper crack */
+    function damage(crit) {
+      try {
+        if (!ok()) return;
+        const hit = (t, vol, top) => {
+          const n = noise(), f = ac.createBiquadFilter(), g = ac.createGain();
+          f.type = 'lowpass'; f.frequency.setValueAtTime(top, t); f.frequency.exponentialRampToValueAtTime(300, t + .16);
+          g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .18);
+          n.connect(f); f.connect(g); g.connect(ac.destination); n.start(t); n.stop(t + .2);
+          const o = ac.createOscillator(), og = ac.createGain();
+          o.type = 'square'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(55, t + .14);
+          og.gain.setValueAtTime(vol * .7, t); og.gain.exponentialRampToValueAtTime(.0001, t + .16);
+          o.connect(og); og.connect(ac.destination); o.start(t); o.stop(t + .18);
+        };
+        const t = ac.currentTime + .01;
+        hit(t, .22, 5000);
+        if (crit) {
+          hit(t + .09, .26, 9000);
+          const o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'square'; o.frequency.setValueAtTime(1600, t + .09); o.frequency.exponentialRampToValueAtTime(400, t + .2);
+          g.gain.setValueAtTime(.05, t + .09); g.gain.exponentialRampToValueAtTime(.0001, t + .22);
+          o.connect(g); g.connect(ac.destination); o.start(t + .09); o.stop(t + .24);
+        }
+      } catch (e) {}
+    }
+    return { unlock, play, attack, damage, ctx: () => ac };
   })();
   document.addEventListener('pointerdown', Sound.unlock, { capture: true });
 
@@ -869,6 +915,7 @@ if (!code) {
   function openFeed(tab) {
     if (tab) bagTab = tab;
     if (bagTab === 'items') return openItems();
+    if (bagTab === 'shop') return openShop();
     if (!guard()) return;
     const p = Game.pet(), s = Game.sp();
     const known = p.berryKnown;
@@ -1200,6 +1247,7 @@ if (!code) {
         Sound.play('evolve');
         const mons = r.mons.map(m => `${m.shiny ? '{i:sparkle}' : ''}<b>${esc(m.name)}</b> (${m.where === 'party' ? 'joined your party' : 'sent to your PC Box'})`);
         const items = r.items.map(i => `{i:${Game.ITEMS[i.k].icon}} ${Game.ITEMS[i.k].name} ×${i.n}`);
+        if (r.coins) items.push(`{i:coin} ${r.coins.toLocaleString()} Pokécoins`);
         dialog(icons(`{i:sparkle} ${esc(r.label)}`), icons((r.message ? esc(r.message) + '<br><br>' : '') + 'You received: ' + ([...mons, ...items].join(', ') || 'nothing this time') + '!'), [{ label: 'Yay!', cls: 'gold' }]);
       } catch (e) {
         Sound.play('no'); $('#codeMsg').textContent = e.message; go.disabled = false;
@@ -1587,8 +1635,51 @@ if (!code) {
   }
 
   // ---------- bag: items found while exploring ----------
+  // berries live under Care → Feed; the Bag holds Items and the Poké Mart (Shop)
   function bagTabs() {
-    return '';   // berries live under Care → Feed, so the Bag only holds items
+    if (!Game.feature('shop')) return '';
+    return `<div class="tabs"><button data-bag="items" class="${bagTab === 'items' ? 'on' : ''}">{i:bag} Items</button><button data-bag="shop" class="${bagTab === 'shop' ? 'on' : ''}">{i:coin} Shop</button></div>`;
+  }
+  const coinsHtml = () => `<span class="coins">{i:coin}<b>${Game.coins().toLocaleString()}</b></span>`;
+  // ---------- Poké Mart: buy with Pokécoins, sell treasure found while exploring ----------
+  const shopQty = {};
+  function openShop() {
+    if (!Game.feature('shop')) { bagTab = 'items'; return openItems(); }
+    const IT = Game.ITEMS, C = Game.config;
+    const buy = Object.keys(C.shopBuy).filter(k => IT[k] && C.shopBuy[k] > 0);
+    const sell = Object.keys(C.shopSell).filter(k => IT[k] && C.shopSell[k] > 0 && Game.itemCount(k) > 0);
+    const row = (k, price, acts, extra = '') => `<div class="itemrow">${ic(IT[k].icon).replace('class="ic"', 'class="px"')}
+      <div class="ii"><b>${IT[k].name}</b><small>${IT[k].desc}</small><small class="price">{i:coin} ${price.toLocaleString()}${extra}</small></div>${acts}</div>`;
+    const buyRows = buy.map(k => {
+      const q = shopQty[k] || 1, cost = C.shopBuy[k] * q, can = Game.coins() >= cost;
+      return row(k, C.shopBuy[k], `<div class="qty"><button class="alt" data-qm="${k}" ${q <= 1 ? 'disabled' : ''}>−</button><span>${q}</span><button class="alt" data-qp="${k}" ${q >= 99 ? 'disabled' : ''}>+</button></div>
+        <button data-buy="${k}" ${can ? '' : 'disabled'}>Buy</button>`, Game.itemCount(k) ? ` · have ×${Game.itemCount(k)}` : '');
+    }).join('');
+    const sellRows = sell.map(k => row(k, C.shopSell[k], `<span class="cnt">×${Game.itemCount(k)}</span><button class="gold" data-sell="${k}">Sell</button>${Game.itemCount(k) > 1 ? `<button class="gold" data-sellall="${k}">All</button>` : ''}`)).join('');
+    openSheet(head('Bag') + bagTabs() + `
+      <div class="shophead">{i:shop}<div><b>Poké Mart</b><small>Trade your treasure for Pokécoins, then stock up.</small></div>${coinsHtml()}</div>
+      <h4 class="shoph">{i:cart} Buy</h4>${buyRows || '<p class="muted">Nothing on the shelves right now.</p>'}
+      <h4 class="shoph">{i:coin} Sell</h4>${sellRows || '<p class="muted">Nothing to sell yet. Find <b>Pearls</b>, <b>Star Pieces</b> and <b>Nuggets</b> while exploring!</p>'}`);
+    wireBagTabs();
+    const q = (k, d) => { shopQty[k] = Math.max(1, Math.min(99, (shopQty[k] || 1) + d)); openShop(); };
+    sheet.querySelectorAll('[data-qm]').forEach(b => b.addEventListener('click', () => q(b.dataset.qm, -1)));
+    sheet.querySelectorAll('[data-qp]').forEach(b => b.addEventListener('click', () => q(b.dataset.qp, 1)));
+    sheet.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
+      const k = b.dataset.buy, n = shopQty[k] || 1, r = Game.buyItem(k, n);
+      if (r.error) { toast(r.error); Sound.play('no'); return; }
+      Sound.play('catch'); toast(`Bought {i:${IT[k].icon}} ${IT[k].name} ×${n} for {i:coin}${r.spent.toLocaleString()}`); shopQty[k] = 1; openShop();
+    }));
+    const doSell = (k, n) => {
+      const r = Game.sellItem(k, n);
+      if (r.error) { toast(r.error); Sound.play('no'); return; }
+      Sound.play('medal'); toast(`Sold {i:${IT[k].icon}} ${IT[k].name} ×${n} for {i:coin}${r.earned.toLocaleString()}`); openShop();
+    };
+    sheet.querySelectorAll('[data-sell]').forEach(b => b.addEventListener('click', () => doSell(b.dataset.sell, 1)));
+    sheet.querySelectorAll('[data-sellall]').forEach(b => b.addEventListener('click', () => {
+      const k = b.dataset.sellall, n = Game.itemCount(k);
+      dialog(`Sell all ${IT[k].name}s?`, `Sell ${n} for ${C.shopSell[k] * n} Pokécoins?`, [
+        { label: 'Cancel', cls: 'alt', fn: openShop }, { label: 'Sell all', cls: 'gold', fn: () => doSell(k, n) }]);
+    }));
   }
   function wireBagTabs() { sheet.querySelectorAll('[data-bag]').forEach(b => b.addEventListener('click', () => openFeed(b.dataset.bag))); }
   function fragmentsHtml() {
@@ -1865,12 +1956,12 @@ if (!code) {
         const A = turn === 'me' ? G.me : G.wild, Dd = turn === 'me' ? G.wild : G.me;
         const crit = Math.random() < .07;
         const dmg = Math.max(2, Math.round((A.atk / Math.max(1, Dd.def)) * (A.level * .45 + 6) * (.85 + Math.random() * .3) * (crit ? 1.5 : 1)));
-        G.act = turn; G.actAt = now(); Sound.play('hit');
+        G.act = turn; G.actAt = now(); Sound.attack();
         const an = turn === 'me' ? esc(name()) : `The wild ${esc(G.wild.name)}`;
         setTimeout(() => {
           if (arenaGame !== G) return;
           if (turn === 'me') G.wildHp -= dmg; else G.meHp -= dmg;
-          G.hurt = turn === 'me' ? 'wild' : 'me'; G.hurtAt = now();
+          G.hurt = turn === 'me' ? 'wild' : 'me'; G.hurtAt = now(); Sound.damage(crit);
           say(`${an} attacks!${crit ? ' A critical hit!' : ''}`, `${dmg} damage`);
           if (G.wildHp <= 0) return setTimeout(win, 700);
           if (G.meHp <= 0) return setTimeout(lose, 700);
@@ -2392,11 +2483,11 @@ if (!code) {
         if (arenaGame !== G) return;
         const A = turn === 'me' ? me : opp, D = turn === 'me' ? opp : me, crit = Math.random() < .07;
         const dmg = Math.max(2, Math.round((A.atk / Math.max(1, D.def)) * (A.level * .45 + 6) * (.85 + Math.random() * .3) * (crit ? 1.5 : 1)));
-        G.act = turn; G.actAt = now(); Sound.play('hit');
+        G.act = turn; G.actAt = now(); Sound.attack();
         setTimeout(() => {
           if (arenaGame !== G) return;
           if (turn === 'me') G.oppHp -= dmg; else G.meHp -= dmg;
-          G.hurt = turn === 'me' ? 'opp' : 'me'; G.hurtAt = now();
+          G.hurt = turn === 'me' ? 'opp' : 'me'; G.hurtAt = now(); Sound.damage(crit);
           say(`${turn === 'me' ? esc(petName()) : `${esc(friend.username)}'s ${esc(opp.name)}`} attacks!${crit ? ' A critical hit!' : ''}`, `${dmg} damage`);
           if (G.oppHp <= 0 || G.meHp <= 0) return setTimeout(() => end(G.oppHp <= 0), 700);
           turn = turn === 'me' ? 'opp' : 'me'; setTimeout(step, 750);

@@ -30,8 +30,11 @@ const Game = (() => {
   const CFG_DEFAULT = {
     exploreFloors: 10, fragments: 20, exploreEnergy: 30,
     shinyMult: 1, legendMult: 1, treasureMult: 1, eggMult: 1, bossShinyMult: 1,
-    features: { explore: true, training: true, codes: true },
+    features: { explore: true, training: true, codes: true, shop: true },
     announcement: '',
+    // Poké Mart prices in Pokécoins (0 = not on the shelf). The admin can change them.
+    shopBuy: { oran: 60, rareCandy: 800, greatBall: 400, ultraBall: 1500, mysteryEgg: 2500 },
+    shopSell: { pearl: 150, starPiece: 400, nugget: 1000, oran: 20 },
   };
   const CFG = JSON.parse(JSON.stringify(CFG_DEFAULT));
   function applyConfig(c) {
@@ -42,9 +45,17 @@ const Game = (() => {
     CFG.exploreFloors = Math.round(CFG.exploreFloors); CFG.fragments = Math.round(CFG.fragments);
     CFG.features = Object.assign({}, CFG_DEFAULT.features, c.features || {});
     CFG.announcement = String(c.announcement || '').slice(0, 400);
+    const prices = (def, over) => {
+      const out = Object.assign({}, def);
+      Object.entries(over || {}).forEach(([k, v]) => { const n = Math.round(Number(v)); if (k in ITEM_KEYS && Number.isFinite(n)) out[k] = Math.max(0, Math.min(999999, n)); });
+      return out;
+    };
+    CFG.shopBuy = prices(CFG_DEFAULT.shopBuy, c.shopBuy); CFG.shopSell = prices(CFG_DEFAULT.shopSell, c.shopSell);
     emit('config');
   }
   const feature = k => CFG.features[k] !== false;
+  // every item the shop may list (kept in step with ITEMS below)
+  const ITEM_KEYS = { oran: 1, rareCandy: 1, mysteryEgg: 1, pearl: 1, starPiece: 1, nugget: 1, greatBall: 1, ultraBall: 1, masterBall: 1 };
   const oneIn = (n, mult) => Math.random() * Math.max(1, n / mult) < 1;   // a "1 in n" chance, boosted by mult
 
   let S = null;
@@ -97,6 +108,7 @@ const Game = (() => {
     for (const k of ['dex', 'shiny', 'favKnown']) for (const id of Object.keys(S.player[k])) if (!known(id)) delete S.player[k][id];
     S.player.history = S.player.history.filter(h => known(h.sp));
     S.player.bag = S.player.bag || {};
+    S.player.coins = Math.max(0, Math.floor(S.player.coins || 0));
     S.player.fragments = S.player.fragments || {};
     S.player.box = (S.player.box || []).filter(m => m && known(m.sp));
     S.player.party = (S.player.party || []).filter(m => m && !m.egg && known(m.sp)).slice(0, PARTY_MAX - 1);
@@ -611,6 +623,25 @@ const Game = (() => {
   }
   function addItem(k, n = 1) { S.player.bag[k] = (S.player.bag[k] || 0) + n; save(); }
   function itemCount(k) { return S.player.bag[k] || 0; }
+
+  // ---------------- Poké Mart (inside the Bag) ----------------
+  const coins = () => S.player.coins || 0;
+  function buyItem(k, n = 1) {
+    const price = CFG.shopBuy[k] || 0; n = Math.max(1, Math.min(99, n | 0));
+    if (!feature('shop')) return { error: 'The shop is closed right now.' };
+    if (!ITEMS[k] || !price) return { error: 'That isn\'t for sale.' };
+    if (coins() < price * n) return { error: `Not enough Pokécoins (need ${price * n}).` };
+    S.player.coins = coins() - price * n; S.player.bag[k] = itemCount(k) + n;
+    save(); emit('coins'); return { ok: true, spent: price * n };
+  }
+  function sellItem(k, n = 1) {
+    const price = CFG.shopSell[k] || 0; n = Math.max(1, Math.min(itemCount(k), n | 0));
+    if (!feature('shop')) return { error: 'The shop is closed right now.' };
+    if (!ITEMS[k] || !price) return { error: 'The shop doesn\'t buy that.' };
+    if (!itemCount(k)) return { error: 'You don\'t have any.' };
+    S.player.bag[k] -= n; S.player.coins = coins() + price * n;
+    save(); emit('coins'); return { ok: true, earned: price * n };
+  }
   function useItem(k) {
     const p = S.pet, it = ITEMS[k];
     if (!it || !it.use || !itemCount(k)) return { error: 'none' };
@@ -664,6 +695,8 @@ const Game = (() => {
       if (!ITEMS[k] || !(n > 0)) continue;
       S.player.bag[k] = (S.player.bag[k] || 0) + Math.min(99, n | 0); out.items.push({ k, n: Math.min(99, n | 0) });
     }
+    const c = Math.max(0, Math.min(1000000, Math.floor(Number(gift.coins) || 0)));
+    if (c) { S.player.coins = (S.player.coins || 0) + c; out.coins = c; }
     S.player.redeemed[code] = Date.now();
     save(); emit('party'); emit('change');
     return out;
@@ -778,7 +811,7 @@ const Game = (() => {
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
     ITEMS, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
-    applyConfig, feature, get config() { return CFG; }, redeemGift, hasRedeemed, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
+    applyConfig, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
     setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
     canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,

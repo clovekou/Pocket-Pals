@@ -413,3 +413,23 @@ p { line-height: 1.55; margin: 6px 0; }
 /* ---------- home-screen app (iPhone) ---------- */
 /* the status bar sits above the app now, so no extra top room is needed; keep a little breathing space */
 html.standalone #top { padding-top: 10px; }
+
+/* ---------- Poké Mart (Bag → Shop) ---------- */
+.tabs button .ic { width: 20px; height: 20px; vertical-align: -4px; margin: 0 4px 0 0; }
+.shophead { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 4px; border: 3px solid var(--line); border-radius: 16px;
+  background: linear-gradient(180deg, #fff7da, #ffe9a8); }
+.shophead > .ic { width: 48px; height: 48px; margin: 0; }
+.shophead > div { flex: 1; min-width: 0; }
+.shophead b { font-family: var(--pixel); font-size: 18px; display: block; }
+.shophead small { color: var(--muted); font-size: 12px; }
+.coins { display: inline-flex; align-items: center; gap: 4px; background: #fff; border: 3px solid var(--line); border-radius: 999px; padding: 3px 10px 3px 4px; }
+.coins .ic { width: 26px; height: 26px; margin: 0; }
+.coins b { font-family: var(--pixel); font-size: 17px; }
+.shoph { font-family: var(--pixel); margin: 16px 0 8px; display: flex; align-items: center; gap: 6px; }
+.itemrow .price { color: #9a6b00 !important; font-family: var(--pixel); font-weight: 700; font-size: 13px !important; margin-top: 2px; }
+.itemrow .price .ic { width: 16px; height: 16px; vertical-align: -3px; margin: 0 2px 0 0; }
+.itemrow button.gold { background: var(--yellow); color: var(--ink); box-shadow: inset 0 -3px 0 #d9a800; }
+.itemrow button.alt { background: #fff; color: var(--ink); box-shadow: inset 0 -3px 0 #ddd6c4; padding: 4px 9px; }
+.qty { display: flex; align-items: center; gap: 4px; }
+.qty span { font-family: var(--pixel); font-weight: 700; min-width: 22px; text-align: center; }
+@media (max-width: 380px) { .itemrow { flex-wrap: wrap; } .itemrow .ii { flex-basis: calc(100% - 52px); } }

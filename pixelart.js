@@ -626,6 +626,50 @@ const PX = (() => {
     };
     im.src = 'assets/egg.png';
   })();
+  // ---------- picture icons (assets/ui/*.png, from the Pokémon-style UI icon pack) ----------
+  // Each 128×128 PNG is cropped to its art and padded to a square, so every icon fills its slot the same way. Until a picture has
+  // loaded (or if it can't be read), the drawn icon is used.
+  const PICTURES = ['oran', 'rareCandy', 'pearl', 'starPiece', 'nugget', 'pokeball', 'greatball', 'pecha', 'aspear',
+    'chest', 'map', 'coin', 'shop', 'gift', 'cart', 'trophy'];
+  D.coin = D.coin || (g => { g.ell(16, 16, 12, 12, '#f2b51d'); g.ell(16, 16, 8, 8, '#ffd75a'); });
+  ['shop', 'gift', 'cart', 'trophy'].forEach(n => { D[n] = D[n] || D.star; });
+  function nativePixels(im) {
+    const W = im.naturalWidth, H = im.naturalHeight;
+    const big = document.createElement('canvas'); big.width = W; big.height = H;
+    const bg = big.getContext('2d', { willReadFrequently: true }); bg.drawImage(im, 0, 0);
+    const px = bg.getImageData(0, 0, W, H).data;
+    let x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (px[(y * W + x) * 4 + 3] > 100) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < 0) return null;
+    const block = 1;   // keep full resolution: on phone screens these show at about 1:1
+    const cw = x1 - x0 + 1, ch = y1 - y0 + 1, nw = Math.max(1, Math.round(cw / block)), nh = Math.max(1, Math.round(ch / block));
+    const pad = Math.max(1, Math.round(Math.max(nw, nh) * .06)), size = Math.max(nw, nh) + pad * 2;
+    const c = document.createElement('canvas'); c.width = c.height = size;
+    const g = c.getContext('2d'), out = g.createImageData(size, size);
+    const ox = Math.floor((size - nw) / 2), oy = Math.floor((size - nh) / 2);
+    for (let y = 0; y < nh; y++) for (let x = 0; x < nw; x++) {
+      const sx = Math.min(W - 1, x0 + Math.floor((x + .5) * cw / nw)), sy = Math.min(H - 1, y0 + Math.floor((y + .5) * ch / nh));
+      const i = (sy * W + sx) * 4, o = ((y + oy) * size + x + ox) * 4;
+      if (px[i + 3] <= 100) continue;
+      out.data[o] = px[i]; out.data[o + 1] = px[i + 1]; out.data[o + 2] = px[i + 2]; out.data[o + 3] = 255;
+    }
+    g.putImageData(out, 0, 0);
+    return c;
+  }
+  if (typeof document !== 'undefined') {
+    let pending = PICTURES.length, changed = false;
+    const done = () => { if (--pending === 0 && changed) listeners.forEach(f => f()); };
+    PICTURES.forEach(name => {
+      const im = new Image();
+      im.onload = () => {
+        try { const c = nativePixels(im); if (c) { cache[name] = c; delete urls[name]; changed = true; } } catch (e) { /* local file: keep the drawn icon */ }
+        done();
+      };
+      im.onerror = done;
+      im.src = `assets/ui/${name}.png`;
+    });
+  }
+
   /** draw: like PX.draw but for sprites bigger than 32 (keeps whole pixels) */
   const draw0 = draw;
   function drawAny(ctx, name, x, y, size, opts) {

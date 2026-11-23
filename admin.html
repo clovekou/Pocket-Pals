@@ -88,6 +88,7 @@
       <label class="chk"><input type="checkbox" data-feat="explore"> Explore (dungeons)</label>
       <label class="chk"><input type="checkbox" data-feat="training"> Training mini-games</label>
       <label class="chk"><input type="checkbox" data-feat="codes"> Gift codes in Options</label>
+      <label class="chk"><input type="checkbox" data-feat="shop"> Shop (Bag → Shop)</label>
     </div>
     <h3>Announcement</h3>
     <textarea id="cfgNews" maxlength="400" placeholder="Shown once to every player when it changes, e.g. “Mew event this weekend! Code: MEW2026”. Leave empty for none."></textarea>
@@ -105,6 +106,9 @@
       <label>Shiny chance × (eggs &amp; wild)<input type="number" data-cfg="shinyMult" min="0.1" max="50" step="0.5"><small>Default 1. 2 = twice as likely.</small></label>
       <label>Shiny boss chance ×<input type="number" data-cfg="bossShinyMult" min="0.1" max="50" step="0.5"><small>Default 1.</small></label>
     </div>
+    <h3>Shop prices (Pokécoins)</h3>
+    <p class="sub" style="margin-bottom:8px">Set a price to 0 to take an item off the shelf. Players earn Pokécoins by selling treasure.</p>
+    <div class="set" id="shopPrices"></div>
     <div class="row" style="margin-top:16px">
       <button class="btn ok" id="cfgSave">Save settings</button>
       <button class="btn alt" id="cfgReset">Reset to defaults</button>
@@ -127,6 +131,8 @@
       <h3>Items</h3>
       <div id="gcItems"></div>
       <button class="btn alt sm" id="gcAddItem">+ Add an item</button>
+      <h3>Pokécoins</h3>
+      <input type="number" id="gcCoins" min="0" max="1000000" value="0" style="max-width:200px">
       <h3>Limits</h3>
       <div class="g3">
         <label>Max redemptions (0 = unlimited)<input type="number" id="gcMax" min="0" value="0"></label>
@@ -245,12 +251,22 @@ $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => showTab(b.d
 
 // ---------------- game settings (config/game) ----------------
 const CFG_DEFAULT = { exploreFloors: 10, fragments: 20, exploreEnergy: 30, shinyMult: 1, legendMult: 1, treasureMult: 1, eggMult: 1, bossShinyMult: 1,
-  features: { explore: true, training: true, codes: true }, announcement: '' };
+  features: { explore: true, training: true, codes: true, shop: true }, announcement: '',
+  shopBuy: { oran: 60, rareCandy: 800, greatBall: 400, ultraBall: 1500, mysteryEgg: 2500 },
+  shopSell: { pearl: 150, starPiece: 400, nugget: 1000, oran: 20 } };
+const ITEM_NAMES = { oran: 'Oran Berry', rareCandy: 'Rare Candy', mysteryEgg: 'Mystery Egg', pearl: 'Pearl', starPiece: 'Star Piece', nugget: 'Nugget',
+  greatBall: 'Great Ball', ultraBall: 'Ultra Ball', masterBall: 'Master Ball' };
+$('#shopPrices').innerHTML = Object.entries(ITEM_NAMES).map(([k, n]) => `<label>${n}<div class="g2">
+  <input type="number" min="0" max="999999" step="1" data-buy="${k}" title="Buy price" placeholder="Buy">
+  <input type="number" min="0" max="999999" step="1" data-sell="${k}" title="Sell price" placeholder="Sell"></div><small>Buy price · Sell price</small></label>`).join('');
 function fillConfig(c) {
   c = Object.assign({}, CFG_DEFAULT, c || {}); const f = Object.assign({}, CFG_DEFAULT.features, c.features || {});
   document.querySelectorAll('[data-cfg]').forEach(el => { el.value = c[el.dataset.cfg]; });
   document.querySelectorAll('[data-feat]').forEach(el => { el.checked = f[el.dataset.feat] !== false; });
   $('#cfgNews').value = c.announcement || '';
+  const b = Object.assign({}, CFG_DEFAULT.shopBuy, c.shopBuy || {}), sl = Object.assign({}, CFG_DEFAULT.shopSell, c.shopSell || {});
+  document.querySelectorAll('[data-buy]').forEach(el => { el.value = b[el.dataset.buy] || 0; });
+  document.querySelectorAll('[data-sell]').forEach(el => { el.value = sl[el.dataset.sell] || 0; });
 }
 async function loadConfig() {
   try {
@@ -267,6 +283,10 @@ $('#cfgSave').onclick = async () => {
     c[el.dataset.cfg] = Math.max(lo, Math.min(hi, v));
   }
   document.querySelectorAll('[data-feat]').forEach(el => { c.features[el.dataset.feat] = el.checked; });
+  const price = el => Math.max(0, Math.min(999999, Math.round(Number(el.value) || 0)));
+  c.shopBuy = {}; c.shopSell = {};
+  document.querySelectorAll('[data-buy]').forEach(el => { c.shopBuy[el.dataset.buy] = price(el); });
+  document.querySelectorAll('[data-sell]').forEach(el => { c.shopSell[el.dataset.sell] = price(el); });
   try {
     await db.collection('config').doc('game').set({ ...c, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: auth.currentUser.uid });
     toast('Settings saved — live for every player'); loadConfig();
@@ -303,16 +323,17 @@ $('#gcCreate').onclick = async () => {
   }
   const items = {};
   $('#gcItems').querySelectorAll('.giftrow').forEach(r => { const k = r.querySelector('.gi-k').value, n = Math.max(1, Math.min(99, parseInt(r.querySelector('.gi-n').value, 10) || 1)); items[k] = (items[k] || 0) + n; });
-  if (!pokemon.length && !Object.keys(items).length) { toast('Add at least one Pokémon or item'); return; }
+  const giftCoins = Math.max(0, Math.min(1000000, parseInt($('#gcCoins').value, 10) || 0));
+  if (!pokemon.length && !Object.keys(items).length && !giftCoins) { toast('Add at least one Pokémon, item or Pokécoins'); return; }
   const exp = $('#gcExp').value ? new Date($('#gcExp').value + 'T23:59:59').getTime() : 0;
-  const doc = { label: $('#gcLabel').value.trim().slice(0, 40) || code, message: $('#gcMsg').value.trim().slice(0, 160), pokemon, items,
+  const doc = { label: $('#gcLabel').value.trim().slice(0, 40) || code, message: $('#gcMsg').value.trim().slice(0, 160), pokemon, items, coins: giftCoins,
     maxUses: Math.max(0, parseInt($('#gcMax').value, 10) || 0), expires: exp, active: $('#gcActive').checked, uses: 0,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: auth.currentUser.uid };
   const ref = db.collection('giftCodes').doc(code);
   try {
     if ((await ref.get()).exists) { toast('That code already exists'); return; }
     await ref.set(doc); toast(`Code ${code} created`);
-    $('#gcCode').value = $('#gcLabel').value = $('#gcMsg').value = ''; $('#gcMons').innerHTML = $('#gcItems').innerHTML = ''; monRow();
+    $('#gcCode').value = $('#gcLabel').value = $('#gcMsg').value = ''; $('#gcCoins').value = 0; $('#gcMons').innerHTML = $('#gcItems').innerHTML = ''; monRow();
     loadCodes();
   } catch (e) { toast("Couldn't create the code: " + e.message, 5000); }
 };
@@ -326,7 +347,7 @@ async function loadCodes() {
 }
 function drawCodes() {
   $('#gcList').innerHTML = codes.map(c => {
-    const gives = [...(c.pokemon || []).map(m => `${m.shiny ? '✨' : ''}${esc(spName(m.sp))} Lv ${m.level}`), ...Object.entries(c.items || {}).map(([k, n]) => `${esc(ITEMS[k] || k)} ×${n}`)].join(', ');
+    const gives = [...(c.pokemon || []).map(m => `${m.shiny ? '✨' : ''}${esc(spName(m.sp))} Lv ${m.level}`), ...Object.entries(c.items || {}).map(([k, n]) => `${esc(ITEMS[k] || k)} ×${n}`), ...(c.coins ? [`${c.coins} Pokécoins`] : [])].join(', ');
     const expired = c.expires && Date.now() > c.expires, full = c.maxUses && (c.uses || 0) >= c.maxUses;
     const state = c.active === false ? '<span class="tag lock">OFF</span>' : expired ? '<span class="tag lock">EXPIRED</span>' : full ? '<span class="tag lock">USED UP</span>' : '<span class="tag gold">LIVE</span>';
     return `<div class="code"><div class="grow"><span class="c">${esc(c.id)}</span> ${state}<small>${esc(c.label || '')} · ${gives || 'nothing'}</small>
@@ -386,11 +407,12 @@ function allMons() {
 }
 function draw() {
   const P = save.player;
-  $('#edSub').innerHTML = `${esc(cur.code)} · Dex ${Object.keys(P.dex || {}).length} · Party ${(P.party || []).length + (save.pet ? 1 : 0)}/${PARTY_MAX} · PC Box ${(P.box || []).length}`;
+  $('#edSub').innerHTML = `<span class="row" style="margin-bottom:6px"><label class="chk" style="font-size:14px!important">Pokécoins <input type="number" id="edCoins" min="0" max="99999999" value="${P.coins || 0}" style="width:140px"></label></span>${esc(cur.code)} · Dex ${Object.keys(P.dex || {}).length} · Party ${(P.party || []).length + (save.pet ? 1 : 0)}/${PARTY_MAX} · PC Box ${(P.box || []).length}`;
   const sec = (title, items) => `<h3>${title}</h3>` + (items.length ? `<div class="mons">${items.map(card).join('')}</div>` : '<p class="note">Empty.</p>');
   const all = allMons();
   $('#edBody').innerHTML = sec('Main Pokémon', all.filter(x => x.where === 'main')) + sec('Party', all.filter(x => x.where === 'party')) + sec('PC Box', all.filter(x => x.where === 'box'));
   wire(); dirty();
+  $('#edCoins').onchange = e => { save.player.coins = Math.max(0, Math.min(99999999, parseInt(e.target.value, 10) || 0)); dirty(); };
 }
 function card(x) {
   const m = x.m, id = `${x.where}-${x.i}`, egg = !!m.egg, tr = m.tr || { atk: 0, def: 0, spd: 0 };
