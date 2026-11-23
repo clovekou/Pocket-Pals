@@ -136,7 +136,7 @@
   let W = 1, H = 1, DPR = 1;
   function resize() {
     const r = stage.getBoundingClientRect();
-    DPR = Math.min(2, window.devicePixelRatio || 1);
+    DPR = Math.min(3, window.devicePixelRatio || 1);   // full sharpness on 3× iPhone screens
     W = Math.max(1, r.width); H = Math.max(1, r.height);
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     cx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -1236,7 +1236,7 @@ if (!code) {
   let AW = 1, AH = 1, arenaGame = null;
   function openArena(title) {
     $('#arenaTitle').innerHTML = icons(esc(title)); arena.classList.remove('hidden');
-    const r = acv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
+    const r = acv.getBoundingClientRect(), d = Math.min(3, window.devicePixelRatio || 1);
     AW = r.width; AH = r.height; acv.width = AW * d; acv.height = AH * d; ac.setTransform(d, 0, 0, d, 0, 0);
   }
   function closeArena() { arena.classList.add('hidden'); $('#arenaPanel').classList.add('hidden'); arenaGame = null; }
@@ -1656,7 +1656,7 @@ if (!code) {
     if (showNums) { g.fillStyle = '#2b2d42'; g.font = '700 13px "Pixelify Sans", system-ui'; g.textAlign = 'right'; g.fillText(`${Math.max(0, Math.ceil(hp))}/${max}`, x + w - 10, y + 52); g.textAlign = 'left'; }
   }
 
-  function startExplore() {
+  function startExplore(opts = {}) {
     const chk = Game.exploreCheck();
     if (!chk.ok) { toast(chk.why); Sound.play('no'); if (/tired/.test(chk.why)) Talk.say('tooTired'); return; }
     const p = Game.pet();
@@ -1682,6 +1682,7 @@ if (!code) {
       setTimeout(() => { if (arenaGame === G) resolveFloor(); }, 1700);
     }
     function resolveFloor() {
+      if (G.floor >= Game.EXPLORE_MAX_FLOOR) return encounter(Game.rollBoss());   // the end of the map: floor boss
       const ev = Game.rollFloor(G.floor);
       if (ev === 'wild') return encounter();
       if (ev === 'legend') return encounter(Game.rollLegend());
@@ -1709,13 +1710,19 @@ if (!code) {
     }
     function encounter(preset) {
       const w = preset || Game.rollWild(), ws = SPECIES_BY_ID[w.sp];
-      G.wild = Object.assign(Game.battler(w.sp, w.level, false), { shiny: w.shiny, name: ws.name, legend: !!w.legend, raw: w });
+      G.wild = Object.assign(Game.battler(w.sp, w.level, false), { shiny: w.shiny, name: ws.name, legend: !!w.legend, boss: !!w.boss, raw: w });
       if (w.legend) G.wild.maxHp = Math.round(G.wild.maxHp * 1.2);   // legendaries are a little tougher
-      G.wildHp = G.wild.maxHp; G.state = 'encounter'; G.at = now(); G.legendAt = w.legend ? now() : 0; G.throw = null; G.wheel = null;
-      preloadSpecies(w.sp, w.shiny); Sound.play(w.legend ? 'evolve' : 'sad');
+      if (w.boss) {                                                    // floor boss: lots of HP and hits hard
+        G.wild.maxHp = Math.round(G.wild.maxHp * 1.8);
+        G.wild.atk = Math.round(G.wild.atk * 1.15); G.wild.def = Math.round(G.wild.def * 1.15);
+      }
+      G.wildHp = G.wild.maxHp; G.state = 'encounter'; G.at = now(); G.legendAt = w.legend || w.boss ? now() : 0; G.throw = null; G.wheel = null;
+      preloadSpecies(w.sp, w.shiny); Sound.play(w.legend || w.boss ? 'evolve' : 'sad');
       const frag = Game.state.player.fragments[w.sp] || 0;
       if (w.legend) say(`{i:sparkle} A <b>legendary</b> Pokémon appeared! It's ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
         `Win the battle to spin the catch wheel.${frag ? ` You have ${frag}/${Game.FRAGMENTS_TO_SUMMON} of its fragments.` : ''}`);
+      else if (w.boss) say(`{i:sword} The <b>floor boss</b> blocks the way! It's a mighty ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
+        'It\'s much stronger than usual. Beat it to spin the catch wheel!');
       else say(`A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · ${esc(name())} is Lv ${G.me.level}`);
       buttons([
         { label: '{i:sword} Fight', cls: 'red', fn: () => fight(false) },
@@ -1750,7 +1757,7 @@ if (!code) {
       setTimeout(step, 600);
     }
     function win() {
-      if (G.wild.legend) { G.wins++; return startWheel(); }
+      if (G.wild.legend || G.wild.boss) { G.wins++; return startWheel(); }
       G.wins++; G.state = 'won'; G.at = now(); Sound.play('level');
       let sub = `${esc(name())} feels proud!`;
       if (Math.random() < .35) { const k = Game.rollTreasure(G.floor); Game.addItem(k); G.finds[k] = (G.finds[k] || 0) + 1; sub = `It dropped ${/^[AEIOU]/.test(Game.ITEMS[k].name) ? 'an' : 'a'} {i:${Game.ITEMS[k].icon}} ${Game.ITEMS[k].name}!`; }
@@ -1770,34 +1777,57 @@ if (!code) {
       master: { icon: 'masterball', name: 'Master Ball', rate: 1 },
     };
     const SEGS = ['poke', 'great', 'poke', 'ultra', 'poke', 'great', 'master', 'poke', 'great', 'ultra', 'poke', 'great'];
+    const BALL_RANK = { poke: 0, great: 1, ultra: 2, master: 3 };
+    const BALL_ITEMS = ['greatBall', 'ultraBall', 'masterBall'];
     function startWheel() {
-      G.state = 'wheel'; G.at = now(); G.wheel = { angle: 0, spinning: false, result: null };
+      G.state = 'wheel'; G.at = now(); G.wheel = { offset: Math.floor(Math.random() * SEGS.length), spinning: false, result: null, segs: SEGS.slice(), boosted: null, boostAt: 0 };
       Sound.play('medal');
-      say(`${esc(name())} won! The legendary <b>${esc(G.wild.name)}</b> is weakened…`, 'Spin the wheel to choose your ball — you get one throw!');
-      buttons([{ label: '{i:pokeball} Spin!', cls: 'gold', fn: spin }]);
+      const who = G.wild.legend ? `The legendary <b>${esc(G.wild.name)}</b>` : `The boss <b>${esc(G.wild.name)}</b>`;
+      say(`${esc(name())} won! ${who} is weakened…`, 'Spin the wheel to choose your ball — you get one throw! Got a ball in your bag? Use it first to upgrade the wheel.');
+      wheelButtons();
+    }
+    function wheelButtons() {
+      const list = [{ label: '{i:pokeball} Spin!', cls: 'gold', fn: spin }];
+      if (!G.wheel.boosted) BALL_ITEMS.forEach(k => {
+        const n = Game.itemCount(k), it = Game.ITEMS[k];
+        if (n) list.push({ label: `{i:${it.icon}} Use ${it.name} ×${n}`, cls: 'alt', fn: () => boostWheel(k) });
+      });
+      buttons(list, list.length > 2);
+    }
+    /** using a ball from the bag: every weaker slot on the wheel becomes that ball */
+    function boostWheel(k) {
+      const it = Game.ITEMS[k], b = it.wheel;
+      if (!Game.itemCount(k) || G.wheel.boosted) return;
+      Game.state.player.bag[k]--; Game.save();
+      G.wheel.segs = G.wheel.segs.map(x => BALL_RANK[x] < BALL_RANK[b] ? b : x);
+      G.wheel.boosted = b; G.wheel.boostAt = now(); Sound.play('evolve');
+      say(`You used the {i:${it.icon}} <b>${it.name}</b>! The wheel is now full of ${b === 'master' ? 'Master Balls — a sure catch' : it.name + 's or better'}!`, 'Spin it!');
+      wheelButtons();
     }
     function spin() {
-      const W0 = G.wheel, idx = Math.floor(Math.random() * SEGS.length), seg = Math.PI * 2 / SEGS.length, TAU = Math.PI * 2;
-      // land the chosen segment's centre under the pointer at the top (-90°), after 5–6 full turns
-      const target = -Math.PI / 2 - (idx + .5) * seg + (Math.random() - .5) * seg * .6;
-      let to = target; while (to > W0.angle - TAU * 5) to -= TAU;
-      W0.from = W0.angle; W0.to = to;
-      W0.spinning = true; W0.t0 = now(); W0.dur = 3200; W0.result = SEGS[idx]; W0.lastSeg = -1;
-      say('Spinning…');
+      const SG = G.wheel.segs, W0 = G.wheel, n = SG.length, idx = Math.floor(Math.random() * n);
+      // slide the strip 4–5 laps and stop with the chosen ball under the pointer
+      const from = W0.offset || 0, base = Math.ceil(from) + n * 4;
+      const to = base + (((idx - base) % n) + n) % n;
+      W0.from = from; W0.to = to;
+      W0.spinning = true; W0.t0 = now(); W0.dur = 3400; W0.result = SG[idx]; W0.lastSeg = Math.round(from);
+      say('Spinning…'); buttons([]);
       setTimeout(() => {
         if (arenaGame !== G) return;
-        W0.spinning = false; W0.angle = W0.to;
+        W0.spinning = false; W0.offset = W0.to;
         const b = BALLS[W0.result]; Sound.play('level');
-        say(`It's a {i:${b.icon}} <b>${b.name}</b>!`, W0.result === 'master' ? 'The Master Ball never misses!' : 'Throw it and hope it holds!');
-        buttons([{ label: `{i:${b.icon}} Throw!`, cls: 'red', fn: throwBall }]);
+        say(`It's a {i:${b.icon}} <b>${b.name}</b>!`, W0.result === 'master' ? 'The Master Ball never misses!' : 'Here goes…');
+        setTimeout(() => { if (arenaGame === G && G.state === 'wheel') throwBall(); }, 700);   // thrown straight away
       }, W0.dur + 100);
     }
     function throwBall() {
       const b = BALLS[G.wheel.result];
-      const caught = Math.random() < b.rate;
-      G.state = 'throw'; G.at = now(); G.lastShake = -1; G.throw = { ball: b.icon, caught, shakes: caught ? 3 : 1 + Math.floor(Math.random() * 3) };
+      // legendaries are much harder to hold (except with a Master Ball)
+      const rate = G.wild.legend && G.wheel.result !== 'master' ? b.rate * .5 : b.rate;
+      const caught = Math.random() < rate;
+      G.state = 'throw'; G.at = now(); G.lastShake = -1; G.throw = { ball: b.icon, kind: G.wheel.result, caught, shakes: caught ? 3 : 1 + Math.floor(Math.random() * 3) };
       Sound.play('tap'); say(`You threw the ${b.name}!`);
-      const total = 700 + 500 + G.throw.shakes * 650;
+      const total = 700 + 500 + G.throw.shakes * SHAKE_MS;
       setTimeout(() => {
         if (arenaGame !== G) return;
         const w = G.wild.raw;
@@ -1806,6 +1836,10 @@ if (!code) {
           G.state = 'caught'; G.at = now(); Sound.play('evolve');
           say(`Gotcha! <b>${esc(G.wild.name)}</b> was caught! {i:sparkle}`, where === 'party' ? 'It joined your party.' : 'Your party is full — it was sent to your PC Box (Party → PC Box).');
           G.wild = null;
+        } else if (!w.legend) {
+          G.state = 'fled'; G.at = now(); Sound.play('sad');
+          say(`Oh no! The boss ${esc(G.wild.name)} broke free and ran off…`, 'Better luck at the end of your next exploration!');
+          setTimeout(() => { if (G.state === 'fled') G.wild = null; }, 1000);
         } else {
           const n = Game.addFragment(w.sp);
           G.state = 'fled'; G.at = now(); Sound.play('sad');
@@ -1816,51 +1850,107 @@ if (!code) {
         afterFloor();
       }, total);
     }
+    /** the reel's balls in a light pixel style: each kind is drawn once at low resolution, then scaled up crisply */
+    const ballPx = {}, SHAKE_MS = 1000;            // each wobble of the thrown ball lasts one second
+    function drawBall(g, kind, x, y, r, rot = 0) {
+      let c = ballPx[kind];
+      if (!c) {
+        const N = 22; c = ballPx[kind] = document.createElement('canvas'); c.width = c.height = N;
+        const bg = c.getContext('2d'); drawBallVec(bg, kind, N / 2, N / 2, N / 2 - .5);
+        const d = bg.getImageData(0, 0, N, N), a = d.data;
+        for (let i = 3; i < a.length; i += 4) a[i] = a[i] < 110 ? 0 : 255;       // hard pixel edges
+        bg.putImageData(d, 0, 0);
+      }
+      const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
+      if (rot) { g.save(); g.translate(Math.round(x), Math.round(y)); g.rotate(rot); g.drawImage(c, -Math.round(r), -Math.round(r), Math.round(r * 2), Math.round(r * 2)); g.restore(); }
+      else g.drawImage(c, Math.round(x - r), Math.round(y - r), Math.round(r * 2), Math.round(r * 2));
+      g.imageSmoothingEnabled = sm;
+    }
+    /** a smooth Poké Ball (poke / great / ultra / master), drawn like the classic artwork */
+    function drawBallVec(g, kind, x, y, r) {
+      const C = { poke: '#e8413a', great: '#3b78d4', ultra: '#2b2d42', master: '#7a4cc4' }[kind];
+      const line = Math.max(2, r * .13);
+      g.save(); g.translate(x, y);
+      g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fillStyle = '#f3f3f7'; g.fill();          // white bottom
+      g.save(); g.beginPath(); g.rect(-r, -r, r * 2, r); g.clip(); g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.clip();   // coloured top half (inside the ball)
+      g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fillStyle = C; g.fill();
+      if (kind === 'great') {                                                                     // red side flaps
+        g.fillStyle = '#e8413a';
+        [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * r * .62, -r * .42, r * .3, r * .6, sd * .55, 0, Math.PI * 2); g.fill(); });
+      } else if (kind === 'ultra') {                                                              // yellow sides, black centre
+        g.fillStyle = '#f6c83a'; g.fillRect(-r, -r, r * .62, r); g.fillRect(r * .38, -r, r * .62, r);
+      } else if (kind === 'master') {                                                             // pink bumps + M
+        g.fillStyle = '#e4579d';
+        [-1, 1].forEach(sd => { g.beginPath(); g.arc(sd * r * .56, -r * .52, r * .27, 0, Math.PI * 2); g.fill(); });
+        g.strokeStyle = '#fff'; g.lineWidth = r * .14; g.lineJoin = 'round'; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(-r * .26, -r * .3); g.lineTo(-r * .22, -r * .68); g.lineTo(0, -r * .48); g.lineTo(r * .22, -r * .68); g.lineTo(r * .26, -r * .3); g.stroke();
+      }
+      g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(-r * .42, -r * .55, r * .2, r * .13, -.6, 0, Math.PI * 2); g.fill();   // shine
+      g.restore();
+      g.fillStyle = 'rgba(0,0,0,.07)'; g.beginPath(); g.ellipse(0, r * .55, r * .8, r * .32, 0, 0, Math.PI); g.fill();                     // soft shade
+      g.strokeStyle = '#2b2d42'; g.lineWidth = line;
+      g.beginPath(); g.moveTo(-r, 0); g.lineTo(r, 0); g.stroke();                                // middle band
+      g.beginPath(); g.arc(0, 0, r - line / 2, 0, Math.PI * 2); g.stroke();                      // outline
+      g.beginPath(); g.arc(0, 0, r * .3, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.stroke();
+      g.beginPath(); g.arc(0, 0, r * .14, 0, Math.PI * 2); g.strokeStyle = '#c9cbd6'; g.lineWidth = Math.max(1, r * .06); g.stroke();
+      g.restore();
+    }
+    /** arcade-style catch reel: an arch of balls slides sideways and stops under the pointer */
     function drawWheel(ms) {
       const W0 = G.wheel; if (!W0) return;
-      const n = SEGS.length, seg = Math.PI * 2 / n;
+      const SG = W0.segs || SEGS, n = SG.length;
       if (W0.spinning) {
-        const k = Math.min(1, (ms - W0.t0) / W0.dur), e = 1 - Math.pow(1 - k, 3);
-        W0.angle = W0.from + (W0.to - W0.from) * e;
-        const at = Math.floor(((((-Math.PI / 2 - W0.angle) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) / seg);
+        const k = Math.min(1, (ms - W0.t0) / W0.dur), e = 1 - Math.pow(1 - k, 4);
+        W0.offset = W0.from + (W0.to - W0.from) * e;
+        const at = Math.round(W0.offset);
         if (at !== W0.lastSeg) { W0.lastSeg = at; Sound.play('blip'); }
       }
-      const cxw = AW / 2, cyw = AH * .44, R = Math.min(AW, AH) * .3;
-      ac.fillStyle = 'rgba(10,8,30,.55)'; ac.fillRect(0, 0, AW, AH);
-      ac.save(); ac.translate(cxw, cyw);
-      ac.beginPath(); ac.arc(0, 0, R + 10, 0, Math.PI * 2); ac.fillStyle = '#2f3448'; ac.fill();
-      ac.beginPath(); ac.arc(0, 0, R + 6, 0, Math.PI * 2); ac.fillStyle = '#ffcb05'; ac.fill();
-      SEGS.forEach((k, i) => {
-        const a0 = W0.angle + i * seg;
-        ac.beginPath(); ac.moveTo(0, 0); ac.arc(0, 0, R, a0, a0 + seg); ac.closePath();
-        ac.fillStyle = k === 'master' ? '#e6d4ff' : i % 2 ? '#fbf9ef' : '#e9e4cf'; ac.fill();
-        ac.strokeStyle = '#2f3448'; ac.lineWidth = 2; ac.stroke();
-        const am = a0 + seg / 2;
-        PX.draw(ac, BALLS[k].icon, Math.cos(am) * R * .68, Math.sin(am) * R * .68, Math.max(24, Math.round(R * .3 / 8) * 8));
-      });
-      ac.beginPath(); ac.arc(0, 0, R * .16, 0, Math.PI * 2); ac.fillStyle = '#fbf9ef'; ac.fill(); ac.lineWidth = 3; ac.strokeStyle = '#2f3448'; ac.stroke();
-      ac.restore();
-      PX.draw(ac, 'arrow', cxw, cyw - R - 14, 32);
+      const off = W0.offset || 0;
+      ac.fillStyle = 'rgba(10,8,30,.35)'; ac.fillRect(0, 0, AW, AH);
+      const r = Math.max(16, Math.min(26, AW * .062)), band = r * 2.7;
+      const RB = AW * 1.05, cx0 = AW / 2, apex = AH * .32, cy0 = apex + RB;              // a wide, gentle arch
+      const span = Math.asin(Math.min(.98, (AW * .56) / RB));
+      const top = -Math.PI / 2;
+      // the band
+      ac.lineCap = 'round';
+      ac.beginPath(); ac.arc(cx0, cy0, RB, top - span, top + span); ac.strokeStyle = '#2b2d42'; ac.lineWidth = band + 6; ac.stroke();
+      ac.beginPath(); ac.arc(cx0, cy0, RB, top - span, top + span); ac.strokeStyle = '#ecebe6'; ac.lineWidth = band; ac.stroke();
+      ac.beginPath(); ac.arc(cx0, cy0, RB - band * .32, top - span, top + span); ac.strokeStyle = 'rgba(0,0,0,.06)'; ac.lineWidth = band * .3; ac.stroke();
+      ac.lineCap = 'butt';
+      // the balls
+      const step = (r * 2.5) / RB, first = Math.floor(off - span / step) - 1, last = Math.ceil(off + span / step) + 1;
+      for (let k = first; k <= last; k++) {
+        const ang = top + (k - off) * step;
+        if (Math.abs(ang - top) > span - step * .2) continue;
+        const kind = SG[((k % n) + n) % n], d = Math.abs(k - off);
+        const sc = d < .5 ? 1.18 - d * .36 : 1;                                             // the one under the pointer pops a little
+        drawBall(ac, kind, cx0 + Math.cos(ang) * RB, cy0 + Math.sin(ang) * RB, r * sc);
+      }
+      // pointer
+      const py = apex - band / 2 - 4;
+      ac.beginPath(); ac.moveTo(cx0 - 13, py - 16); ac.lineTo(cx0 + 13, py - 16); ac.lineTo(cx0, py + 4); ac.closePath();
+      ac.fillStyle = '#ffcb05'; ac.fill(); ac.lineWidth = 3; ac.lineJoin = 'round'; ac.strokeStyle = '#2b2d42'; ac.stroke();
+      if (W0.boostAt && ms - W0.boostAt < 900) { ac.fillStyle = `rgba(255,255,255,${.7 * (1 - (ms - W0.boostAt) / 900)})`; ac.fillRect(0, 0, AW, AH); }
     }
     function drawThrow(ms, wx, wy, size) {
       const T = G.throw; if (!T) return null;
       const e = ms - G.at, sx = AW * .2, sy = AH * .8;
       if (e < 700) {                                   // the ball flies in an arc
         const k = e / 700, x = sx + (wx - sx) * k, y = sy + (wy - size * 1.4 - sy) * k - Math.sin(k * Math.PI) * AH * .25;
-        PX.draw(ac, T.ball, x, y, 32, { rot: k * 12 });
+        drawBall(ac, T.kind, x, y, 16, k * 12);
         return 'show';
       }
       if (e < 1200) {                                  // the Pokémon is pulled into the ball
         const k = (e - 700) / 500;
         ac.fillStyle = `rgba(255,255,255,${.6 * (1 - k)})`; ac.fillRect(0, 0, AW, AH);
-        PX.draw(ac, T.ball, wx, wy - 14, 32);
+        drawBall(ac, T.kind, wx, wy - 14, 16);
         return k < .5 ? 'flash' : 'hide';
       }
-      const se = e - 1200, shake = Math.floor(se / 650), within = (se % 650) / 650;
+      const se = e - 1200, shake = Math.floor(se / SHAKE_MS), within = (se % SHAKE_MS) / SHAKE_MS;
       if (shake < T.shakes) {                          // wobble… wobble…
         const rot = within < .5 ? Math.sin(within * Math.PI * 4) * .4 : 0;
         if (within < .1 && G.lastShake !== shake) { G.lastShake = shake; Sound.play('tap'); }
-        PX.draw(ac, T.ball, wx, wy - 14, 32, { rot });
+        drawBall(ac, T.kind, wx, wy - 14, 16, rot);
         return 'hide';
       }
       return T.caught ? 'hide' : 'show';
@@ -1869,7 +1959,7 @@ if (!code) {
 
     function afterFloor() {
       if (G.floor >= Game.EXPLORE_MAX_FLOOR) {
-        say(epMsg.innerHTML + '<small>This is the deepest floor!</small>');
+        say(epMsg.innerHTML + '<small>You reached the end of the map!</small>');
         return buttons([{ label: '{i:map} Return home', cls: 'gold', fn: () => finish(true) }]);
       }
       if (G.tired) return buttons([{ label: '{i:map} Too tired — go home', cls: 'gold', fn: () => finish(true) }, { label: '{i:oran} Items', cls: 'alt', fn: showItems }]);
@@ -1940,7 +2030,7 @@ if (!code) {
       const size = Math.min(AW, AH) * .11, meX = (G.wild || G.state === 'won') ? AW * .28 : AW * .4, meY = Math.round(AH * .84);
       // the wild Pokémon (top-right) and its HP box
       if (G.state === 'caught' && ms - G.at < 2500 && G.throw) {   // celebration stars over the ball
-        PX.draw(ac, G.throw.ball, AW * .72, AH * .56 - 14, 32);
+        drawBall(ac, G.throw.kind, AW * .72, AH * .56 - 14, 16);
         for (let i = 0; i < 3; i++) PX.draw(ac, 'sparkle', AW * .72 + Math.cos(ms / 200 + i * 2) * 30, AH * .56 - 40 + Math.sin(ms / 200 + i * 2) * 12, 18);
       }
       const throwing = G.state === 'throw' ? drawThrowState(ms) : null;
@@ -1948,11 +2038,12 @@ if (!code) {
         const wx = AW * .72, wy = AH * .56;
         const hurt = G.hurt === 'wild' && ms - G.hurtAt < 450, att = G.act === 'wild' && ms - G.actAt < 600;
         const fade = G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : G.state === 'fled' ? Math.max(0, 1 - (ms - G.at) / 900) : 1;
+        if (G.wild.boss && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,90,70,.4)'); gr.addColorStop(1, 'rgba(255,90,70,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
         if (G.wild.legend && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,220,120,.45)'); gr.addColorStop(1, 'rgba(255,220,120,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
         ac.fillStyle = 'rgba(0,0,0,.22)'; ac.beginPath(); ac.ellipse(wx, wy, size * .8, size * .18, 0, 0, Math.PI * 2); ac.fill();
-        drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0), y: wy - (G.state === 'fled' ? (ms - G.at) / 12 : 0), size: size * .95, silhouette: throwing === 'flash' ? '#ffffff' : false, t, maxH: AH * .26, shiny: G.wild.shiny, dir: 'downleft',
+        drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0), y: wy - (G.state === 'fled' ? (ms - G.at) / 12 : 0), size: size * (G.wild.boss ? 1.25 : .95), silhouette: throwing === 'flash' ? '#ffffff' : false, t, maxH: AH * .26, shiny: G.wild.shiny, dir: 'downleft',
           anim: hurt ? 'Hurt' : att ? 'Attack' : undefined, animT: hurt ? (ms - G.hurtAt) / 1000 : att ? (ms - G.actAt) / 1000 : undefined, alpha: (hurt && Math.floor(ms / 80) % 2 ? .4 : 1) * fade });
-        if (!['wheel', 'throw', 'fled'].includes(G.state)) hpBox(ac, 10, 10, Math.min(250, AW * .62), (G.wild.legend ? '★ ' : '') + G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
+        if (!['wheel', 'throw', 'fled'].includes(G.state)) hpBox(ac, 10, 10, Math.min(250, AW * .62), (G.wild.legend ? '★ ' : G.wild.boss ? 'BOSS ' : '') + G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
       }
       // your Pokémon
       const hurtMe = G.hurt === 'me' && ms - G.hurtAt < 450, attMe = G.act === 'me' && ms - G.actAt < 600;
@@ -1980,6 +2071,12 @@ if (!code) {
       }
     };
     arenaGame = G; requestAnimationFrame(G.loop);
+    if (opts.demo) {
+      G.floor = Game.EXPLORE_MAX_FLOOR; info(); encounter(Game.rollBoss());
+      if (/^wheel/.test(opts.demo)) { G.wildHp = 1; G.wins++; if (opts.demo === 'wheel') ['greatBall', 'ultraBall', 'masterBall'].forEach(k => { if (!Game.itemCount(k)) Game.addItem(k); }); startWheel(); const k = { wheelgreat: 'greatBall', wheelultra: 'ultraBall', wheelmaster: 'masterBall' }[opts.demo]; if (k) { Game.addItem(k); boostWheel(k); G.wheel.boostAt = 0; } }
+      if (opts.demo === 'throw') { G.wildHp = 1; G.wins++; startWheel(); G.wheel.result = 'great'; throwBall(); }
+      return;
+    }
     nextFloor();
   }
 
@@ -2306,6 +2403,10 @@ if (!code) {
   }
   pixelizeIcons();
   PX.hydrate();
+  if (window.PP_PREVIEW) {                                  // ?preview&demo=boss|wheel|wheelgreat|wheelmaster: jump straight to the end-of-map boss
+    const demo = new URLSearchParams(location.search).get('demo');
+    if (demo) setTimeout(() => { const p = Game.pet(); if (p && p.asleep) Game.toggleSleep(); if (p) { p.ene = Math.max(p.ene, 80); p.food = Math.max(p.food, 80); } startExplore({ demo }); }, 1500);
+  }
   PX.onUpdate(() => { PX.hydrate(); if (els && els.name) els.name.dataset.sig = ''; }); // egg picture loaded
   // phones: stop double-tap zoom / pinch zoom from shifting the layout (text fields still work normally)
   let lastTouchEnd = 0;

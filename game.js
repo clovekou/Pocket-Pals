@@ -497,6 +497,10 @@ const Game = (() => {
     pearl:     { name: 'Pearl',       icon: 'pearl',         use: false, desc: 'A pretty pearl. A collector\'s item.' },
     starPiece: { name: 'Star Piece',  icon: 'starPiece',     use: false, desc: 'A shard of a shooting star. A collector\'s item.' },
     nugget:    { name: 'Nugget',      icon: 'nugget',        use: false, desc: 'A nugget of pure gold. A collector\'s item.' },
+    // catch-wheel balls: use one before spinning (after beating a floor boss or a legendary)
+    greatBall: { name: 'Great Ball',  icon: 'greatball',     use: false, wheel: 'great',  desc: 'Use it on the catch wheel: every Poké Ball slot becomes a Great Ball.' },
+    ultraBall: { name: 'Ultra Ball',  icon: 'ultraball',     use: false, wheel: 'ultra',  desc: 'Very rare. On the catch wheel, every weaker slot becomes an Ultra Ball.' },
+    masterBall:{ name: 'Master Ball', icon: 'masterball',    use: false, wheel: 'master', desc: 'Extremely rare. Turns the whole catch wheel into Master Balls — a sure catch!' },
   };
   const EXPLORE_MAX_FLOOR = 10;
   const FRAGMENTS_TO_SUMMON = 20;
@@ -537,7 +541,7 @@ const Game = (() => {
   /** what happens on a floor: 'none' | 'wild' | 'treasure' | 'egg' */
   function rollFloor(floor) {
     const r = Math.random();
-    const legend = .012 + floor * .003, eggChance = .05 + floor * .006, treasure = .2 + floor * .015, wild = .3;
+    const legend = .0008 + floor * .0002, eggChance = .05 + floor * .006, treasure = .2 + floor * .015, wild = .3;
     if (Math.random() < legend && SPECIES.some(s => isSpecial(s.id))) return 'legend';
     if (r < eggChance) return 'egg';
     if (r < eggChance + treasure) return 'treasure';
@@ -545,7 +549,8 @@ const Game = (() => {
     return 'none';
   }
   function rollTreasure(floor) {
-    const table = [['oran', 40], ['pearl', 18], ['starPiece', 14 + floor], ['nugget', 8 + floor * 1.5], ['rareCandy', 6 + floor * 1.5], ['mysteryEgg', 2 + floor * .5]];
+    const table = [['oran', 40], ['pearl', 18], ['starPiece', 14 + floor], ['nugget', 8 + floor * 1.5], ['rareCandy', 6 + floor * 1.5], ['mysteryEgg', 2 + floor * .5],
+      ['greatBall', 5 + floor * .3], ['ultraBall', 1 + floor * .15], ['masterBall', .08 + floor * .01]];   // rare / very rare / extremely rare
     let r = Math.random() * table.reduce((a, [, w]) => a + w, 0);
     for (const [k, w] of table) { if ((r -= w) < 0) return k; }
     return 'oran';
@@ -559,6 +564,12 @@ const Game = (() => {
     const list = fit.length ? fit : pool;
     const s = list[rnd(list.length)];
     return { sp: s.id, level: lv, shiny: rnd(200) === 0 };
+  }
+  /** the boss waiting on the deepest floor: a strong first-stage Pokémon a little above your level */
+  function rollBoss() {
+    const pool = SPECIES.filter(s => s.stage === 1 && !s.prev && !isSpecial(s.id));
+    const s = pool[rnd(pool.length)];
+    return { sp: s.id, level: Math.max(5, level() + 2), shiny: rnd(150) === 0, boss: true };
   }
   /** battle numbers for any Pokémon at a level (mine uses genes + training) */
   function battler(id, lv, mine) {
@@ -715,7 +726,7 @@ const Game = (() => {
     pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, sleepNow, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
-    ITEMS, EXPLORE_MAX_FLOOR, FRAGMENTS_TO_SUMMON, isSpecial, pickMysterySpecies, rollLegend, catchLegend, addFragment, summonLegend,
+    ITEMS, EXPLORE_MAX_FLOOR, FRAGMENTS_TO_SUMMON, isSpecial, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
     setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
     canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,

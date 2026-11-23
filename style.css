@@ -247,7 +247,8 @@ p { line-height: 1.55; margin: 6px 0; }
 #arenaInfo { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 10px; font-family: var(--pixel); font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; }
 #arenaInfo .ic { margin: 0; }
 #arenaClose { background: #fff !important; color: var(--ink) !important; border: 2px solid var(--line) !important; height: 40px !important; width: 40px !important; box-shadow: none !important; }
-#arenaCanvas { flex: 1; width: 100%; min-height: 0; display: block; }
+#arenaCanvas { flex: 1; width: 100%; min-height: 0; display: block; image-rendering: pixelated; }
+#scene { image-rendering: pixelated; }
 
 /* ---------- Mystery-Dungeon-style dialogue ---------- */
 #talk { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 3; cursor: pointer; }
