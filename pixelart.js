@@ -496,6 +496,163 @@ const PX = (() => {
       g.line(16, 6, 16, 27, '#2f7f2c', true); g.line(16, 14, 22, 10, '#2f7f2c', true); g.line(16, 19, 10, 15, '#2f7f2c', true);
     },
   };
+
+  // ---------- premium redraws: three-tone shading, gold trims and glints ----------
+  // tint: recolour the pixels already painted where test(x, y) is true (flat, so the rim shading leaves them alone)
+  const tint = (g, test, c) => { for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (g.get(x, y) && test(x, y)) g.set(x, y, c, true); };
+  const GOLD = '#f2c14e', GOLD_D = '#c98a1e', GOLD_L = '#fff0b0';
+  const heartShape = (g, c) => { g.ell(10.5, 11.5, 7.5, 7.5, c).ell(21.5, 11.5, 7.5, 7.5, c); g.poly([[3.2, 13], [28.8, 13], [16, 28.6]], c); };
+  function star(g, cx, cy, ro, ri, c, flat) {
+    const pts = [];
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? ri : ro; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+    g.poly(pts, c, flat);
+  }
+  Object.assign(D, {
+    // home-screen needs
+    heart: g => {
+      heartShape(g, '#ff3d6e');
+      tint(g, (x, y) => x + y > 35 || y > 22, '#d41f55');
+      g.line(6, 11, 8, 8, '#ff8fb0', true, 2); g.rect(9, 7, 2, 1, '#ff8fb0', true);
+      g.rect(7, 9, 1, 1, '#ffffff', true); g.set(8, 8, '#ffffff', true);
+    },
+    heartEmpty: g => {
+      heartShape(g, '#5a4d72');
+      tint(g, (x, y) => x + y > 35 || y > 22, '#41365a');
+      g.line(6, 11, 8, 8, '#776a93', true, 2); g.rect(9, 7, 2, 1, '#776a93', true);
+    },
+    energy: g => {
+      g.poly([[20, 1.5], [5, 18.5], [14.5, 18.5], [10, 30.5], [27, 12], [17.5, 12], [23, 1.5]], '#ffd23d');
+      tint(g, (x, y) => x + y > 33, '#f5a21b');
+      g.line(19, 4, 10, 15, '#fff6c2', true); g.line(15, 20, 13, 25, '#ffe680', true);
+      g.dots([[28, 3], [27, 4], [29, 4], [28, 5], [4, 26]], '#fff6c2');
+    },
+    hygiene: g => {
+      g.poly([[15.5, 2], [24, 13], [26, 21], [22.5, 27.5], [15.5, 30], [8.5, 27.5], [5, 21], [7, 13]], '#38a8f5');
+      tint(g, (x, y) => x + y > 38 || y > 26, '#1f74d0');
+      tint(g, (x, y) => (x - 11) ** 2 / 9 + (y - 18) ** 2 / 30 < 1, '#8fd6ff');
+      g.rect(10, 16, 2, 5, '#ffffff', true); g.set(11, 13, '#ffffff', true);
+      g.ell(26.5, 5.5, 3, 3, '#bfe9ff', true); g.set(25, 4, '#ffffff', true);
+    },
+    // care actions
+    bath: g => {
+      g.ell(8.5, 13, 4.5, 4, '#eaf8ff', true).ell(14, 11.5, 5, 4.5, '#eaf8ff', true).ell(25, 13, 4, 3.5, '#eaf8ff', true);
+      g.ell(8.5, 12, 2.5, 2, '#ffffff', true).ell(14, 10, 3, 2.5, '#ffffff', true);
+      g.ell(20, 12, 3, 3, '#ffd23d', true).ell(21.5, 8.5, 2.6, 2.6, '#ffd23d', true);   // rubber duck
+      g.dots([[23, 8]], OUT); g.rect(24, 9, 2, 1, '#ff8a2d', true);
+      g.ell(27, 4, 2.3, 2.3, '#bfe9ff', true); g.set(26, 3, '#ffffff', true);
+      g.poly([[1.5, 16], [30.5, 16], [28.5, 23.5], [23, 27], [9, 27], [3.5, 23.5]], '#f6f8fc');
+      g.rect(2, 16, 28, 2, '#dfe6f2', true);
+      tint(g, (x, y) => y >= 24 && y < 27, '#c6cfdf');
+      g.rect(4, 20, 24, 1, GOLD, true);
+      g.rect(7, 27, 3, 3, GOLD).rect(22, 27, 3, 3, GOLD);
+      g.rect(6, 18, 2, 2, '#ffffff', true);
+    },
+    wake: g => {
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4, r1 = i % 2 ? 13 : 15;
+        g.line(16 + Math.cos(a) * 11, 16 + Math.sin(a) * 11, 16 + Math.cos(a) * r1, 16 + Math.sin(a) * r1, i % 2 ? '#ffb52e' : '#ffd23d', true, 2);
+      }
+      g.ell(16, 16, 8.5, 8.5, '#ff9f1c');
+      g.ell(15.2, 15.2, 6.8, 6.8, '#ffd23d', true);
+      g.ell(13.5, 13.5, 3, 3, '#fff3b0', true);
+      g.rect(12, 12, 2, 2, '#ffffff', true);
+    },
+    // training
+    rock: g => {
+      g.poly([[3, 27], [5, 15], [10, 8], [18, 5], [25, 9], [29, 17], [29, 27]], '#8d93a6');
+      g.poly([[5, 16], [10, 8.5], [18, 5.5], [16, 13], [9, 19]], '#b7bdcc', true);
+      g.poly([[25, 9], [29, 17], [29, 27], [22, 27], [24, 17]], '#636a7e', true);
+      g.rect(3, 25, 27, 2, '#555c70', true);
+      g.line(16, 13, 19, 19, '#454b5c', true); g.line(19, 19, 17, 24, '#454b5c', true); g.line(9, 19, 12, 23, '#454b5c', true);
+      g.poly([[19, 16], [22, 12], [25, 16], [22, 21]], '#6fe3ff', true);   // a crystal in the rock
+      g.poly([[19, 16], [22, 12], [22, 21]], '#c9f6ff', true);
+      g.set(21, 14, '#ffffff', true);
+      g.rect(10, 9, 3, 1, '#e6e9f1', true);
+    },
+    rubble: g => {
+      g.poly([[2, 28], [4, 22], [9, 20], [12, 24], [11, 28]], '#8d93a6');
+      g.poly([[13, 28], [15, 21], [21, 19], [25, 23], [24, 28]], '#7b8296');
+      g.poly([[24, 28], [26, 24], [30, 25], [30, 28]], '#8d93a6');
+      g.poly([[9, 16], [12, 13], [15, 16], [12, 18]], '#b7bdcc');
+      g.poly([[18, 13], [21, 8], [23, 13], [21, 16]], '#6fe3ff', true); g.set(20, 11, '#ffffff', true);
+      g.dots([[6, 12], [27, 15], [16, 6]], '#fff6c2');
+    },
+    orb: g => {   // incoming attack: a dark energy ball with a bright core
+      g.ell(16, 16, 12.5, 12.5, '#5a1fa0');
+      g.ell(16, 16, 9.5, 9.5, '#8b46e0', true);
+      g.ell(15, 15, 6, 6, '#c79bff', true);
+      g.ell(14.5, 14.5, 3, 3, '#f6ecff', true);
+      g.rect(10, 9, 2, 2, '#ffffff', true);
+    },
+    shield: g => {
+      g.poly([[16, 1.5], [28.5, 5.5], [27.5, 18], [16, 30.5], [4.5, 18], [3.5, 5.5]], GOLD);
+      tint(g, (x, y) => x >= 16, GOLD_D);
+      g.poly([[16, 4.5], [25.5, 7.5], [24.5, 17.5], [16, 27], [7.5, 17.5], [6.5, 7.5]], '#3f7fd0', true);
+      tint(g, (x, y) => { const p = g.get(x, y); return p && p.c === '#3f7fd0' && x < 16; }, '#5c9be6');
+      star(g, 16, 15.5, 5.5, 2.4, GOLD_L, true);
+      g.dots([[8, 8], [9, 8], [8, 9]], '#ffffff');
+    },
+    // options
+    image: g => {
+      g.rect(2, 4, 28, 24, GOLD);
+      g.rect(4, 6, 24, 20, '#7cc8ff', true);
+      g.rect(4, 6, 24, 4, '#5bb2f5', true);
+      g.ell(22, 12, 3, 3, '#ffe46b', true); g.set(21, 11, '#ffffff', true);
+      g.poly([[4, 26], [4, 21], [11, 13], [17, 20], [21, 17], [28, 23], [28, 26]], '#7d8fd6', true);
+      g.poly([[9.5, 15], [11, 13], [12.6, 15]], '#ffffff', true);
+      g.poly([[4, 26], [4, 23], [12, 20], [20, 22], [28, 21], [28, 26]], '#4fbf4a', true);
+      g.rect(4, 25, 24, 1, '#2f9a45', true);
+      [[2, 4], [28, 4], [2, 26], [28, 26]].forEach(([x, y]) => g.rect(x, y, 2, 2, GOLD_L, true));
+    },
+    friends: g => {
+      // back trainer (blue cap)
+      g.ell(22, 11, 4.5, 4.5, '#ffd9b8');
+      g.rect(17, 5, 10, 4, '#2f6fd0'); g.rect(17, 8, 12, 2, '#2f6fd0', true); g.rect(21, 6, 2, 2, '#ffffff', true);
+      g.poly([[15, 30], [16, 19], [22, 16.5], [28, 19], [29.5, 30]], '#3d7dca');
+      g.rect(22, 20, 1, 10, '#1f4f99', true);
+      // front trainer (red cap)
+      g.ell(11, 12, 5, 5, '#ffd9b8');
+      g.rect(5, 5, 12, 4, '#e3350d'); g.rect(4, 8, 14, 2, '#e3350d', true); g.rect(10, 6, 2, 2, '#ffffff', true);
+      g.poly([[2.5, 30], [3.5, 20], [11, 17], [18.5, 20], [19.5, 30]], '#e3350d');
+      g.rect(11, 21, 1, 9, '#a3220a', true); g.rect(7, 23, 2, 2, GOLD, true);
+      g.dots([[9, 13], [13, 13]], OUT);
+    },
+    card: g => {   // stat card: a gold-rimmed trading card with stat bars
+      g.rect(5, 1, 22, 30, GOLD);
+      g.rect(7, 3, 18, 26, '#2c3a8f', true);
+      g.rect(8, 4, 16, 12, '#9bd8ff', true);
+      for (let i = 0; i < 4; i++) g.line(8 + i * 5, 15, 12 + i * 5, 4, ['#ffc4e6', '#fff2a8', '#c2f5d0', '#ffc4e6'][i], true);
+      g.ell(16, 10, 4, 4, '#ee1515', true); g.rect(12, 10, 9, 1, OUT, true);
+      tint(g, (x, y) => (x - 16) ** 2 + (y - 10.5) ** 2 < 15 && y > 10, '#ffffff');
+      g.rect(15, 9, 3, 3, '#ffffff', true); g.set(16, 10, OUT, true);
+      g.rect(9, 18, 12, 2, '#ff6f61', true); g.rect(9, 21, 9, 2, '#7fdc6c', true); g.rect(9, 24, 11, 2, '#62c9ff', true);
+      star(g, 22, 25, 2.6, 1.2, GOLD_L, true);
+    },
+    widget: g => {   // home-screen widget: a phone with a tile on its screen
+      g.rect(7, 1, 18, 30, '#d9dde8');
+      g.rect(9, 4, 14, 22, '#1d2240', true);
+      g.rect(13, 2, 6, 1, '#8b92a8', true); g.rect(14, 27, 4, 2, '#8b92a8', true);
+      g.rect(10, 5, 12, 9, '#ff6f61', true); g.rect(10, 5, 12, 2, '#ff9a8a', true);
+      g.ell(16, 10, 2.5, 2.5, '#ffffff', true); g.rect(13, 10, 7, 1, OUT, true);
+      [[10, 16], [14, 16], [18, 16], [10, 20], [14, 20], [18, 20]].forEach(([x, y], i) => g.rect(x, y, 3, 3, ['#7fdc6c', '#62c9ff', GOLD, '#c79bff', '#ff9cbd', '#7fdc6c'][i], true));
+    },
+    book: g => {   // how to play: a leather manual with gold corners
+      g.rect(6, 2, 21, 25, '#c8323a');
+      g.rect(6, 2, 4, 25, '#8f1f2a', true);
+      g.rect(9, 26, 18, 4, '#f6efdc'); g.rect(10, 27, 16, 1, '#d9cfb6', true);
+      g.ell(18, 14, 5.5, 5.5, GOLD, true); g.ell(18, 14, 3.8, 3.8, '#c8323a', true);
+      g.rect(17, 11, 3, 1, GOLD_L, true); g.rect(16, 12, 1, 1, GOLD_L, true); g.rect(19, 12, 1, 2, GOLD_L, true); g.rect(18, 14, 1, 2, GOLD_L, true); g.rect(18, 17, 1, 1, GOLD_L, true);   // "?"
+      [[24, 3], [24, 23]].forEach(([x, y]) => g.rect(x, y, 2, 2, GOLD, true));
+      g.rect(11, 4, 12, 1, '#e4606a', true);
+    },
+    credits: g => {   // a gold medal on a ribbon
+      g.poly([[8, 1], [14, 1], [18, 13], [13, 15]], '#e3350d'); g.poly([[18, 1], [24, 1], [19, 15], [14, 13]], '#3d7dca');
+      g.ell(16, 21, 9.5, 9.5, GOLD);
+      g.ell(16, 21, 7, 7, GOLD_D, true);
+      star(g, 16, 21.5, 6, 2.6, GOLD_L, true);
+      g.rect(10, 15, 2, 2, '#ffffff', true);
+    },
+  });
   // eggs (3 rarities × 0–2 cracks)
   const EGG = { common: ['#fbf6ea', '#6fbf73'], rare: ['#e6f1ff', '#4f93c4'], legend: ['#fff1c4', '#e0a81f'] };
   Object.entries(EGG).forEach(([tier, [base, spot]]) => {
@@ -626,7 +783,7 @@ const PX = (() => {
     };
     im.src = 'assets/egg.png';
   })();
-  // ---------- picture icons (assets/ui/*.png, copied from Pokemon_Item_Icons/) ----------
+  // ---------- picture icons (assets/ui/*.png, copied from Pokemon_Item_Icons/; shop.png is a hand-drawn basket) ----------
   // Each PNG is cropped to its art and padded to a square, so every icon fills its slot the same way. Until a picture has
   // loaded (or if it can't be read), the drawn icon is used.
   const PICTURES = ['oran', 'rareCandy', 'pearl', 'starPiece', 'nugget', 'pokeball', 'greatball', 'ultraball', 'masterball',

@@ -1,5 +1,5 @@
 // Offline cache for Pocket Pal
-const CACHE = 'pocketpal-v67';
+const CACHE = 'pocketpal-v69';
 const FILES = ['./', './index.html', './style.css', './assets/fonts/Jersey15-Regular.ttf', './items.js', './evodata.js', './evolution.js', './pixelart.js', './backgrounds.js', './sprites.js', './species.js', './creatures.js', './game.js', './online-config.js', './online.js', './talk.js', './ui.js', './icon.svg', './assets/egg.png', ...['oran','rareCandy','pearl','starPiece','nugget','pokeball','greatball','ultraball','masterball','pecha','aspear','cheri','chest','map','coin','shop','cart'].map(n => './assets/ui/' + n + '.png'), './manifest.webmanifest'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
@@ -10,7 +10,7 @@ self.addEventListener('activate', e => {
 // Pictures, fonts, Pokémon sprites and the Firebase library hardly ever change, so they come straight
 // from the cache (fetched once, then instant). They live in their own cache so updates don't re-download them.
 // If you redraw pictures (icons, backgrounds), bump MEDIA's version so phones fetch the new ones.
-const MEDIA = 'pocketpal-media-v3';
+const MEDIA = 'pocketpal-media-v4';
 const isMedia = url => /\.(png|jpe?g|webp|gif|svg|ttf|woff2?)$/i.test(url.pathname)
   || url.hostname === 'raw.githubusercontent.com' || url.hostname === 'www.gstatic.com'
   || url.hostname === 'fonts.gstatic.com';

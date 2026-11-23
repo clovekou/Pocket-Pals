@@ -911,10 +911,10 @@ if (!code) {
         <li>On your home screen, press and hold an empty spot → <b>Edit</b> → <b>Add Widget</b> → <b>Scriptable</b>. Pick small or medium and tap <b>Add Widget</b>.</li>
         <li>Press and hold the new widget → <b>Edit Widget</b> → set <b>Script</b> to <b>Pocket Pals</b>.</li>
       </ol>
-      <div class="btns"><button class="btn gold" id="wgCopy">{i:card} Copy widget script</button></div>
+      <div class="btns"><button class="btn gold" id="wgCopy">{i:widget} Copy widget script</button></div>
       <h4 style="font-family:var(--pixel);margin:16px 0 6px">Mac desktop app</h4>
       <p class="muted" style="margin:0">The Pocket Pals desktop app (Mac or Windows) lets your Pokémon walk around your computer's desktop. When it asks for your key, paste this:</p>
-      <div class="btns"><button class="btn alt" id="wgKey">{i:card} Copy key for desktop app</button></div>
+      <div class="btns"><button class="btn alt" id="wgKey">{i:widget} Copy key for desktop app</button></div>
       <p class="muted" style="margin-top:10px">Keep the script to yourself: it has your private widget key. Tapping the widget opens the game.</p>
       <p class="muted">Android: widgets need an installed app, so for now add the game to your home screen from Chrome's ⋮ menu → <b>Add to Home screen</b>.</p>`);
     $('#wgKey').addEventListener('click', async () => {
@@ -1238,7 +1238,7 @@ if (!code) {
       <label class="toggle"><span><b>Music volume</b><small id="musicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Fast time (testing)</b><small>1 second = 1 game minute. Normally 1 real minute = 1 game minute.</small></span><span class="sw"><input type="checkbox" id="setFast" ${S.settings.fast ? 'checked' : ''}><i></i></span></label>
-      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:card} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCredits">{i:star} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
+      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:widget} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCredits">{i:credits} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
     $('#setMusic').addEventListener('change', e => { S.settings.music = e.target.checked; Game.save(); });
@@ -1627,20 +1627,139 @@ if (!code) {
     }));
   }
 
+  // ---------- premium training visuals (Rock Smash, Protect): chunky pixel scenery, debris, shake ----------
+  // one scenery pixel = PXS (4) screen px; PXS is shared with the dungeon scenery below
+  const sceneCache = {};
+  const snap = v => Math.round(v / PXS) * PXS;
+  /** paint(g, w, h) draws on a small w×h canvas once per arena size; it is scaled up without smoothing so it stays pixel art */
+  function pixelScene(key, paint) {
+    const w = Math.ceil(AW / PXS), h = Math.ceil(AH / PXS), id = `${key}_${w}x${h}`;
+    if (!sceneCache[id]) { const c = document.createElement('canvas'); c.width = w; c.height = h; paint(c.getContext('2d'), w, h); sceneCache[id] = c; }
+    ac.save(); ac.imageSmoothingEnabled = false; ac.drawImage(sceneCache[id], 0, 0, w * PXS, h * PXS); ac.restore();
+  }
+  // shared painting helpers for the small scenery canvas
+  const seeded = seed => () => (seed = seed * 16807 % 2147483647) / 2147483647;
+  const sPx = (g, x, y, c) => { g.fillStyle = c; g.fillRect(x, y, 1, 1); };
+  function sEll(g, cx, cy, rx, ry, c) {
+    g.fillStyle = c;
+    for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) {
+      const dx = (x + .5 - cx) / rx, dy = (y + .5 - cy) / ry; if (dx * dx + dy * dy <= 1) g.fillRect(x, y, 1, 1);
+    }
+  }
+  /** vertical colour bands with a checker dither where two bands meet */
+  function sBands(g, w, y0, y1, cols) {
+    for (let y = y0; y < y1; y++) {
+      const f = (y - y0) / Math.max(1, y1 - y0) * (cols.length - 1), i = Math.floor(f), t = f - i;
+      for (let x = 0; x < w; x++) sPx(g, x, y, cols[Math.min(cols.length - 1, i + ((t > .75 || (t > .4 && (x + y) % 2 === 0)) ? 1 : 0))]);
+    }
+  }
+  function sVignette(g, w, h) {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const e = Math.min(x, y, w - 1 - x, h - 1 - y); if (e < 4 && (x + y) % (e + 2) === 0) sPx(g, x, y, 'rgba(8,4,20,.4)'); }
+  }
+  function burst(G, x, y, colors, n = 14, power = 260, grav = 900) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, v = power * (.35 + Math.random() * .65);
+      G.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (grav ? power * .35 : 0), age: 0, life: .45 + Math.random() * .35, c: colors[i % colors.length], s: PXS * (Math.random() < .35 ? 2 : 1), g: grav });
+    }
+  }
+  function drawParts(G, dt) {
+    G.parts = G.parts.filter(q => {
+      q.age += dt; if (q.age >= q.life) return false;
+      q.vy += q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt;
+      ac.globalAlpha = Math.min(1, 2 * (1 - q.age / q.life)); ac.fillStyle = q.c; ac.fillRect(snap(q.x), snap(q.y), q.s, q.s); ac.globalAlpha = 1;
+      return true;
+    });
+  }
+  function shake(G, ms) { const k = Math.max(0, G.shakeUntil - ms) / 200; if (k > 0) ac.translate(snap((Math.random() - .5) * 12 * k), snap((Math.random() - .5) * 12 * k)); }
+  /** a gold pixel timer bar along the top of the arena (turns red near the end) */
+  function timerBar(frac) {
+    const x = 14, y = 12, w = AW - 28, h = 12, fw = Math.round(w * Math.max(0, Math.min(1, frac)) / PXS) * PXS;
+    ac.fillStyle = '#1d1530'; ac.fillRect(x - 4, y - 4, w + 8, h + 8);
+    ac.fillStyle = '#3a3358'; ac.fillRect(x, y, w, h);
+    ac.fillStyle = frac < .2 ? '#ff5a5a' : '#f2c14e'; ac.fillRect(x, y, fw, h);
+    ac.fillStyle = frac < .2 ? '#ffb0b0' : '#fff0b0'; ac.fillRect(x, y, fw, 4);
+    ac.fillStyle = frac < .2 ? '#c42f3a' : '#c98a1e'; ac.fillRect(x, y + h - 4, fw, 4);
+  }
+  /** text with a thick dark outline, centred */
+  function outlined(txt, x, y, px, fill = '#fff') {
+    ac.font = `800 ${px}px "PP Digits", "Pixelify Sans", system-ui`; ac.textAlign = 'center'; ac.fillStyle = '#1d1530';
+    for (const [dx, dy] of [[-3, 0], [3, 0], [0, -3], [0, 3], [-2, -2], [2, 2], [-2, 2], [2, -2]]) ac.fillText(txt, x + dx, y + dy);
+    ac.fillStyle = fill; ac.fillText(txt, x, y); ac.textAlign = 'left';
+  }
+  /** the end-of-game card: a gold-framed navy panel */
+  function resultPanel(title, sub, cy) {
+    ac.fillStyle = 'rgba(10,8,25,.55)'; ac.fillRect(0, 0, AW, AH);
+    const w = snap(Math.min(AW - 40, 300)), h = 112, x = snap((AW - w) / 2), y = snap(cy - h / 2);
+    ac.fillStyle = '#1d1530'; ac.fillRect(x - 4, y - 4, w + 8, h + 8);
+    ac.fillStyle = '#f2c14e'; ac.fillRect(x, y, w, h);
+    ac.fillStyle = '#c98a1e'; ac.fillRect(x, y + h - 4, w, 4);
+    ac.fillStyle = '#2c2a66'; ac.fillRect(x + 8, y + 8, w - 16, h - 16);
+    ac.fillStyle = '#3b3a8c'; ac.fillRect(x + 8, y + 8, w - 16, 8);
+    [[x, y], [x + w - 8, y], [x, y + h - 8], [x + w - 8, y + h - 8]].forEach(([a, b]) => { ac.fillStyle = '#fff0b0'; ac.fillRect(a, b, 4, 4); });
+    outlined(title, AW / 2, y + 52, 28, '#ffffff');
+    outlined(sub, AW / 2, y + 86, 17, '#ffe27a');
+  }
+  // Rock Smash: a quarry floor with a strata wall, flagstones, moss and nine holes
+  function paintQuarry(g, w, h, holes) {
+    const r = seeded(11), wall = Math.round(h * .12);
+    sBands(g, w, 0, h, ['#7d6248', '#735a42', '#69523c', '#5f4a36', '#544130']);
+    const strata = ['#4a3d5c', '#5a4b6c', '#4f4262', '#3e3350'];
+    for (let y = 0; y < wall; y++) for (let x = 0; x < w; x++) sPx(g, x, y, strata[(Math.floor((y + Math.round(Math.sin(x * .3 + y))) / 3) + 4) % strata.length]);
+    for (let x = 0; x < w; x++) { const d = wall + Math.round(Math.sin(x * .45) * 1.5 + r()); for (let y = wall - 1; y <= d; y++) sPx(g, x, y, '#3e3350'); sPx(g, x, d + 1, '#2a2238'); }
+    for (let y = 0; y < wall - 2; y++) for (let x = 0; x < w; x++) if (r() < .03) sPx(g, x, y, r() < .3 ? '#7fe3ff' : '#6d5d82');   // glints in the wall
+    for (let i = 0; i < w * h / 26; i++) sPx(g, Math.floor(r() * w), wall + 2 + Math.floor(r() * (h - wall)), r() < .5 ? '#866a4e' : '#5a4532');   // soil grain
+    for (let i = 0; i < w * h / 340; i++) {   // flat stones set in the ground: shadow, body, lit top edge
+      const x = 2 + r() * (w - 4), y = wall + 4 + r() * (h - wall - 6), rx = 2 + r() * 3.5, ry = 1.2 + r() * 1.6, c = ['#9a8a78', '#8c7d6c', '#a89886'][Math.floor(r() * 3)];
+      sEll(g, x + .5, y + .8, rx, ry, '#3f3024'); sEll(g, x, y, rx, ry, c); sEll(g, x - .4, y - .5, rx * .7, ry * .5, '#c2b4a2');
+    }
+    for (let i = 0; i < w * h / 60; i++) sPx(g, Math.floor(r() * w), wall + 3 + Math.floor(r() * (h - wall)), r() < .5 ? '#a8916f' : '#4a3a2b');
+    for (let i = 0; i < w / 5; i++) { const x = Math.floor(r() * w), y = wall + 4 + Math.floor(r() * (h - wall - 4)); sPx(g, x, y, '#5f9a3e'); sPx(g, x + 1, y, '#6fb04a'); sPx(g, x, y - 1, '#8fd462'); }
+    for (const s of holes) {
+      const cx = s.x / PXS, cy = (s.y + 18) / PXS;
+      sEll(g, cx, cy + .6, 12, 4.8, '#3a2c20'); sEll(g, cx, cy, 11.5, 4.2, '#b39470'); sEll(g, cx, cy - .4, 11, 3.6, '#cdb08a');
+      sEll(g, cx, cy, 10, 3.4, '#1e1610'); sEll(g, cx, cy - .8, 9, 2.4, '#120c08');
+    }
+    sVignette(g, w, h);
+  }
+  // Protect: a starry night arena with a diamond-tiled floor and a glowing platform under the pet
+  function paintNight(g, w, h, px, py) {
+    const r = seeded(5), floorY = Math.round(h * .64);
+    sBands(g, w, 0, floorY, ['#100e28', '#15133a', '#1b1948', '#222058', '#2a2866']);
+    for (let i = 0; i < w * floorY / 70; i++) {
+      const x = Math.floor(r() * w), y = Math.floor(r() * (floorY - 8)), c = r() < .25 ? '#ffffff' : r() < .6 ? '#bcd0ff' : '#6e78c0';
+      sPx(g, x, y, c); if (r() < .06) { sPx(g, x - 1, y, '#6e78c0'); sPx(g, x + 1, y, '#6e78c0'); sPx(g, x, y - 1, '#6e78c0'); sPx(g, x, y + 1, '#6e78c0'); }
+    }
+    sEll(g, w * .8, floorY * .22, 5, 5, '#fff3c4'); sEll(g, w * .8 + 2, floorY * .22 - 1, 4, 4, '#15133a');   // crescent moon
+    for (let x = 0; x < w; x++) {
+      const top = floorY - Math.round(7 + Math.sin(x * .11) * 3 + Math.sin(x * .29 + 1) * 2);
+      for (let y = top; y < floorY; y++) sPx(g, x, y, y === top ? '#3a3884' : '#1c1a48');
+    }
+    for (let y = floorY; y < h; y++) for (let x = 0; x < w; x++) {
+      const k = y - floorY, line = ((x + 2 * k) % 14 + 14) % 14 === 0 || ((x - 2 * k) % 14 + 14) % 14 === 0;
+      sPx(g, x, y, k === 0 ? '#5a5ac0' : line ? '#34327a' : (k < 6 ? '#2a2866' : '#232150'));
+    }
+    sEll(g, px, py, 20, 6, '#14122e'); sEll(g, px, py - .5, 18.5, 5.2, '#3b3a8c'); sEll(g, px, py - 1, 16, 4, '#5a5ac0');
+    sEll(g, px, py - 1, 13.5, 3, '#3b3a8c'); sEll(g, px, py - 1.2, 10, 2, '#4c4cb0');
+    sVignette(g, w, h);
+  }
+
   // ---------- Rock Smash (ATTACK) ----------
   function startRockSmash() {
     if (!guard()) return;
     openArena('{i:rock} Rock Smash');
     const p = Game.pet();
-    const G = { hits: 0, misses: 0, t0: now(), dur: 20000, rocks: [], next: 0, over: false, endAt: 0, pops: [], attackAt: -9 };
+    const G = { hits: 0, misses: 0, t0: now(), dur: 20000, rocks: [], next: 0, over: false, endAt: 0, pops: [], attackAt: -9, parts: [], shakeUntil: 0, combo: 0, lastHitAt: -9 };
     const cols = 3, rows = 3;
     const slot = i => ({ x: AW * (.2 + (i % cols) * .3), y: AH * (.2 + Math.floor(i / cols) * .2) });
     G.down = pos => {
       if (G.over) return;
       const r = G.rocks.find(r => !r.smashed && Math.hypot(pos.x - r.x, pos.y - r.y) < 46);
       if (!r) return;
-      r.smashed = true; r.smashAt = now(); G.hits++; G.attackAt = now(); Sound.play('hit');
-      G.pops.push({ txt: '+1', x: r.x, y: r.y - 30, age: 0 });
+      const t = now();
+      r.smashed = true; r.smashAt = t; G.hits++; G.attackAt = t; Sound.play('hit');
+      G.combo = t - G.lastHitAt < 900 ? G.combo + 1 : 1; G.lastHitAt = t; G.shakeUntil = t + 140;
+      burst(G, r.x, r.y, ['#b7bdcc', '#8d93a6', '#636a7e', '#6fe3ff', '#fff6c2'], 16);
+      G.pops.push({ txt: G.combo >= 3 ? `+1  x${G.combo}` : '+1', x: r.x, y: r.y - 30, age: 0 });
     };
     G.finish = early => {
       if (G.over) { if (early) closeArena(); return; }
@@ -1674,25 +1793,26 @@ if (!code) {
       }
       G.rocks.forEach(r => { if (!r.smashed && ms - r.born > r.life) { r.gone = true; } if (r.smashed && ms - r.smashAt > 400) r.gone = true; });
       G.rocks = G.rocks.filter(r => !r.gone || ms - r.born < 100);
-      // draw: rocky ground with 9 holes
-      const bgr = ac.createLinearGradient(0, 0, 0, AH); bgr.addColorStop(0, '#6b5640'); bgr.addColorStop(1, '#4a3b2c');
-      ac.fillStyle = bgr; ac.fillRect(0, 0, AW, AH);
-      for (let i = 0; i < 40; i++) { ac.fillStyle = 'rgba(0,0,0,.12)'; ac.fillRect(rng(i) * AW, rng(i + 70) * AH, 6, 4); }
-      for (let i = 0; i < cols * rows; i++) { const s0 = slot(i); ac.fillStyle = '#2e241b'; ac.beginPath(); ac.ellipse(s0.x, s0.y + 18, 40, 13, 0, 0, Math.PI * 2); ac.fill(); }
+      // draw: a quarry with 9 holes; rocks rise out of them
+      ac.save(); shake(G, ms);
+      pixelScene('quarry', (g, w, h) => paintQuarry(g, w, h, [...Array(cols * rows).keys()].map(slot)));
       for (const r of G.rocks) {
         const age = ms - r.born, up = Math.min(1, age / 140), down = r.smashed ? 0 : Math.max(0, 1 - (r.life - age) / 160);
         if (r.smashed) { PX.draw(ac, 'rubble', r.x, r.y + 6, 64, { alpha: Math.max(0, 1 - (ms - r.smashAt) / 400) }); continue; }
+        ac.save(); ac.beginPath(); ac.rect(r.x - 50, r.y - 80, 100, 102); ac.clip();   // hide the part still inside the hole
         PX.draw(ac, 'rock', r.x, r.y + 18 - 26 * up * (1 - down), 64);
+        ac.restore();
       }
       const size = Math.min(AW, AH) * .12, atk = (ms - G.attackAt) / 1000;
       drawCreature(ac, p.sp, { x: AW / 2, y: AH * .9, size, t, maxH: AH * .22, shiny: p.shiny, dir: 'front',
         anim: atk < animLength(p.sp, 'Attack') ? 'Attack' : undefined, animT: atk < animLength(p.sp, 'Attack') ? atk : undefined });
-      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = Math.max(0, 1 - pp.age * 1.8); ac.fillStyle = '#fff'; ac.font = '800 20px "PP Digits", "Pixelify Sans", system-ui'; ac.fillText(pp.txt, pp.x - 10, pp.y - pp.age * 60); ac.globalAlpha = 1; return pp.age < .55; });
+      drawParts(G, dt);
+      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = Math.max(0, 1 - pp.age * 1.8); outlined(pp.txt, pp.x, pp.y - pp.age * 60, 22, '#ffe27a'); ac.globalAlpha = 1; return pp.age < .55; });
+      ac.restore();
+      timerBar(left / G.dur);
       $('#arenaInfo').innerHTML = icons(`{i:rock}${G.hits} &nbsp;{i:sword}+${Math.min(18, Math.floor(G.hits / 2))} &nbsp;${Math.ceil(left / 1000)}s`);
-      ac.textAlign = 'center';
-      if (G.over) { ac.fillStyle = 'rgba(0,0,0,.45)'; ac.fillRect(0, 0, AW, AH); ac.fillStyle = '#fff'; ac.font = '700 30px "PP Digits", "Pixelify Sans", system-ui'; ac.fillText(`${G.hits} rocks smashed!`, AW / 2, AH * .45); ac.font = '700 17px "PP Digits", "Pixelify Sans", system-ui'; ac.fillText(`Attack training +${(G.result && G.result.atk) || 0}`, AW / 2, AH * .45 + 30); }
-      else if (ms - G.t0 < 2200) { ac.fillStyle = '#fff'; ac.font = '700 17px "PP Digits", "Pixelify Sans", system-ui'; ac.fillText('Tap the rocks to smash them!', AW / 2, AH * .74); }
-      ac.textAlign = 'left';
+      if (G.over) resultPanel(`${G.hits} rocks smashed!`, `Attack training +${(G.result && G.result.atk) || 0}`, AH * .45);
+      else if (ms - G.t0 < 2200) outlined('Tap the rocks to smash them!', AW / 2, AH * .74, 18);
     };
     arenaGame = G; requestAnimationFrame(G.loop);
   }
@@ -1702,14 +1822,15 @@ if (!code) {
     if (!guard()) return;
     openArena('{i:shield} Protect');
     const p = Game.pet();
-    const G = { blocks: 0, lives: 3, t0: now(), dur: 25000, orbs: [], next: 0, over: false, endAt: 0, pops: [], hitAt: -9, shieldAt: -9 };
+    const G = { blocks: 0, lives: 3, t0: now(), dur: 25000, orbs: [], next: 0, over: false, endAt: 0, pops: [], hitAt: -9, shieldAt: -9, parts: [], shakeUntil: 0 };
     const center = () => ({ x: AW / 2, y: AH * .55 });
     G.down = pos => {
       if (G.over) return;
       let best = null, bd = 56;
       for (const o of G.orbs) { const d = Math.hypot(pos.x - o.x, pos.y - o.y); if (!o.dead && d < bd) { best = o; bd = d; } }
       if (!best) return;
-      best.dead = true; best.blockAt = now(); G.blocks++; G.shieldAt = now(); Sound.play('catch');
+      best.dead = true; best.blockAt = now(); G.blocks++; G.shieldAt = now(); G.shakeUntil = now() + 90; Sound.play('catch');
+      burst(G, best.x, best.y, ['#c79bff', '#ffffff', '#8b46e0', '#9fb4ff'], 14, 220, 0);
       G.pops.push({ txt: 'Blocked!', x: best.x, y: best.y, age: 0 });
     };
     G.finish = early => {
@@ -1740,27 +1861,46 @@ if (!code) {
       for (const o of G.orbs) {
         if (o.dead) continue;
         const dx = c.x - o.x, dy = c.y - o.y, d = Math.hypot(dx, dy);
-        if (d < 34) { o.dead = true; o.hit = true; G.lives--; G.hitAt = ms; Sound.play('miss'); continue; }
+        if (d < 34) { o.dead = true; o.hit = true; G.lives--; G.hitAt = ms; G.shakeUntil = ms + 260; burst(G, o.x, o.y, ['#ff5a6e', '#ffb0b0', '#8b46e0'], 12, 200, 0); Sound.play('miss'); continue; }
         o.x += dx / d * o.speed * dt; o.y += dy / d * o.speed * dt;
+        if (Math.random() < .7) G.parts.push({ x: o.x + (Math.random() - .5) * 10, y: o.y + (Math.random() - .5) * 10, vx: 0, vy: 0, age: 0, life: .3, c: Math.random() < .5 ? '#8b46e0' : '#c79bff', s: PXS, g: 0 });
       }
       G.orbs = G.orbs.filter(o => !o.dead || (o.blockAt && ms - o.blockAt < 300));
-      // draw: dark arena with a glowing ring
-      const bgr = ac.createRadialGradient(c.x, c.y, 20, c.x, c.y, Math.max(AW, AH) * .7); bgr.addColorStop(0, '#3b3a78'); bgr.addColorStop(1, '#14122e');
-      ac.fillStyle = bgr; ac.fillRect(0, 0, AW, AH);
-      ac.strokeStyle = 'rgba(160,190,255,.25)'; ac.lineWidth = 3; ac.beginPath(); ac.arc(c.x, c.y, 60 + Math.sin(t * 3) * 3, 0, Math.PI * 2); ac.stroke();
+      // draw: a starry night arena, a rune ring that turns around the pet, orbs with trails
       const size = Math.min(AW, AH) * .1, hurt = ms - G.hitAt < 400;
+      ac.save(); shake(G, ms);
+      pixelScene('night', (g, w, h) => paintNight(g, w, h, c.x / PXS, (c.y + size * .8) / PXS + 1));
+      for (let i = 0; i < 24; i++) {
+        const a = t * .8 + i * Math.PI / 12, rr = 64 + Math.sin(t * 3) * 3;
+        const sx = snap(c.x + Math.cos(a) * rr) - 2, sy = snap(c.y + Math.sin(a) * rr * .9) - 2;
+        ac.globalAlpha = .25; ac.fillStyle = '#6f7fe0'; ac.fillRect(sx - PXS, sy - PXS, PXS * 3, PXS * 3);   // soft glow
+        ac.globalAlpha = .6 + .4 * Math.sin(t * 4 + i); ac.fillStyle = i % 3 ? '#bcd0ff' : '#ffe27a'; ac.fillRect(sx, sy, PXS, PXS);
+      }
+      ac.globalAlpha = 1;
+      drawParts(G, dt);
       drawCreature(ac, p.sp, { x: c.x, y: c.y + size * .8, size, t, maxH: AH * .18, shiny: p.shiny, dir: 'front', anim: hurt ? 'Hurt' : undefined, animT: hurt ? (ms - G.hitAt) / 1000 : undefined, alpha: hurt && Math.floor(ms / 80) % 2 ? .4 : 1 });
-      if (ms - G.shieldAt < 250) PX.draw(ac, 'shield', c.x, c.y, 64, { alpha: 1 - (ms - G.shieldAt) / 250 });
+      if (ms - G.shieldAt < 300) {   // shield bubble: a pixel ring that flashes and fades
+        const k = 1 - (ms - G.shieldAt) / 300, R = 50 + (1 - k) * 10;
+        ac.globalAlpha = k * .18; ac.fillStyle = '#8fc0ff'; ac.beginPath(); ac.arc(c.x, c.y, R, 0, Math.PI * 2); ac.fill();
+        ac.globalAlpha = k; ac.fillStyle = '#d6e8ff';
+        for (let i = 0; i < 40; i++) { const a = i * Math.PI / 20; ac.fillRect(snap(c.x + Math.cos(a) * R) - 2, snap(c.y + Math.sin(a) * R) - 2, PXS, PXS); }
+        ac.globalAlpha = 1;
+        PX.draw(ac, 'shield', c.x, c.y, 64, { alpha: k });
+      }
       for (const o of G.orbs) {
         if (o.blockAt) PX.draw(ac, 'sparkle', o.x, o.y, 32, { alpha: 1 - (ms - o.blockAt) / 300 });
-        else PX.draw(ac, 'orb', o.x, o.y, 40, { rot: t * 4 });
+        else PX.draw(ac, 'orb', o.x, o.y, 40 + Math.round(Math.sin(t * 10 + o.speed)) * 4);   // pulses; not rotated so it stays pixel-crisp
       }
-      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = Math.max(0, 1 - pp.age * 1.8); ac.fillStyle = '#bfe0ff'; ac.font = '800 16px "PP Digits", "Pixelify Sans", system-ui'; ac.fillText(pp.txt, pp.x - 26, pp.y - 20 - pp.age * 50); ac.globalAlpha = 1; return pp.age < .55; });
+      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = Math.max(0, 1 - pp.age * 1.8); outlined(pp.txt, pp.x, pp.y - 20 - pp.age * 50, 17, '#bfe0ff'); ac.globalAlpha = 1; return pp.age < .55; });
+      ac.restore();
+      if (ms - G.hitAt < 320) {   // red flash at the edges when an attack gets through
+        const k = 1 - (ms - G.hitAt) / 320; ac.fillStyle = `rgba(255,40,70,${.4 * k})`;
+        ac.fillRect(0, 0, AW, 16); ac.fillRect(0, AH - 16, AW, 16); ac.fillRect(0, 0, 16, AH); ac.fillRect(AW - 16, 0, 16, AH);
+      }
+      timerBar(left / G.dur);
       $('#arenaInfo').innerHTML = icons(`{i:shield}${G.blocks} &nbsp;${'{i:heart}'.repeat(Math.max(0, G.lives))}${'{i:heartEmpty}'.repeat(3 - Math.max(0, G.lives))} &nbsp;${Math.ceil(left / 1000)}s`);
-      ac.textAlign = 'center';
-      if (G.over) { ac.fillStyle = 'rgba(0,0,0,.45)'; ac.fillRect(0, 0, AW, AH); ac.fillStyle = '#fff'; ac.font = '700 30px "PP Digits", "Pixelify Sans", system-ui'; ac.fillText(`${G.blocks} blocked!`, AW / 2, AH * .3); ac.font = '700 17px "PP Digits", "Pixelify Sans", system-ui'; ac.fillText(`Defence training +${(G.result && G.result.def) || 0}`, AW / 2, AH * .3 + 30); }
-      else if (ms - G.t0 < 2200) { ac.fillStyle = '#fff'; ac.font = '700 17px "PP Digits", "Pixelify Sans", system-ui'; ac.fillText('Tap the attacks before they hit!', AW / 2, AH * .18); }
-      ac.textAlign = 'left';
+      if (G.over) resultPanel(`${G.blocks} blocked!`, `Defence training +${(G.result && G.result.def) || 0}`, AH * .3);
+      else if (ms - G.t0 < 2200) outlined('Tap the attacks before they hit!', AW / 2, AH * .18, 18);
     };
     arenaGame = G; requestAnimationFrame(G.loop);
   }
@@ -1769,7 +1909,7 @@ if (!code) {
   // berries live under Care → Feed; the Bag holds Items and the Poké Mart (Shop)
   function bagTabs() {
     if (!Game.feature('shop')) return '';
-    return `<div class="tabs"><button data-bag="items" class="${bagTab === 'items' ? 'on' : ''}">{i:bag} Items</button><button data-bag="shop" class="${bagTab === 'shop' ? 'on' : ''}">{i:coin} Shop</button></div>`;
+    return `<div class="tabs"><button data-bag="items" class="${bagTab === 'items' ? 'on' : ''}">{i:bag} Items</button><button data-bag="shop" class="${bagTab === 'shop' ? 'on' : ''}">{i:shop} Shop</button></div>`;
   }
   const coinsHtml = () => `<span class="coins">{i:coin}<b>${Game.coins().toLocaleString()}</b></span>`;
   // ---------- Poké Mart: a 3-column grid; tap an item to see it and choose how many ----------
@@ -2517,7 +2657,7 @@ if (!code) {
       // treasure / egg props
       if (G.state === 'chest' && G.chest) {
         const cxp = AW * .68, cyp = AH * .7;
-        PX.draw(ac, G.chest.open ? 'chestOpen' : 'chest', cxp, cyp, 64, { rot: G.chest.open ? 0 : Math.sin(ms / 60) * .06 });
+        PX.draw(ac, 'chest', cxp, cyp, 64, { rot: G.chest.open ? 0 : Math.sin(ms / 60) * .06 });
         if (G.chest.item) { const k = Math.min(1, (ms - G.at) / 600); PX.draw(ac, Game.ITEMS[G.chest.item].icon, cxp, cyp - 30 - k * 34, 48); }
       }
       if (G.state === 'egg') PX.draw(ac, 'egg_legend_0', AW * .68, AH * .66 - Math.abs(Math.sin(t * 3)) * 6, 64);
