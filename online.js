@@ -267,7 +267,7 @@ const Online = (() => {
       if (mask) {
         let i = EMOTIONS.indexOf(emo);
         if (i < 0 || !(mask & (1 << i))) i = mask & 1 ? 0 : Math.log2(mask & -mask);
-        face = `https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/portrait/${String(p.sp).padStart(4, '0')}/${shiny ? '0000/0001/' : ''}${EMOTIONS[i]}.png`;
+        face = `https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/portrait/${shiny ? collabShiny(p.sp) : collabPath(p.sp)}/${EMOTIONS[i]}.png`;
       }
     }
     const name = p.egg ? 'Egg' : (p.name || (sp ? sp.name : 'Pokémon'));
@@ -275,7 +275,8 @@ const Online = (() => {
       : ene < 30 ? 'So sleepy…' : hyg < 30 ? 'Needs a bath!' : avg >= 80 ? 'Feeling great!' : 'Doing okay';
     return { uid: me(), trainer: st.profile.username, name, sp: p.sp, shiny: !!p.shiny, egg: !!p.egg, asleep: !!p.asleep,
       level: p.egg ? 0 : Game.level(), food, joy, ene, hyg, face, mood,
-      party: (S.player.party || []).filter(m => m && !m.egg).slice(0, 5).map(m => ({ sp: m.sp, shiny: !!m.shiny, name: m.name || (SPECIES_BY_ID[m.sp] ? SPECIES_BY_ID[m.sp].name : 'Pokémon') })) };
+      path: collabPath(p.sp),   // SpriteCollab folder (regional forms aren't just a Pokédex number), for the desktop apps
+      party: (S.player.party || []).filter(m => m && !m.egg).slice(0, 5).map(m => ({ sp: m.sp, shiny: !!m.shiny, path: collabPath(m.sp), name: m.name || (SPECIES_BY_ID[m.sp] ? SPECIES_BY_ID[m.sp].name : 'Pokémon') })) };
   }
   async function syncWidget(force) {
     const token = Game.state.player.widgetToken;

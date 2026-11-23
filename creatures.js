@@ -35,7 +35,7 @@ const FLAVORS = [
 const SPECIES = (typeof SPECIES_CONFIG !== 'undefined' ? SPECIES_CONFIG : [])
   .filter(s => typeof SPRITE_DATA === 'undefined' || SPRITE_DATA[s.id])
   .map(s => ({ ...s, el: ELEMENTS[s.el] ? s.el : 'normal', next: [...(s.next || [])], tier: s.tier || 'common' }))
-  .sort((a, b) => a.id - b.id);
+  .sort((a, b) => (a.of || a.id) - (b.of || b.id) || a.id - b.id);   // regional forms sit next to the regular form
 
 const SPECIES_BY_ID = {};
 SPECIES.forEach(s => { SPECIES_BY_ID[s.id] = s; });
@@ -76,15 +76,20 @@ function _img(src, onload) {
 const SPRITECOLLAB = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/';
 const REMOTE_SPRITES = typeof location !== 'undefined' && /\.github\.io$/i.test(location.hostname);
 function _pad4(id) { return String(id).padStart(4, '0'); }
+// Regional forms (Alolan Vulpix…) have their own id (PokéAPI's, e.g. 10103) and live in a form folder:
+// SpriteCollab "0037/0001/" online, "sprite/Alola/" locally. Regular Pokémon use "0037/" and "sprite/".
+/** SpriteCollab folder for a Pokémon ("0037" or "0037/0001") and its shiny folder */
+function collabPath(id) { const sd = typeof SPRITE_DATA !== 'undefined' && SPRITE_DATA[id]; return sd && sd.r ? sd.r : _pad4(id); }
+function collabShiny(id) { const sd = typeof SPRITE_DATA !== 'undefined' && SPRITE_DATA[id]; return sd && sd.r ? sd.r + '/0001' : _pad4(id) + '/0000/0001'; }
 function _spriteUrl(id, sd, shiny, file) {
-  return REMOTE_SPRITES
-    ? `${SPRITECOLLAB}sprite/${_pad4(id)}/${shiny ? '0000/0001/' : ''}${file}`
-    : `Pokemon-Sprites/${sd.f}/sprite/${shiny ? '0000/Shiny/' : ''}${file}?v=${sd.v}`;
+  if (REMOTE_SPRITES) return `${SPRITECOLLAB}sprite/${shiny ? collabShiny(id) : collabPath(id)}/${file}`;
+  const base = `Pokemon-Sprites/${sd.f}/sprite/` + (sd.sub ? sd.sub + '/' + (shiny ? 'Shiny/' : '') : (shiny ? '0000/Shiny/' : ''));
+  return `${base}${file}?v=${sd.v}`;
 }
 function _portraitUrl(id, sd, shiny, emo) {
-  return REMOTE_SPRITES
-    ? `${SPRITECOLLAB}portrait/${_pad4(id)}/${shiny ? '0000/0001/' : ''}${emo}.png`
-    : `Pokemon-Sprites/${sd.f}/portrait/${shiny ? '0000/Shiny/' : ''}${emo}.png?v=${sd.v}`;
+  if (REMOTE_SPRITES) return `${SPRITECOLLAB}portrait/${shiny ? collabShiny(id) : collabPath(id)}/${emo}.png`;
+  const base = `Pokemon-Sprites/${sd.f}/portrait/` + (sd.sub ? sd.sub + '/' + (shiny ? 'Shiny/' : '') : (shiny ? '0000/Shiny/' : ''));
+  return `${base}${emo}.png?v=${sd.v}`;
 }
 
 // PMD direction rows: 0 Down, 1 DownRight, 2 Right, 3 UpRight, 4 Up, 5 UpLeft, 6 Left, 7 DownLeft

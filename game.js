@@ -449,14 +449,15 @@ const Game = (() => {
   function evoLevel() {
     const p = S.pet;
     if (!p || p.egg) return null;
-    const ls = levelSteps(p.sp); if (!ls.length) return null;
+    const ls = levelSteps(p.sp).filter(m => m.lv != null); if (!ls.length) return null;
     return Math.min(...ls.map(m => m.lv)) + p.mistakes;
   }
   /** level evolutions it can take right now (level reached and the right time of day) */
   function levelReady() {
     const p = S.pet; if (!p || p.egg) return [];
     const lv = level();
-    return levelSteps(p.sp).filter(m => lv >= m.lv + p.mistakes && timeOk(m.time));
+    // level steps need the level; friendship steps need a strong bond (like the games' friendship)
+    return levelSteps(p.sp).filter(m => timeOk(m.time) && (m.bond != null ? (p.bond || 0) >= m.bond : lv >= m.lv + p.mistakes));
   }
   function canEvolve() {
     const p = S.pet;
@@ -587,7 +588,7 @@ const Game = (() => {
   const memberLevel = m => 1 + Math.floor(m.ageMin / MIN_PER_LEVEL);
 
   // ---------------- explore ----------------
-  // every item (items.js); which Pokémon an evolution item works on is in evoitems.js
+  // every item (items.js); which Pokémon evolve how is in evodata.js / evolution.js
   const ITEMS = typeof ITEM_DATA !== 'undefined' ? ITEM_DATA : {};
   // Ultra Beasts and Paradox Pokémon aren't flagged legendary in the data, but count as "special"
   const SPECIAL_IDS = new Set([793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806,

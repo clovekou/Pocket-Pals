@@ -1,6 +1,6 @@
 // Offline cache for Pocket Pal
-const CACHE = 'pocketpal-v61';
-const FILES = ['./', './index.html', './style.css', './assets/fonts/Jersey15-Regular.ttf', './items.js', './evoitems.js', './evolution.js', './pixelart.js', './backgrounds.js', './sprites.js', './species.js', './creatures.js', './game.js', './online-config.js', './online.js', './talk.js', './ui.js', './icon.svg', './assets/egg.png', ...['oran','rareCandy','pearl','starPiece','nugget','pokeball','greatball','pecha','aspear','chest','map','coin','shop','gift','cart','trophy'].map(n => './assets/ui/' + n + '.png'), './manifest.webmanifest'];
+const CACHE = 'pocketpal-v62';
+const FILES = ['./', './index.html', './style.css', './assets/fonts/Jersey15-Regular.ttf', './items.js', './evodata.js', './evolution.js', './pixelart.js', './backgrounds.js', './sprites.js', './species.js', './creatures.js', './game.js', './online-config.js', './online.js', './talk.js', './ui.js', './icon.svg', './assets/egg.png', ...['oran','rareCandy','pearl','starPiece','nugget','pokeball','greatball','pecha','aspear','chest','map','coin','shop','gift','cart','trophy'].map(n => './assets/ui/' + n + '.png'), './manifest.webmanifest'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== MEDIA).map(k => caches.delete(k)))));
@@ -10,7 +10,7 @@ self.addEventListener('activate', e => {
 // Pictures, fonts, Pokémon sprites and the Firebase library hardly ever change, so they come straight
 // from the cache (fetched once, then instant). They live in their own cache so updates don't re-download them.
 // If you redraw pictures (icons, backgrounds), bump MEDIA's version so phones fetch the new ones.
-const MEDIA = 'pocketpal-media-v1';
+const MEDIA = 'pocketpal-media-v2';
 const isMedia = url => /\.(png|jpe?g|webp|gif|svg|ttf|woff2?)$/i.test(url.pathname)
   || url.hostname === 'raw.githubusercontent.com' || url.hostname === 'www.gstatic.com'
   || url.hostname === 'fonts.gstatic.com';

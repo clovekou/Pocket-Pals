@@ -160,7 +160,7 @@
   "next": [
    12
   ],
-  "evo": 12,
+  "evo": 10,
   "tier": "common",
   "starter": false,
   "base": [
@@ -206,7 +206,7 @@
   "next": [
    15
   ],
-  "evo": 12,
+  "evo": 10,
   "tier": "common",
   "starter": false,
   "base": [
@@ -370,9 +370,10 @@
   "name": "Pikachu",
   "el": "electric",
   "next": [
-   26
+   26,
+   10100
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -448,7 +449,7 @@
   "next": [
    31
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -494,7 +495,7 @@
   "next": [
    34
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -524,7 +525,7 @@
   "next": [
    36
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -554,7 +555,7 @@
   "next": [
    38
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -584,7 +585,7 @@
   "next": [
    40
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -630,7 +631,7 @@
   "next": [
    169
   ],
-  "evo": 27,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -663,7 +664,7 @@
    45,
    182
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -781,10 +782,9 @@
   "name": "Meowth",
   "el": "normal",
   "next": [
-   53,
-   863
+   53
   ],
-  "evo": 22,
+  "evo": 28,
   "tier": "common",
   "starter": false,
   "base": [
@@ -860,7 +860,7 @@
   "next": [
    979
   ],
-  "evo": 33,
+  "evo": 35,
   "tier": "common",
   "starter": false,
   "base": [
@@ -876,7 +876,7 @@
   "next": [
    59
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -923,7 +923,7 @@
    62,
    186
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -969,7 +969,7 @@
   "next": [
    65
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1015,7 +1015,7 @@
   "next": [
    68
   ],
-  "evo": 33,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1061,7 +1061,7 @@
   "next": [
    71
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1137,7 +1137,7 @@
   "next": [
    76
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1198,7 +1198,7 @@
    80,
    199
   ],
-  "evo": 30,
+  "evo": 37,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1244,7 +1244,7 @@
   "next": [
    462
   ],
-  "evo": 35,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1257,10 +1257,8 @@
   "id": 83,
   "name": "Farfetch d",
   "el": "normal",
-  "next": [
-   865
-  ],
-  "evo": 30,
+  "next": [],
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -1366,7 +1364,7 @@
   "next": [
    91
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1412,7 +1410,7 @@
   "next": [
    94
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1442,7 +1440,7 @@
   "next": [
    208
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -1546,9 +1544,10 @@
   "name": "Exeggcute",
   "el": "grass",
   "next": [
-   103
+   103,
+   10114
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1576,7 +1575,8 @@
   "name": "Cubone",
   "el": "ground",
   "next": [
-   105
+   105,
+   10115
   ],
   "evo": 28,
   "tier": "common",
@@ -1636,7 +1636,7 @@
   "next": [
    463
   ],
-  "evo": 30,
+  "evo": 33,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -1650,7 +1650,8 @@
   "name": "Koffing",
   "el": "poison",
   "next": [
-   110
+   110,
+   10167
   ],
   "evo": 35,
   "tier": "common",
@@ -1698,7 +1699,7 @@
   "next": [
    464
   ],
-  "evo": 47,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1714,7 +1715,7 @@
   "next": [
    242
   ],
-  "evo": 35,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -1730,7 +1731,7 @@
   "next": [
    465
   ],
-  "evo": 30,
+  "evo": 33,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -1776,7 +1777,7 @@
   "next": [
    230
   ],
-  "evo": 40,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1822,7 +1823,7 @@
   "next": [
    121
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -1867,7 +1868,7 @@
    212,
    900
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -1897,7 +1898,7 @@
   "next": [
    466
   ],
-  "evo": 35,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -1913,7 +1914,7 @@
   "next": [
    467
   ],
-  "evo": 35,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -2022,7 +2023,7 @@
    471,
    700
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -2080,7 +2081,7 @@
   "next": [
    233
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -2360,7 +2361,8 @@
   "name": "Quilava",
   "el": "fire",
   "next": [
-   157
+   157,
+   10233
   ],
   "evo": 36,
   "tier": "rare",
@@ -2602,7 +2604,7 @@
   "next": [
    25
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -2618,7 +2620,7 @@
   "next": [
    35
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -2634,7 +2636,7 @@
   "next": [
    39
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -2650,7 +2652,7 @@
   "next": [
    176
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -2666,7 +2668,7 @@
   "next": [
    468
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -2772,7 +2774,7 @@
   "next": [
    184
   ],
-  "evo": 27,
+  "evo": 18,
   "tier": "common",
   "starter": false,
   "base": [
@@ -2876,7 +2878,7 @@
   "next": [
    424
   ],
-  "evo": 30,
+  "evo": 32,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -2892,7 +2894,7 @@
   "next": [
    192
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -2922,7 +2924,7 @@
   "next": [
    469
   ],
-  "evo": 30,
+  "evo": 33,
   "tier": "common",
   "starter": false,
   "base": [
@@ -2936,8 +2938,7 @@
   "name": "Wooper",
   "el": "water",
   "next": [
-   195,
-   980
+   195
   ],
   "evo": 20,
   "tier": "common",
@@ -2997,7 +2998,7 @@
   "next": [
    430
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -3027,7 +3028,7 @@
   "next": [
    429
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -3071,7 +3072,7 @@
   "next": [
    981
   ],
-  "evo": 30,
+  "evo": 32,
   "tier": "common",
   "starter": false,
   "base": [
@@ -3117,7 +3118,7 @@
   "next": [
    982
   ],
-  "evo": 30,
+  "evo": 32,
   "tier": "common",
   "starter": false,
   "base": [
@@ -3133,7 +3134,7 @@
   "next": [
    472
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -3190,10 +3191,8 @@
   "id": 211,
   "name": "Qwilfish",
   "el": "water",
-  "next": [
-   904
-  ],
-  "evo": 30,
+  "next": [],
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -3249,10 +3248,9 @@
   "name": "Sneasel",
   "el": "dark",
   "next": [
-   461,
-   903
+   461
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -3284,7 +3282,7 @@
   "next": [
    901
   ],
-  "evo": 35,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -3346,7 +3344,7 @@
   "next": [
    473
   ],
-  "evo": 38,
+  "evo": 34,
   "tier": "common",
   "starter": false,
   "base": [
@@ -3359,10 +3357,8 @@
   "id": 222,
   "name": "Corsola",
   "el": "water",
-  "next": [
-   864
-  ],
-  "evo": 38,
+  "next": [],
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -3524,7 +3520,7 @@
   "next": [
    474
   ],
-  "evo": 35,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -3540,7 +3536,7 @@
   "next": [
    899
   ],
-  "evo": 30,
+  "evo": 31,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -3989,10 +3985,8 @@
   "id": 264,
   "name": "Linoone",
   "el": "normal",
-  "next": [
-   862
-  ],
-  "evo": 35,
+  "next": [],
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -4025,7 +4019,7 @@
   "next": [
    267
   ],
-  "evo": 12,
+  "evo": 10,
   "tier": "common",
   "starter": false,
   "base": [
@@ -4055,7 +4049,7 @@
   "next": [
    269
   ],
-  "evo": 12,
+  "evo": 10,
   "tier": "common",
   "starter": false,
   "base": [
@@ -4101,7 +4095,7 @@
   "next": [
    272
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -4147,7 +4141,7 @@
   "next": [
    275
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -4511,7 +4505,7 @@
   "next": [
    183
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -4527,7 +4521,7 @@
   "next": [
    476
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -4543,7 +4537,7 @@
   "next": [
    301
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -4763,7 +4757,7 @@
   "next": [
    407
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -5269,7 +5263,7 @@
   "next": [
    350
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -5373,7 +5367,7 @@
   "next": [
    477
   ],
-  "evo": 42,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -5448,7 +5442,7 @@
    362,
    478
   ],
-  "evo": 30,
+  "evo": 42,
   "tier": "common",
   "starter": false,
   "base": [
@@ -5525,7 +5519,7 @@
    367,
    368
   ],
-  "evo": 40,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -6119,7 +6113,7 @@
   "next": [
    315
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -6432,7 +6426,7 @@
   "next": [
    428
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -6520,7 +6514,7 @@
   "next": [
    358
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -6596,7 +6590,7 @@
   "next": [
    185
   ],
-  "evo": 30,
+  "evo": 17,
   "tier": "common",
   "starter": false,
   "base": [
@@ -6610,9 +6604,10 @@
   "name": "Mime Jr",
   "el": "psychic",
   "next": [
-   122
+   122,
+   10168
   ],
-  "evo": 30,
+  "evo": 18,
   "tier": "common",
   "starter": false,
   "base": [
@@ -6628,7 +6623,7 @@
   "next": [
    113
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -6718,7 +6713,7 @@
   "next": [
    143
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -6734,7 +6729,7 @@
   "next": [
    448
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -6898,7 +6893,7 @@
   "next": [
    226
   ],
-  "evo": 30,
+  "evo": 25,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -7526,7 +7521,8 @@
   "name": "Dewott",
   "el": "water",
   "next": [
-   503
+   503,
+   10236
   ],
   "evo": 36,
   "tier": "rare",
@@ -7664,7 +7660,7 @@
   "next": [
    512
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -7722,7 +7718,7 @@
   "next": [
    518
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -7749,10 +7745,8 @@
   "id": 519,
   "name": "Pidove",
   "el": "normal",
-  "next": [
-   521
-  ],
-  "evo": 32,
+  "next": [],
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -7798,7 +7792,7 @@
   "next": [
    526
   ],
-  "evo": 40,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -7828,7 +7822,7 @@
   "next": [
    528
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -7918,7 +7912,7 @@
   "next": [
    534
   ],
-  "evo": 40,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -8024,7 +8018,7 @@
   "next": [
    542
   ],
-  "evo": 25,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -8100,7 +8094,7 @@
   "next": [
    547
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -8128,9 +8122,10 @@
   "name": "Petilil",
   "el": "grass",
   "next": [
-   549
+   549,
+   10237
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -8160,7 +8155,7 @@
   "next": [
    902
   ],
-  "evo": 30,
+  "evo": 36,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -8222,7 +8217,7 @@
   "next": [
    555
   ],
-  "evo": 30,
+  "evo": 35,
   "tier": "common",
   "starter": false,
   "base": [
@@ -8322,10 +8317,9 @@
   "name": "Yamask",
   "el": "ghost",
   "next": [
-   563,
-   867
+   563
   ],
-  "evo": 30,
+  "evo": 34,
   "tier": "common",
   "starter": false,
   "base": [
@@ -8445,7 +8439,7 @@
   "next": [
    573
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -8687,7 +8681,7 @@
   "next": [
    589
   ],
-  "evo": 40,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -8881,7 +8875,7 @@
   "next": [
    604
   ],
-  "evo": 44,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -8957,7 +8951,7 @@
   "next": [
    609
   ],
-  "evo": 46,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -9195,7 +9189,7 @@
   "next": [
    983
   ],
-  "evo": 57,
+  "evo": 52,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -9209,7 +9203,8 @@
   "name": "Rufflet",
   "el": "normal",
   "next": [
-   628
+   628,
+   10240
   ],
   "evo": 54,
   "tier": "common",
@@ -9773,7 +9768,7 @@
   "next": [
    666
   ],
-  "evo": 14,
+  "evo": 12,
   "tier": "common",
   "starter": false,
   "base": [
@@ -9833,7 +9828,7 @@
   "next": [
    671
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -9983,7 +9978,7 @@
   "next": [
    681
   ],
-  "evo": 40,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -10013,7 +10008,7 @@
   "next": [
    683
   ],
-  "evo": 40,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -10043,7 +10038,7 @@
   "next": [
    685
   ],
-  "evo": 40,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -10193,7 +10188,7 @@
   "next": [
    695
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -10337,7 +10332,8 @@
   "name": "Goomy",
   "el": "dragon",
   "next": [
-   705
+   705,
+   10241
   ],
   "evo": 40,
   "tier": "rare",
@@ -10399,7 +10395,7 @@
   "next": [
    709
   ],
-  "evo": 40,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -10429,7 +10425,7 @@
   "next": [
    711
   ],
-  "evo": 40,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -10457,7 +10453,8 @@
   "name": "Bergmite",
   "el": "ice",
   "next": [
-   713
+   713,
+   10243
   ],
   "evo": 37,
   "tier": "common",
@@ -10617,7 +10614,8 @@
   "name": "Dartrix",
   "el": "grass",
   "next": [
-   724
+   724,
+   10244
   ],
   "evo": 34,
   "tier": "rare",
@@ -10738,10 +10736,8 @@
   "id": 731,
   "name": "Pikipek",
   "el": "normal",
-  "next": [
-   733
-  ],
-  "evo": 28,
+  "next": [],
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -10801,7 +10797,7 @@
   "next": [
    738
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -10831,7 +10827,7 @@
   "next": [
    740
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -11159,7 +11155,7 @@
   "next": [
    763
   ],
-  "evo": 30,
+  "evo": 29,
   "tier": "common",
   "starter": false,
   "base": [
@@ -11291,7 +11287,7 @@
   "next": [
    773
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "legend",
   "starter": false,
   "base": [
@@ -11736,7 +11732,7 @@
   "next": [
    804
   ],
-  "evo": 30,
+  "evo": 40,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -11808,7 +11804,7 @@
   "next": [
    809
   ],
-  "evo": 30,
+  "evo": 40,
   "tier": "legend",
   "starter": false,
   "base": [
@@ -12264,7 +12260,7 @@
    842,
    1011
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -12442,7 +12438,7 @@
   "next": [
    853
   ],
-  "evo": 30,
+  "evo": 35,
   "tier": "common",
   "starter": false,
   "base": [
@@ -12472,7 +12468,7 @@
   "next": [
    855
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -12708,7 +12704,7 @@
   "next": [
    873
   ],
-  "evo": 22,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -12880,7 +12876,7 @@
   "next": [
    1018
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -12984,7 +12980,7 @@
   "next": [
    892
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "legend",
   "starter": false,
   "base": [
@@ -13609,7 +13605,7 @@
    936,
    937
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -13653,7 +13649,7 @@
   "next": [
    939
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -13755,7 +13751,7 @@
   "next": [
    952
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -14051,7 +14047,7 @@
   "next": [
    975
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -14491,7 +14487,7 @@
   "next": [
    1019
   ],
-  "evo": 35,
+  "evo": 40,
   "tier": "rare",
   "starter": false,
   "base": [
@@ -14507,7 +14503,7 @@
   "next": [
    1013
   ],
-  "evo": 30,
+  "evo": 0,
   "tier": "common",
   "starter": false,
   "base": [
@@ -14655,5 +14651,1004 @@
    160,
    88
   ]
+ },
+ {
+  "id": 10091,
+  "name": "Alolan Rattata",
+  "el": "dark",
+  "next": [
+   10092
+  ],
+  "evo": 20,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   56,
+   35,
+   72
+  ],
+  "of": 19,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10092,
+  "name": "Alolan Raticate",
+  "el": "dark",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   71,
+   70,
+   77
+  ],
+  "of": 20,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10100,
+  "name": "Alolan Raichu",
+  "el": "electric",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   85,
+   50,
+   110
+  ],
+  "of": 26,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10101,
+  "name": "Alolan Sandshrew",
+  "el": "ice",
+  "next": [
+   10102
+  ],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   75,
+   90,
+   40
+  ],
+  "of": 27,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10102,
+  "name": "Alolan Sandslash",
+  "el": "ice",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   100,
+   120,
+   65
+  ],
+  "of": 28,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10103,
+  "name": "Alolan Vulpix",
+  "el": "ice",
+  "next": [
+   10104
+  ],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   41,
+   40,
+   65
+  ],
+  "of": 37,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10104,
+  "name": "Alolan Ninetales",
+  "el": "ice",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   67,
+   75,
+   109
+  ],
+  "of": 38,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10105,
+  "name": "Alolan Diglett",
+  "el": "ground",
+  "next": [
+   10106
+  ],
+  "evo": 26,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   55,
+   30,
+   90
+  ],
+  "of": 50,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10106,
+  "name": "Alolan Dugtrio",
+  "el": "ground",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   100,
+   60,
+   110
+  ],
+  "of": 51,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10107,
+  "name": "Alolan Meowth",
+  "el": "dark",
+  "next": [
+   10108
+  ],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   35,
+   35,
+   90
+  ],
+  "of": 52,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10108,
+  "name": "Alolan Persian",
+  "el": "dark",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   60,
+   60,
+   115
+  ],
+  "of": 53,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10109,
+  "name": "Alolan Geodude",
+  "el": "rock",
+  "next": [
+   10110
+  ],
+  "evo": 25,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   80,
+   100,
+   20
+  ],
+  "of": 74,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10110,
+  "name": "Alolan Graveler",
+  "el": "rock",
+  "next": [
+   10111
+  ],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   95,
+   115,
+   35
+  ],
+  "of": 75,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10111,
+  "name": "Alolan Golem",
+  "el": "rock",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   120,
+   130,
+   45
+  ],
+  "of": 76,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10112,
+  "name": "Alolan Grimer",
+  "el": "poison",
+  "next": [
+   10113
+  ],
+  "evo": 38,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   80,
+   50,
+   25
+  ],
+  "of": 88,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10113,
+  "name": "Alolan Muk",
+  "el": "poison",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   105,
+   75,
+   50
+  ],
+  "of": 89,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10114,
+  "name": "Alolan Exeggutor",
+  "el": "grass",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   105,
+   85,
+   45
+  ],
+  "of": 103,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10115,
+  "name": "Alolan Marowak",
+  "el": "fire",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   80,
+   110,
+   45
+  ],
+  "of": 105,
+  "sub": "Alola",
+  "fr": "0001"
+ },
+ {
+  "id": 10161,
+  "name": "Galarian Meowth",
+  "el": "steel",
+  "next": [
+   863
+  ],
+  "evo": 28,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   65,
+   55,
+   40
+  ],
+  "of": 52,
+  "sub": "Galar",
+  "fr": "0002"
+ },
+ {
+  "id": 10162,
+  "name": "Galarian Ponyta",
+  "el": "psychic",
+  "next": [
+   10163
+  ],
+  "evo": 40,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   85,
+   55,
+   90
+  ],
+  "of": 77,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10163,
+  "name": "Galarian Rapidash",
+  "el": "psychic",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   100,
+   70,
+   105
+  ],
+  "of": 78,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10164,
+  "name": "Galarian Slowpoke",
+  "el": "psychic",
+  "next": [
+   10165,
+   10172
+  ],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   65,
+   65,
+   15
+  ],
+  "of": 79,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10165,
+  "name": "Galarian Slowbro",
+  "el": "poison",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   100,
+   95,
+   30
+  ],
+  "of": 80,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10166,
+  "name": "Galarian Farfetch d",
+  "el": "fighting",
+  "next": [
+   865
+  ],
+  "evo": 30,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   95,
+   55,
+   55
+  ],
+  "of": 83,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10167,
+  "name": "Galarian Weezing",
+  "el": "poison",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   90,
+   120,
+   60
+  ],
+  "of": 110,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10168,
+  "name": "Galarian Mr Mime",
+  "el": "ice",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   65,
+   65,
+   100
+  ],
+  "of": 122,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10169,
+  "name": "Galarian Articuno",
+  "el": "psychic",
+  "next": [],
+  "evo": 0,
+  "tier": "legend",
+  "starter": false,
+  "base": [
+   85,
+   85,
+   95
+  ],
+  "of": 144,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10170,
+  "name": "Galarian Zapdos",
+  "el": "fighting",
+  "next": [],
+  "evo": 0,
+  "tier": "legend",
+  "starter": false,
+  "base": [
+   125,
+   90,
+   100
+  ],
+  "of": 145,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10171,
+  "name": "Galarian Moltres",
+  "el": "dark",
+  "next": [],
+  "evo": 0,
+  "tier": "legend",
+  "starter": false,
+  "base": [
+   85,
+   90,
+   90
+  ],
+  "of": 146,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10172,
+  "name": "Galarian Slowking",
+  "el": "poison",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   65,
+   80,
+   30
+  ],
+  "of": 199,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10173,
+  "name": "Galarian Corsola",
+  "el": "ghost",
+  "next": [
+   864
+  ],
+  "evo": 38,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   55,
+   100,
+   30
+  ],
+  "of": 222,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10174,
+  "name": "Galarian Zigzagoon",
+  "el": "dark",
+  "next": [
+   10175
+  ],
+  "evo": 20,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   30,
+   41,
+   60
+  ],
+  "of": 263,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10175,
+  "name": "Galarian Linoone",
+  "el": "dark",
+  "next": [
+   862
+  ],
+  "evo": 35,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   70,
+   61,
+   100
+  ],
+  "of": 264,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10176,
+  "name": "Galarian Darumaka",
+  "el": "ice",
+  "next": [
+   10177
+  ],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   90,
+   45,
+   50
+  ],
+  "of": 554,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10177,
+  "name": "Galarian Darmanitan",
+  "el": "ice",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   140,
+   55,
+   95
+  ],
+  "of": 555,
+  "sub": "Galar",
+  "fr": "0002"
+ },
+ {
+  "id": 10179,
+  "name": "Galarian Yamask",
+  "el": "ground",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   55,
+   85,
+   30
+  ],
+  "of": 562,
+  "sub": "Galar",
+  "fr": "0001"
+ },
+ {
+  "id": 10229,
+  "name": "Hisuian Growlithe",
+  "el": "fire",
+  "next": [
+   10230
+  ],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   75,
+   45,
+   55
+  ],
+  "of": 58,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10230,
+  "name": "Hisuian Arcanine",
+  "el": "fire",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   115,
+   80,
+   90
+  ],
+  "of": 59,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10231,
+  "name": "Hisuian Voltorb",
+  "el": "electric",
+  "next": [
+   10232
+  ],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   30,
+   50,
+   100
+  ],
+  "of": 100,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10232,
+  "name": "Hisuian Electrode",
+  "el": "electric",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   50,
+   70,
+   150
+  ],
+  "of": 101,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10233,
+  "name": "Hisuian Typhlosion",
+  "el": "fire",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   84,
+   78,
+   95
+  ],
+  "of": 157,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10234,
+  "name": "Hisuian Qwilfish",
+  "el": "dark",
+  "next": [
+   904
+  ],
+  "evo": 28,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   95,
+   85,
+   85
+  ],
+  "of": 211,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10235,
+  "name": "Hisuian Sneasel",
+  "el": "fighting",
+  "next": [
+   903
+  ],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   95,
+   55,
+   115
+  ],
+  "of": 215,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10236,
+  "name": "Hisuian Samurott",
+  "el": "water",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   108,
+   80,
+   85
+  ],
+  "of": 503,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10237,
+  "name": "Hisuian Lilligant",
+  "el": "grass",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   105,
+   75,
+   105
+  ],
+  "of": 549,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10238,
+  "name": "Hisuian Zorua",
+  "el": "normal",
+  "next": [
+   10239
+  ],
+  "evo": 30,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   60,
+   40,
+   70
+  ],
+  "of": 570,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10239,
+  "name": "Hisuian Zoroark",
+  "el": "normal",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   100,
+   60,
+   110
+  ],
+  "of": 571,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10240,
+  "name": "Hisuian Braviary",
+  "el": "psychic",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   83,
+   70,
+   65
+  ],
+  "of": 628,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10241,
+  "name": "Hisuian Sliggoo",
+  "el": "steel",
+  "next": [
+   10242
+  ],
+  "evo": 50,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   75,
+   83,
+   40
+  ],
+  "of": 705,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10242,
+  "name": "Hisuian Goodra",
+  "el": "steel",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   100,
+   100,
+   60
+  ],
+  "of": 706,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10243,
+  "name": "Hisuian Avalugg",
+  "el": "ice",
+  "next": [],
+  "evo": 0,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   127,
+   184,
+   38
+  ],
+  "of": 713,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10244,
+  "name": "Hisuian Decidueye",
+  "el": "grass",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   112,
+   80,
+   60
+  ],
+  "of": 724,
+  "sub": "Hisui",
+  "fr": "0001"
+ },
+ {
+  "id": 10250,
+  "name": "Paldean Tauros",
+  "el": "fighting",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   110,
+   105,
+   100
+  ],
+  "of": 128,
+  "sub": "Paldea",
+  "fr": "0001"
+ },
+ {
+  "id": 10251,
+  "name": "Paldean Tauros (Blaze)",
+  "el": "fighting",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   110,
+   105,
+   100
+  ],
+  "of": 128,
+  "sub": "Paldea_Blaze",
+  "fr": "0002"
+ },
+ {
+  "id": 10252,
+  "name": "Paldean Tauros (Aqua)",
+  "el": "fighting",
+  "next": [],
+  "evo": 0,
+  "tier": "rare",
+  "starter": false,
+  "base": [
+   110,
+   105,
+   100
+  ],
+  "of": 128,
+  "sub": "Paldea_Aqua",
+  "fr": "0003"
+ },
+ {
+  "id": 10253,
+  "name": "Paldean Wooper",
+  "el": "poison",
+  "next": [
+   980
+  ],
+  "evo": 20,
+  "tier": "common",
+  "starter": false,
+  "base": [
+   45,
+   45,
+   15
+  ],
+  "of": 194,
+  "sub": "Paldea",
+  "fr": "0002"
  }
 ]

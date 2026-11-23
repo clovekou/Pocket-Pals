@@ -78,8 +78,19 @@ party, or the **PC Box** (in the Party menu) when the party is full.
   are given to your main, and it evolves at its next level-up. A few depend on the time of day.
   Pokémon that evolve by an item no longer evolve by level. They're rare dungeon finds (more often one
   your main can use) and can be bought in the shop.
-- All items are defined in `items.js` (names, prices, how rare they are). Which Pokémon each evolution item
-  works on comes from PokéAPI data: `python3 tools/build_evo_items.py` regenerates `evoitems.js`.
+- All items are defined in `items.js` (names, prices, how rare they are).
+
+## Evolutions and regional forms
+- Every Pokémon evolves like in the main games (the same data as pokemondb.net/evolution, from PokéAPI):
+  real levels, evolution items, friendship (a bond of 70+), time of day, and trades (Linking Cord).
+  Methods this game doesn't have (knowing a move, walking 1,000 steps…) become a level-up at a fitting level.
+  `evodata.js` holds it; `python3 tools/build_evolutions.py` rebuilds it and the lines in `species.json`.
+- **Regional forms** (Alolan, Galarian, Hisuian, Paldean) are Pokémon of their own, with their own
+  evolutions (Alolan Vulpix + Ice Stone → Alolan Ninetales, Galarian Meowth → Perrserker…). They're added
+  from the sprites in `Pokemon-Sprites/NNNN_Name/sprite/<Region>/` by `python3 tools/build_forms.py`
+  (then run `build_evolutions.py` and `build_sprites.py`).
+- **Admin → Evolutions** can change any of this for every player; those edits win over `evodata.js`.
+  (Evolution levels in the sprite dashboard no longer change the game; use the Admin page.)
   Item icons are drawn by `python3 tools/make_ui_icons.py` into `assets/items/`.
 
 ## Shop backgrounds

@@ -196,13 +196,15 @@ def validate_species(species, sprite_ids):
             if n not in nxt:
                 nxt.append(n)
         evo = int(s.get('evo') or 0)
-        if nxt and not (2 <= evo <= 100):
-            raise ApiError(f'{name}: evolution level must be between 2 and 100.')
+        if nxt and evo and not (1 <= evo <= 100):    # 0 = evolves only by an item or friendship (evodata.js)
+            raise ApiError(f'{name}: evolution level must be between 1 and 100.')
         base = [max(1, min(255, int(x))) for x in (s.get('base') or [50, 50, 50])[:3]]
         while len(base) < 3:
             base.append(50)
         out.append({'id': sid, 'name': name, 'el': el, 'next': nxt, 'evo': evo if nxt else 0,
                     'tier': tier, 'starter': bool(s.get('starter')), 'base': base})
+        for k in ('of', 'sub', 'fr'):   # regional forms (tools/build_forms.py): where their sprites live
+            if s.get(k) not in (None, ''): out[-1][k] = s[k]
     by = {s['id']: s for s in out}
     prev = {}
     for s in out:

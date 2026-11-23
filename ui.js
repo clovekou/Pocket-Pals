@@ -1133,7 +1133,7 @@ if (!code) {
         <div class="row"><span>Shinies</span><b>${Game.shinyCount()} / ${SPECIES.length}</b></div>
         <div class="row"><span>Streak</span><b>{i:flame} ${S.player.streak} days (best ${S.player.bestStreak})</b></div>
         <div class="row"><span>Next milestone</span><b>${nextMs ? nextMs + ' days' : 'All reached!'}</b></div>
-        <div class="row"><span>Evolution</span><b>${need == null ? (Game.evoMethods(p.sp).length ? 'With an item' : 'Final form') : `At Lv ${need}${p.mistakes ? ` (+${p.mistakes} for slip-ups)` : ''}${Game.evoMethods(p.sp).filter(m => !m.item && m.time).length ? ' · ' + [...new Set(Game.evoMethods(p.sp).filter(m => !m.item && m.time).map(m => Evolution.SHORT[m.time]))].join(' / ') + ' only' : ''}`}</b></div>
+        <div class="row"><span>Evolution</span><b>${need == null ? (Game.evoMethods(p.sp).some(m => m.bond != null) ? `When its bond reaches ${Math.min(...Game.evoMethods(p.sp).filter(m => m.bond != null).map(m => m.bond))} (now ${p.bond || 0})` : Game.evoMethods(p.sp).length ? 'With an item' : 'Final form') : `At Lv ${need}${p.mistakes ? ` (+${p.mistakes} for slip-ups)` : ''}${Game.evoMethods(p.sp).filter(m => !m.item && m.time).length ? ' · ' + [...new Set(Game.evoMethods(p.sp).filter(m => !m.item && m.time).map(m => Evolution.SHORT[m.time]))].join(' / ') + ' only' : ''}`}</b></div>
         ${Game.evoMethods(p.sp).some(m => m.item) ? `<div class="row"><span>Items</span><b>${Game.evoMethods(p.sp).filter(m => m.item).map(m => `${ic(Game.ITEMS[m.item].icon)} ${Game.ITEMS[m.item].name}${m.time ? ` (${Evolution.SHORT[m.time]})` : ''}`).join(', ')}</b></div>` : ''}
         ${need == null ? '' : '<div class="row"><span>Also needs</span><b>Awake, every need ≥ 40</b></div>'}
         <div class="row"><span>Farewell</span><b>${fin == null ? 'After its final form' : fin === 0 ? 'Ready' : 'In ' + fmtDur(fin)}</b></div>
@@ -1165,7 +1165,7 @@ if (!code) {
       const reg = Game.registered(s.id), sh = !!S.player.shiny[s.id];
       const face = reg && portraitUrl(s.id, false, 'Normal');
       const pic = !reg ? miniCanvas(s.id, { px: 72, sil: true }) : face ? `<img class="face" src="${face}" alt="" loading="lazy">` : miniCanvas(s.id, { px: 72 });
-      return `<button class="dexcell" data-dex="${s.id}"><span class="no">${String(s.id).padStart(4, '0')}</span>${sh ? ic('sparkle').replace('class="ic"', 'class="ic st"') : ''}${pic}<small>${reg ? esc(s.name) : '???'}</small></button>`;
+      return `<button class="dexcell" data-dex="${s.id}"><span class="no">${String(s.of || s.id).padStart(4, '0')}</span>${sh ? ic('sparkle').replace('class="ic"', 'class="ic st"') : ''}${pic}<small>${reg ? esc(s.name) : '???'}</small></button>`;
     }).join('') + (list.length > shown.length ? `<button class="dexmore" data-more>Show more (${list.length - shown.length} left)</button>` : '')
       + (list.length ? '' : '<p class="muted" style="grid-column:1/-1">Nothing matches.</p>'));
     paintMinis($('#dexGrid'));
@@ -1209,7 +1209,7 @@ if (!code) {
     let base = SPECIES_BY_ID[s.lineBase];
     const walk = sp => { line.push(sp); sp.next.forEach(n => walk(SPECIES_BY_ID[n])); };
     walk(base);
-    openSheet(head(`#${String(id).padStart(2, '0')} ${s.name}`) + `
+    openSheet(head(`#${String(s.of || id).padStart(2, '0')} ${s.name}`) + `
       <div class="pair"><figure>${miniCanvas(id, { px: 120 })}Normal</figure><figure>${miniCanvas(id, { px: 120, shiny: true, sil: !hasShiny })}${hasShiny ? 'Shiny {i:sparkle}' : 'Shiny ???'}</figure></div>
       <div class="rows">
         <div class="row"><span>Element</span><b><span class="pill" style="background:${el.color}">${el.label}</span></b></div>
@@ -1781,7 +1781,7 @@ if (!code) {
   }
   // "Gardevoir (Lv 30) / Gallade ({i:dawnStone} Dawn Stone)"
   function evoText(id) {
-    return Game.evoMethods(id).map(m => `${Game.registered(m.to) ? SPECIES_BY_ID[m.to].name : '???'} (${m.item ? `${ic(Game.ITEMS[m.item].icon)} ${Game.ITEMS[m.item].name}` : 'Lv ' + m.lv}${m.time ? ', ' + Evolution.SHORT[m.time] : ''})`).join(' / ');
+    return Game.evoMethods(id).map(m => `${Game.registered(m.to) ? SPECIES_BY_ID[m.to].name : '???'} (${m.item ? `${ic(Game.ITEMS[m.item].icon)} ${Game.ITEMS[m.item].name}` : m.bond != null ? `{i:heart} bond ${m.bond}` : 'Lv ' + m.lv}${m.time ? ', ' + Evolution.SHORT[m.time] : ''})`).join(' / ');
   }
   // who an evolution item works on, for its Bag / shop row
   function evoNote(k) {

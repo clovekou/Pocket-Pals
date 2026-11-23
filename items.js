@@ -6,7 +6,7 @@
 //   buy / sell: default Poké Mart prices in Pokécoins (0 = not sold / not bought). The admin can change them.
 //   find: how likely a dungeon treasure chest holds it (weight; bigger = more common). Evolution items are rare.
 //   pic: true = its icon is a picture in assets/items/<key>.png (drawn by tools/make_ui_icons.py)
-// Which Pokémon each evolution item works on is in evoitems.js.
+// Which Pokémon each evolution item works on is in evodata.js (tools/build_evolutions.py).
 
 const ITEM_DATA = {
   // ---- basics
@@ -61,6 +61,10 @@ const ITEM_DATA = {
   peatBlock:    { name: 'Peat Block',    icon: 'peatBlock',    pic: true, kind: 'evo', how: 'use', buy: 3000, sell: 750, find: .2, desc: 'A block of muddy material that smells of the earth.' },
   metalAlloy:   { name: 'Metal Alloy',   icon: 'metalAlloy',   pic: true, kind: 'evo', how: 'use', buy: 3000, sell: 750, find: .2, desc: 'A strange metal made of layered steel.' },
   auspiciousArmor: { name: 'Auspicious Armor', icon: 'auspiciousArmor', pic: true, kind: 'evo', how: 'use', buy: 3000, sell: 750, find: .2, desc: 'Armour full of hope and good fortune.' },
+  galaricaCuff:    { name: 'Galarica Cuff',    icon: 'galaricaCuff',    pic: true, kind: 'evo', how: 'use', buy: 2500, sell: 625, find: .15, desc: 'A bracelet woven from Galarica twigs.' },
+  galaricaWreath:  { name: 'Galarica Wreath',  icon: 'galaricaWreath',  pic: true, kind: 'evo', how: 'use', buy: 2500, sell: 625, find: .15, desc: 'A wreath made from woven Galarica twigs.' },
+  scrollOfDarkness:{ name: 'Scroll of Darkness', icon: 'scrollOfDarkness', pic: true, kind: 'evo', how: 'use', buy: 5000, sell: 1250, find: .08, desc: 'A scroll of the secrets of the dark arts.' },
+  scrollOfWaters:  { name: 'Scroll of Waters', icon: 'scrollOfWaters',  pic: true, kind: 'evo', how: 'use', buy: 5000, sell: 1250, find: .08, desc: 'A scroll of the secrets of the flowing waters.' },
   maliciousArmor:  { name: 'Malicious Armor',  icon: 'maliciousArmor',  pic: true, kind: 'evo', how: 'use', buy: 3000, sell: 750, find: .2, desc: 'Armour full of grudges and resentment.' },
 
   // ---- evolution items: held by your main until its next level-up

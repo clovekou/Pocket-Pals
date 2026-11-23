@@ -186,7 +186,7 @@
       <p class="note" id="eeSub" style="margin:0 0 10px"></p>
       <div id="eeRows"></div>
       <button class="btn alt sm" id="eeAdd">+ Add an evolution</button>
-      <p class="note" style="margin:10px 0 0">Times use each player's own clock: morning 5:00–11:59, afternoon 12:00–17:59, night 18:00–4:59. "Hold" items are given to the Pokémon and work at its next level-up; other items are used on it straight away. No rows = it doesn't evolve.</p>
+      <p class="note" style="margin:10px 0 0">Times use each player's own clock: morning 5:00–11:59, afternoon 12:00–17:59, night 18:00–4:59. "Hold" items are given to the Pokémon and work at its next level-up; other items are used on it straight away. Friendship evolves it once its bond (0–100, up to +20 a day) reaches the number. No rows = it doesn't evolve.</p>
       <div class="row" style="margin-top:12px">
         <button class="btn ok" id="eeSave">Save for everyone</button>
         <button class="btn alt" id="eeReset">Reset to default</button>
@@ -256,7 +256,7 @@
 <script src="online-config.js"></script>
 <script src="species.js"></script>
 <script src="items.js"></script>
-<script src="evoitems.js"></script>
+<script src="evodata.js"></script>
 <script src="evolution.js"></script>
 <script>
 'use strict';
@@ -266,7 +266,10 @@ const SP = {}; (typeof SPECIES_CONFIG !== 'undefined' ? SPECIES_CONFIG : []).for
 const MIN_PER_LEVEL = 60, PARTY_MAX = 6, FAREWELL_AGE = 3 * 24 * 60;
 const pad = n => String(n).padStart(4, '0');
 const spName = id => (SP[id] ? SP[id].name : `#${id}`);
-const face = (id, shiny) => `https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/portrait/${pad(id)}/${shiny ? '0000/0001/' : ''}Normal.png`;
+// regional forms (species.json: of + fr) live in a form folder on SpriteCollab, e.g. 0037/0001
+const collab = id => SP[id] && SP[id].of ? `${pad(SP[id].of)}/${SP[id].fr}` : pad(id);
+const face = (id, shiny) => `https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/portrait/${collab(id)}/${shiny ? (SP[id] && SP[id].of ? '0001/' : '0000/0001/') : ''}Normal.png`;
+const dexNo = id => pad(SP[id] && SP[id].of ? SP[id].of : id);
 const lvOf = m => 1 + Math.floor((m.ageMin || 0) / MIN_PER_LEVEL);
 function toast(msg, ms = 2800) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
 const status = html => { $('#status').hidden = !html; $('#status').innerHTML = html || ''; };
@@ -347,10 +350,11 @@ buildFamilies();
 function famMembers(root) { const out = [], walk = id => { if (out.includes(id)) return; out.push(id); evoSteps(id).forEach(m => walk(m.to)); }; walk(root); return out; }
 $('#evoItem').innerHTML += Object.entries(IDATA).filter(([, it]) => it.kind === 'evo').map(([k, it]) => `<option value="${k}">${esc(it.name)}</option>`).join('');
 const itemImg = k => IDATA[k] && IDATA[k].pic ? `<img src="assets/items/${IDATA[k].icon}.png" alt="">` : '';
-const monBox = (id, hit) => `<div class="mon2 ${hit ? 'hit' : ''}"><img loading="lazy" src="${face(id)}" alt="" onerror="this.style.visibility='hidden'"><div><b>${esc(spName(id))}</b><small>#${pad(id)}${SP[id].tier === 'legend' ? ' · legendary' : ''}${Evolution.edited(id) ? ' <span class="tag ed">EDITED</span>' : ''}</small></div><button class="edit" data-edit="${id}" title="Edit how ${esc(spName(id))} evolves">✎</button></div>`;
+const monBox = (id, hit) => `<div class="mon2 ${hit ? 'hit' : ''}"><img loading="lazy" src="${face(id)}" alt="" onerror="this.style.visibility='hidden'"><div><b>${esc(spName(id))}</b><small>#${dexNo(id)}${SP[id].tier === 'legend' ? ' · legendary' : ''}${Evolution.edited(id) ? ' <span class="tag ed">EDITED</span>' : ''}</small></div><button class="edit" data-edit="${id}" title="Edit how ${esc(spName(id))} evolves">✎</button></div>`;
 const whenTxt = t => t ? ' · ' + Evolution.SHORT[t] : '';
 const reqBox = m => `<div class="req"><span class="arrow">→</span>${m.item
   ? `<span class="chip item">${itemImg(m.item)}${esc(IDATA[m.item] ? IDATA[m.item].name : m.item)}</span><span class="when">${IDATA[m.item] && IDATA[m.item].how === 'hold' ? 'hold + level up' : 'use item'}${whenTxt(m.time)}</span>`
+  : m.bond != null ? `<span class="chip lv">♥ Bond ${m.bond}</span><span class="when">friendship${whenTxt(m.time)}</span>`
   : `<span class="chip lv">Lv ${m.lv || '?'}</span><span class="when">level up${whenTxt(m.time)}</span>`}</div>`;
 // one stage: a Pokémon, then each way it evolves (branches stacked)
 function chain(id, hit, seen) {
@@ -376,13 +380,14 @@ const PERIOD_OPTS = Object.entries(Evolution.PERIODS).map(([k, v]) => `<option v
 function eeRow(m) {
   const d = document.createElement('div'); d.className = 'erow';
   d.innerHTML = `<input type="text" list="spList" class="ee-to" placeholder="Evolves into…" value="${m && m.to ? `${pad(m.to)} ${esc(spName(m.to))}` : ''}">
-    <select class="ee-how"><option value="">Level up</option>${EVO_ITEM_OPTS}</select>
-    <input type="number" class="ee-lv" min="1" max="100" title="Level" value="${m && m.lv ? m.lv : 30}">
+    <select class="ee-how"><option value="">Level up</option><option value="@bond">Friendship (bond)</option>${EVO_ITEM_OPTS}</select>
+    <input type="number" class="ee-lv" min="1" max="100" title="Level (or bond 0-100 for friendship)" value="${m && m.bond != null ? m.bond : m && m.lv ? m.lv : 30}">
     <select class="ee-time">${PERIOD_OPTS}</select>
     <button class="btn red sm" type="button" title="Remove">✕</button>`;
   const how = d.querySelector('.ee-how'), lv = d.querySelector('.ee-lv');
-  how.value = (m && m.item) || ''; d.querySelector('.ee-time').value = (m && m.time) || '';
-  const sync = () => { lv.disabled = !!how.value; }; how.onchange = sync; sync();
+  how.value = (m && m.item) || (m && m.bond != null ? '@bond' : ''); d.querySelector('.ee-time').value = (m && m.time) || '';
+  const sync = () => { lv.disabled = !!how.value && how.value !== '@bond'; lv.title = how.value === '@bond' ? 'Bond needed (0-100)' : 'Level'; };
+  how.onchange = () => { if (how.value === '@bond' && +lv.value > 100) lv.value = 70; sync(); }; sync();
   d.querySelector('button').onclick = () => d.remove();
   $('#eeRows').appendChild(d);
 }
@@ -407,7 +412,8 @@ $('#eeSave').onclick = async () => {
     const to = parseSp(raw); if (!to) { toast('Unknown Pokémon: ' + raw); return; }
     if (to === eeId) { toast(`${spName(eeId)} can't evolve into itself`); return; }
     const item = r.querySelector('.ee-how').value, time = r.querySelector('.ee-time').value;
-    rows.push(item ? { to, item, time } : { to, lv: Math.max(1, Math.min(100, parseInt(r.querySelector('.ee-lv').value, 10) || 1)), time });
+    const num = Math.max(1, Math.min(100, parseInt(r.querySelector('.ee-lv').value, 10) || 1));
+    rows.push(item === '@bond' ? { to, bond: num, time } : item ? { to, item, time } : { to, lv: num, time });
   }
   try {
     await db.collection('config').doc('evolutions').set({ steps: { [eeId]: rows }, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: auth.currentUser.uid }, { merge: true });

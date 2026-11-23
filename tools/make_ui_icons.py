@@ -827,6 +827,33 @@ def _(g): armor(g, '#f5b81c', '#e8383d')
 def _(g): armor(g, '#5a4aa0', '#8fd0ff')
 
 
+def twigs(g, closed):
+    for k in range(12 if closed else 9):
+        a = math.radians(k * (30 if closed else 22) + (0 if closed else 160)); x, y = 16 + 10 * math.cos(a), 17 + 10 * math.sin(a)
+        g.circ(x, y, 2.6, '#9a6a3a')
+    if closed:
+        for x, y in ((16, 7), (25, 21), (7, 21)): g.circ(x, y, 2.4, '#5fbf5a', True)
+    else:
+        g.poly([(13, 26), (19, 26), (16, 30)], '#5fbf5a')
+
+@item('galaricaCuff')
+def _(g): twigs(g, False); shine(g, [(8, 12)])
+
+@item('galaricaWreath')
+def _(g): twigs(g, True); shine(g, [(9, 10)])
+
+def scroll(g, paper, seal):
+    g.rrect(6, 7, 20, 18, 2, paper); g.rrect(3, 5, 4, 22, 2, '#9a6a3a'); g.rrect(25, 5, 4, 22, 2, '#9a6a3a')
+    for y in (11, 15, 19): g.line(10, y, 22, y, dark(hexc(paper), .25))
+    g.circ(16, 22, 3, seal, True)
+
+@item('scrollOfDarkness')
+def _(g): scroll(g, '#4a4060', '#c06cf0')
+
+@item('scrollOfWaters')
+def _(g): scroll(g, '#bfe4ff', '#3d7de6')
+
+
 # ---- held items
 @item('kingsRock')
 def _(g):

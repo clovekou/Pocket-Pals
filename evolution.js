@@ -1,8 +1,8 @@
 'use strict';
 // Pocket Pals: how every Pokémon evolves. Shared by the game (game.js) and the Admin page.
-// A Pokémon's evolution steps are:  { to, lv } (level up)  or  { to, item } (evolution item),
+// A Pokémon's evolution steps are:  { to, lv } (level up) · { to, item } (evolution item) · { to, bond } (friendship),
 // each with an optional time of day: '' (any time), 'morning', 'afternoon', 'night' or 'day' (morning + afternoon).
-// Defaults come from species.js (level evolutions) and evoitems.js (item evolutions). The admin can replace
+// Defaults come from evodata.js (the main games' evolutions, built by tools/build_evolutions.py). The admin can replace
 // any Pokémon's steps (Admin → Evolutions); those edits are stored in Firestore config/evolutions and
 // handed to Evolution.setOverrides().
 
@@ -31,17 +31,14 @@ const Evolution = (() => {
   const SPECIES_LIST = typeof SPECIES_CONFIG !== 'undefined' ? SPECIES_CONFIG : [];
   const BY_ID = {}; SPECIES_LIST.forEach(s => { BY_ID[s.id] = s; });
   const ITEMS = typeof ITEM_DATA !== 'undefined' ? ITEM_DATA : {};
-  const EVO = typeof EVO_ITEMS !== 'undefined' ? EVO_ITEMS : {};
+  const DATA = typeof EVO_DATA !== 'undefined' ? EVO_DATA : null;
 
   /** the built-in steps for species `id` (before any admin edits) */
   function defaults(id) {
     const s = BY_ID[id]; if (!s) return [];
-    const items = [];
-    Object.entries(EVO).forEach(([k, rows]) => rows.forEach(([f, to, time]) => {
-      if (f === id && BY_ID[to] && ITEMS[k] && !items.some(m => m.to === to && m.item === k)) items.push({ to, item: k, time: time || '' });
-    }));
-    const itemTo = new Set(items.map(m => m.to));
-    return (s.next || []).filter(n => BY_ID[n] && !itemTo.has(n)).map(to => ({ to, lv: s.evo || 1, time: '' })).concat(items);
+    if (DATA && DATA[id]) return clean(DATA[id]);
+    if (DATA) return [];                                    // not in the data: doesn't evolve
+    return (s.next || []).filter(n => BY_ID[n]).map(to => ({ to, lv: s.evo || 1, time: '' }));   // no evodata.js: species.js levels
   }
 
   // ---- admin edits
@@ -52,6 +49,7 @@ const Evolution = (() => {
       const to = Math.round(Number(m && m.to)); if (!BY_ID[to]) return null;
       const time = PERIODS[m.time] !== undefined ? (m.time || '') : '';
       if (m.item) return ITEMS[m.item] && ITEMS[m.item].kind === 'evo' ? { to, item: m.item, time } : null;
+      if (m.bond != null) return { to, bond: Math.max(1, Math.min(100, Math.round(Number(m.bond) || 70))), time };
       const lv = Math.max(1, Math.min(100, Math.round(Number(m.lv) || 1)));
       return { to, lv, time };
     }).filter(Boolean);
