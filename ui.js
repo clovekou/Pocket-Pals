@@ -93,31 +93,31 @@
   document.addEventListener('pointerdown', Sound.unlock, { capture: true });
 
   // ======================= music =======================
-  // Home: an original, calm lo-fi loop. Dungeon and boss fights keep their chiptune themes.
+  // Home: an original, cozy loop. Dungeon and boss fights keep their chiptune themes.
   const Music = (() => {
     const NOTE = n => { const m = /^([A-G])(#?)(\d)$/.exec(n); const i = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] ? 1 : 0); return 440 * Math.pow(2, (i + (+m[3] + 1) * 12 - 69) / 12); };
 
-    // ---- Home: lo-fi — warm electric-piano 7th/9th chords, round bass, soft swung drums, a sparse melody,
-    //      vinyl crackle and a little tape wobble (16 bars at 72 bpm, ~53 s) ----
-    // chords: [bass root, electric-piano voicing]
-    const L_CH = {
-      Fmaj9: ['F2', ['A3', 'C4', 'E4', 'G4']], Em9: ['E2', ['G3', 'B3', 'D4', 'F#4']], Dm9: ['D2', ['F3', 'A3', 'C4', 'E4']],
-      G13: ['G2', ['F3', 'A3', 'B3', 'E4']], Cmaj9: ['C3', ['E3', 'G3', 'B3', 'D4']], Am9: ['A2', ['G3', 'B3', 'C4', 'E4']],
-      A13: ['A2', ['G3', 'C#4', 'E4', 'F#4']], Bbmaj9: ['A#1', ['D4', 'F4', 'A4', 'C5']],
+    // ---- Home: cozy — a plucked harp/guitar arpeggio, a warm pad, round bass, a light shaker and a soft
+    //      flute-like melody with a music-box sparkle (16 bars at 80 bpm, ~48 s) ----
+    // chords: [bass root, voicing for the arpeggio and pad]
+    const H_CH = {
+      Cadd9: ['C3', ['C4', 'E4', 'G4', 'D5']], Em7: ['E2', ['G3', 'B3', 'D4', 'E4']], Fmaj7: ['F2', ['F3', 'A3', 'C4', 'E4']],
+      Gsus: ['G2', ['G3', 'C4', 'D4', 'G4']], Am7: ['A2', ['A3', 'C4', 'E4', 'G4']], Dm7: ['D3', ['D4', 'F4', 'A4', 'C5']],
+      G7: ['G2', ['G3', 'B3', 'D4', 'F4']], C: ['C3', ['C4', 'E4', 'G4', 'C5']],
     };
-    const L_BARS = ['Fmaj9', 'Em9', 'Dm9', 'G13', 'Cmaj9', 'Am9', 'Dm9', 'G13', 'Fmaj9', 'Em9', 'A13', 'Dm9', 'Bbmaj9', 'Am9', 'G13', 'Cmaj9'];
-    // melody: [note, length in eighths], 8 eighths per bar; lots of space so it never feels busy
-    const L_MEL = [
-      [null, 2], ['A4', 2], ['G4', 1], ['E4', 3],   ['G4', 4], [null, 4],
-      [null, 2], ['F4', 1], ['A4', 1], ['C5', 3], ['B4', 1],   ['A4', 2], ['G4', 2], [null, 4],
-      ['E5', 3], ['D5', 1], ['C5', 2], ['G4', 2],   ['A4', 6], [null, 2],
-      [null, 2], ['C5', 1], ['D5', 1], ['F5', 2], ['E5', 2],   ['D5', 4], [null, 4],
-      [null, 2], ['A4', 2], ['C5', 1], ['E5', 3],   ['D5', 2], ['B4', 2], ['G4', 4],
-      ['C#5', 3], ['E5', 1], ['G5', 2], ['F5', 2],   ['E5', 2], ['D5', 2], ['A4', 4],
-      [null, 2], ['D5', 2], ['F5', 1], ['E5', 3],   ['C5', 4], [null, 4],
-      ['B4', 2], ['D5', 1], ['F5', 1], ['E5', 2], ['D5', 2],   ['C5', 6], [null, 2],
+    const H_BARS = ['Cadd9', 'Em7', 'Fmaj7', 'Gsus', 'Cadd9', 'Am7', 'Dm7', 'G7', 'Fmaj7', 'Em7', 'Am7', 'Cadd9', 'Dm7', 'Fmaj7', 'Gsus', 'C'];
+    // melody: [note, length in eighths], 8 eighths per bar
+    const H_MEL = [
+      ['E4', 2], ['G4', 2], ['C5', 3], ['D5', 1],   ['E5', 4], ['D5', 2], ['B4', 2],
+      ['C5', 3], ['A4', 1], ['F4', 2], ['A4', 2],   ['G4', 6], [null, 2],
+      ['E4', 2], ['G4', 2], ['C5', 2], ['E5', 2],   ['D5', 3], ['C5', 1], ['A4', 4],
+      ['F4', 2], ['A4', 2], ['D5', 2], ['C5', 2],   ['B4', 6], [null, 2],
+      ['A4', 2], ['C5', 2], ['F5', 3], ['E5', 1],   ['D5', 2], ['E5', 2], ['G4', 4],
+      ['C5', 2], ['E5', 2], ['D5', 2], ['C5', 2],   ['G4', 6], [null, 2],
+      ['F4', 2], ['A4', 2], ['C5', 2], ['D5', 2],   ['E5', 3], ['D5', 1], ['C5', 4],
+      ['D5', 2], ['C5', 1], ['D5', 1], ['B4', 4],   ['C5', 6], [null, 2],
     ];
-    const L8 = 60 / 72 / 2; // eighth note at 72 bpm
+    const H8 = 60 / 80 / 2; // eighth note at 80 bpm
 
     // ---- Dungeon: a slow, cozy minor-key cave tune with soft echoing drips (16 bars at 66 bpm, ~58 s) ----
     const D_MEL = [
@@ -171,57 +171,70 @@
       g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .16);
       o.connect(g); g.connect(dest); o.start(t); o.stop(t + .2);
     }
-    // ---- lo-fi instruments ----
-    const wobble = t => Math.sin(t * 2.1) * 6 + Math.sin(t * .37) * 4;   // slow tape wobble, in cents
-    /** a soft electric-piano note: a sine with a gently detuned twin (chorus) and a quick bell overtone */
-    function ep(ac, f, t, d, v, dest) {
-      for (const [m, vv, dt] of [[1, v, 0], [1.0035, v * .45, 0], [2, v * .16, -.6]]) {
+    // ---- cozy instruments ----
+    /** a plucked string (harp / nylon guitar): a bright attack that rings out */
+    function pluck(ac, f, t, v, dest) {
+      for (const [type, m, vv, d] of [['triangle', 1, v, 1.1], ['sine', 2, v * .25, .45]]) {
         const o = ac.createOscillator(), g = ac.createGain();
-        o.type = 'sine'; o.frequency.value = f * m; o.detune.value = wobble(t);
-        const dd = dt < 0 ? Math.min(d, .6) : d;
-        g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vv, t + .014);
-        g.gain.exponentialRampToValueAtTime(vv * .4, t + Math.min(.4, dd * .5)); g.gain.exponentialRampToValueAtTime(.0001, t + dd);
-        o.connect(g); g.connect(dest); o.start(t); o.stop(t + dd + .05);
+        o.type = type; o.frequency.value = f * m;
+        g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vv, t + .006); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+        o.connect(g); g.connect(dest); o.start(t); o.stop(t + d + .05);
       }
+    }
+    /** a warm pad note that swells in and fades out */
+    function pad(ac, f, t, d, v, dest) {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(v, t + d * .35); g.gain.linearRampToValueAtTime(.0001, t + d);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + d + .05);
+    }
+    /** a soft flute-like note with a gentle vibrato that comes in after the attack */
+    function flute(ac, f, t, d, v, dest) {
+      const o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      lfo.frequency.value = 5; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(10, t + Math.min(.5, d * .6));   // cents
+      lfo.connect(lg); lg.connect(o.detune);
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .07);
+      g.gain.setValueAtTime(v, t + Math.max(.08, d - .15)); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + d + .05); lfo.start(t); lfo.stop(t + d + .05);
     }
     let nbuf = null;
     function noiseSrc(ac) {
       if (!nbuf) { nbuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
       const n = ac.createBufferSource(); n.buffer = nbuf; return n;
     }
-    /** filtered noise: brushed snare, hats, vinyl crackle and hiss */
-    function noiseHit(ac, t, d, v, type, freq, dest, q = .7, flat = false) {
+    /** a short burst of filtered noise (the shaker) */
+    function noiseHit(ac, t, d, v, type, freq, dest, q = .7) {
       const n = noiseSrc(ac), f = ac.createBiquadFilter(), g = ac.createGain();
       f.type = type; f.frequency.value = freq; f.Q.value = q;
-      if (flat) g.gain.setValueAtTime(v, t); else { g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); }
+      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
       n.connect(f); f.connect(g); g.connect(dest); n.start(t, Math.random() * .4); n.stop(t + d + .02);
     }
-    /** a soft, round kick */
-    function lkick(ac, t, dest, v) {
+    /** a very soft, round kick */
+    function softKick(ac, t, dest, v) {
       const o = ac.createOscillator(), g = ac.createGain();
-      o.type = 'sine'; o.frequency.setValueAtTime(105, t); o.frequency.exponentialRampToValueAtTime(42, t + .18);
-      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .28);
-      o.connect(g); g.connect(dest); o.start(t); o.stop(t + .3);
+      o.type = 'sine'; o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(45, t + .15);
+      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .22);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + .25);
     }
-    function stepLofi(ac) {
-      const bar = Math.floor(step / 8) % L_BARS.length, beat = step % 8, [root, voicing] = L_CH[L_BARS[bar]];
-      const t = next + (beat % 2 ? L8 * .2 : 0);           // lazy swing on the off-beats
+    const ARP = [0, 1, 2, 3, 2, 1, 2, 3];   // the arpeggio's path through the chord, one note per eighth
+    function stepHome(ac) {
+      const bar = Math.floor(step / 8) % H_BARS.length, beat = step % 8, [root, voicing] = H_CH[H_BARS[bar]], t = next;
       if (melLeft <= 0) {
-        const [n, len] = L_MEL[melIdx]; melIdx = (melIdx + 1) % L_MEL.length; melLeft = len;
-        if (n) ep(ac, NOTE(n), t + .01, len * L8 * 1.2 + .35, .055, filt);
+        const [n, len] = H_MEL[melIdx]; melIdx = (melIdx + 1) % H_MEL.length; melLeft = len;
+        if (n) {
+          flute(ac, NOTE(n), t, len * H8 * .98, .06, filt);
+          if (len >= 3) pluck(ac, NOTE(n) * 2, t, .012, filt);           // music-box sparkle on the longer notes
+        }
       }
       melLeft--;
-      if (beat === 0) voicing.forEach((n, i) => ep(ac, NOTE(n), t + i * .03, L8 * 7.6, .03, filt));     // rolled chord
-      if (beat === 5) voicing.forEach((n, i) => ep(ac, NOTE(n), t + i * .02, L8 * 2.2, .014, filt));    // soft re-strike
-      if (beat === 0) tone('sine', NOTE(root), t, L8 * 3.3, .17, filt);                                  // round bass
-      if (beat === 3) tone('sine', NOTE(root), t, L8 * 1.6, .1, filt);
-      if (beat === 6) tone('sine', NOTE(root) * 1.5, t, L8 * 1.7, .09, filt);
-      if (beat === 0 || beat === 3) lkick(ac, t, master, beat ? .14 : .22);
-      if (beat === 2 || beat === 6) noiseHit(ac, t, .2, .045, 'bandpass', 1700, master, .6);           // brushed snare
-      noiseHit(ac, t, .04, beat % 2 ? .006 : .011, 'highpass', 6500, master);                            // quiet hats
-      noiseHit(ac, next, L8 + .02, .0035, 'bandpass', 3200, master, .4, true);                           // vinyl hiss
-      if (Math.random() < .14) noiseHit(ac, t + Math.random() * L8, .01, .03, 'highpass', 2500, master); // crackle
-      next += L8; step = (step + 1) % (L_BARS.length * 8);
+      pluck(ac, NOTE(voicing[ARP[beat]]), t, beat === 0 ? .04 : .028, filt);   // gentle arpeggio
+      if (beat === 0) voicing.slice(0, 3).forEach(n => pad(ac, NOTE(n), t, H8 * 8.3, .012, filt));   // warm pad
+      if (beat === 0) tone('sine', NOTE(root), t, H8 * 3.5, .15, filt);                               // round bass
+      if (beat === 4) tone('sine', NOTE(root) * 1.5, t, H8 * 3, .1, filt);
+      if (beat === 0) softKick(ac, t, master, .12);
+      noiseHit(ac, t, .05, beat % 2 ? .009 : .005, 'highpass', 5500, master);                         // light shaker
+      next += H8; step = (step + 1) % (H_BARS.length * 8);
     }
     function stepDungeon(ac) {
       const bar = Math.floor(step / 8) % D_BARS.length, beat = step % 8, [root, tri] = D_CH[D_BARS[bar]];
@@ -264,10 +277,10 @@
         cur = track; switching = 0; step = 0; melIdx = 0; melLeft = 0; next = ac.currentTime + .05;
       } else switching = 0;
       const P = Game.pet(), quiet = cur === 'town' && P && P.asleep;
-      filt.frequency.setTargetAtTime(cur === 'dungeon' ? 1500 : cur === 'boss' ? 3200 : 1700, ac.currentTime, .2);   // home: warm and muffled, lo-fi
+      filt.frequency.setTargetAtTime(cur === 'dungeon' ? 1500 : cur === 'boss' ? 3200 : 2600, ac.currentTime, .2);   // home: warm but clear
       master.gain.setTargetAtTime(vol() * (quiet ? .5 : cur === 'boss' ? 1.1 : 1.2), ac.currentTime, .15);
       if (next < ac.currentTime) next = ac.currentTime + .1;
-      const fn = cur === 'dungeon' ? stepDungeon : cur === 'boss' ? stepBoss : stepLofi;
+      const fn = cur === 'dungeon' ? stepDungeon : cur === 'boss' ? stepBoss : stepHome;
       while (next < ac.currentTime + .35) fn(ac);
     }
     function start() { if (!timer) timer = setInterval(() => { try { schedule(); } catch (e) { /* audio hiccup */ } }, 90); }
