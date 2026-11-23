@@ -15,7 +15,8 @@
   --hp-hi: #48d048; --hp-mid: #f8c030; --hp-lo: #f85838;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
-  --font: "Nunito", ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* all game text uses the pixel font (Mystery Dungeon-style menus) */
+  --font: "Pixelify Sans", "Nunito", ui-rounded, system-ui, -apple-system, sans-serif;
   --pixel: "Pixelify Sans", "Nunito", ui-rounded, system-ui, sans-serif;
   /* kept for inline styles used by the game code */
   --card: #ffffff; --card2: #f1eedf; --glass-hi: #ece8d8; --accent: #e3350d; --gold: #ffcb05;

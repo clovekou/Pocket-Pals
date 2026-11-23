@@ -447,7 +447,7 @@
       if (Math.random() < .2) V.fx.push({ kind: 'crumb', x: bx, y: by, vx: (Math.random() - .5) * 60, vy: -30, life: .5, age: 0, col: V.eatColor });
     }
     if (p.asleep) {
-      cx.fillStyle = '#fff'; cx.font = `800 ${Math.round(size * .35)}px system-ui`;
+      cx.fillStyle = '#fff'; cx.font = `800 ${Math.round(size * .35)}px "Pixelify Sans", system-ui`;
       for (let i = 0; i < 3; i++) {
         const ph = (t * .35 + i / 3) % 1;
         cx.globalAlpha = 1 - ph;
@@ -547,7 +547,7 @@
     const hop = (A.type !== 'farewell' && e > .25) ? Math.abs(Math.sin(t * 8)) * size * .1 : 0;
     drawCreature(cx, p.sp, { x, y: fy - lift, size, t, maxH: H * .42, shiny: p.shiny, mood, flip, alpha, hop });
     const msg = { farewell: `Goodbye, ${petName()}… thank you!`, release: `${petName()} returns to the wild.`, runaway: `${petName()} felt alone and left…` }[A.type];
-    cx.fillStyle = '#fff'; cx.textAlign = 'center'; cx.font = '800 17px system-ui';
+    cx.fillStyle = '#fff'; cx.textAlign = 'center'; cx.font = '800 17px "Pixelify Sans", system-ui';
     cx.globalAlpha = Math.min(1, e * 3); cx.fillText(msg, W / 2, H * .22); cx.globalAlpha = 1; cx.textAlign = 'left';
     if (e >= 1) {
       V.anim = null; V.x = .5;
@@ -1292,16 +1292,16 @@ if (!code) {
       for (let i = 0; i < 30; i++) { ac.fillStyle = 'rgba(255,255,255,.5)'; ac.fillRect(rng(i) * AW, rng(i + 9) * AH, 2, 2); }
       ac.fillStyle = '#6a5fb0'; ac.fillRect(0, AH - size * .35, AW, size * .35);
       for (const it of G.items) PX.draw(ac, it.kind || 'pokeball', it.x * AW, it.y * AH, Math.max(32, Math.round(size * .9 / 16) * 16), { rot: Math.sin(it.rot) * .3 });
-      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = 1 - pp.age * 2; ac.fillStyle = '#fff'; ac.font = '800 18px system-ui'; ac.fillText('+1', pp.x - 8, pp.y - pp.age * 60); ac.globalAlpha = 1; return pp.age < .5; });
+      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = 1 - pp.age * 2; ac.fillStyle = '#fff'; ac.font = '800 18px "Pixelify Sans", system-ui'; ac.fillText('+1', pp.x - 8, pp.y - pp.age * 60); ac.globalAlpha = 1; return pp.age < .5; });
       drawCreature(ac, p.sp, { x: dispX * AW, y: AH - size * .35, size, t, maxH: AH * .25, shiny: p.shiny, flip: d < -.002, walking: Math.abs(d) > .01, dir: Math.abs(d) > .01 ? undefined : 'front' });
       $('#arenaInfo').innerHTML = icons(`{i:pokeball}${G.score} &nbsp;${'{i:heart}'.repeat(Math.max(0, G.lives))}${'{i:heartEmpty}'.repeat(3 - Math.max(0, G.lives))} &nbsp;${Math.ceil(left / 1000)}s`);
       if (G.over) {
         ac.fillStyle = 'rgba(0,0,0,.45)'; ac.fillRect(0, 0, AW, AH);
-        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '800 28px system-ui';
+        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '800 28px "Pixelify Sans", system-ui';
         ac.fillText(`${G.score} caught!`, AW / 2, AH * .42);
-        ac.font = '700 16px system-ui'; ac.fillText(`Speed training +${(G.result && G.result.spd) || 0}`, AW / 2, AH * .42 + 30); ac.textAlign = 'left';
+        ac.font = '700 16px "Pixelify Sans", system-ui'; ac.fillText(`Speed training +${(G.result && G.result.spd) || 0}`, AW / 2, AH * .42 + 30); ac.textAlign = 'left';
       } else if (ms - G.t0 < 1800) {
-        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '700 16px system-ui';
+        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '700 16px "Pixelify Sans", system-ui';
         ac.fillText('Drag to catch the falling Poké Balls!', AW / 2, AH * .35); ac.textAlign = 'left';
       }
       requestAnimationFrame(G.loop);
