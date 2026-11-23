@@ -322,7 +322,6 @@ p { line-height: 1.55; margin: 6px 0; }
    ===================================================================== */
 @media (max-width: 600px) {
   :root { --soft-card: rgba(255, 255, 255, .92); --soft-ink: #1f2740; --soft-muted: #8a90a6; --soft-track: #e4e6ec; --soft-green: #7cc95a; --soft-green-bg: #e3f3d6; --soft-green-ink: #3f8f2a; }
-  html, body { background: linear-gradient(180deg, #9cc3e6 0%, #b9d6ec 30%, #a9cf8c 72%, #79ad5e 100%); background-color: #9cc3e6; }
   .glass, .box { background: var(--soft-card); border: 0; box-shadow: 0 6px 18px rgba(30, 50, 80, .14), 0 1px 0 rgba(255, 255, 255, .8) inset; }
 
   /* header: name pill + round buttons */
