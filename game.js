@@ -565,11 +565,20 @@ const Game = (() => {
     const s = list[rnd(list.length)];
     return { sp: s.id, level: lv, shiny: rnd(200) === 0 };
   }
-  /** the boss waiting on the deepest floor: a strong first-stage Pokémon a little above your level */
+  /** the boss waiting on the deepest floor. Usually a first-stage Pokémon;
+   *  rare: a middle stage (12%) · very rare: a final stage (3%) · extremely rare: a legendary (0.5%) */
   function rollBoss() {
-    const pool = SPECIES.filter(s => s.stage === 1 && !s.prev && !isSpecial(s.id));
+    const r = Math.random() * 100;
+    const normal = SPECIES.filter(s => !isSpecial(s.id));
+    const pools = [
+      ['legend', .5, SPECIES.filter(s => isSpecial(s.id))],
+      ['final', 3.5, normal.filter(s => s.stage >= 2 && !s.next.length)],
+      ['stage2', 15.5, normal.filter(s => s.stage === 2 && s.next.length)],
+    ];
+    let tier = 'stage1', pool = normal.filter(s => s.stage === 1 && !s.prev);
+    for (const [t, upTo, list] of pools) if (r < upTo && list.length) { tier = t; pool = list; break; }
     const s = pool[rnd(pool.length)];
-    return { sp: s.id, level: Math.max(5, level() + 2), shiny: rnd(150) === 0, boss: true };
+    return { sp: s.id, level: Math.max(5, level() + (tier === 'legend' ? 3 : 2)), shiny: rnd(150) === 0, boss: true, bossTier: tier, legend: tier === 'legend' };
   }
   /** battle numbers for any Pokémon at a level (mine uses genes + training) */
   function battler(id, lv, mine) {

@@ -1711,7 +1711,7 @@ if (!code) {
     function encounter(preset) {
       const w = preset || Game.rollWild(), ws = SPECIES_BY_ID[w.sp];
       G.wild = Object.assign(Game.battler(w.sp, w.level, false), { shiny: w.shiny, name: ws.name, legend: !!w.legend, boss: !!w.boss, raw: w });
-      if (w.legend) G.wild.maxHp = Math.round(G.wild.maxHp * 1.2);   // legendaries are a little tougher
+      if (w.legend && !w.boss) G.wild.maxHp = Math.round(G.wild.maxHp * 1.2);   // legendaries are a little tougher
       if (w.boss) {                                                    // floor boss: lots of HP and hits hard
         G.wild.maxHp = Math.round(G.wild.maxHp * 1.8);
         G.wild.atk = Math.round(G.wild.atk * 1.15); G.wild.def = Math.round(G.wild.def * 1.15);
@@ -1719,10 +1719,12 @@ if (!code) {
       G.wildHp = G.wild.maxHp; G.state = 'encounter'; G.at = now(); G.legendAt = w.legend || w.boss ? now() : 0; G.throw = null; G.wheel = null;
       preloadSpecies(w.sp, w.shiny); Sound.play(w.legend || w.boss ? 'evolve' : 'sad');
       const frag = Game.state.player.fragments[w.sp] || 0;
-      if (w.legend) say(`{i:sparkle} A <b>legendary</b> Pokémon appeared! It's ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
+      if (w.boss && w.legend) say(`{i:sparkle} The floor boss is a <b>LEGENDARY</b> Pokémon — ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
+        `An extremely rare boss! Win the battle to spin the catch wheel.${frag ? ` You have ${frag}/${Game.FRAGMENTS_TO_SUMMON} of its fragments.` : ''}`);
+      else if (w.legend) say(`{i:sparkle} A <b>legendary</b> Pokémon appeared! It's ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
         `Win the battle to spin the catch wheel.${frag ? ` You have ${frag}/${Game.FRAGMENTS_TO_SUMMON} of its fragments.` : ''}`);
       else if (w.boss) say(`{i:sword} The <b>floor boss</b> blocks the way! It's a mighty ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
-        'It\'s much stronger than usual. Beat it to spin the catch wheel!');
+        (w.bossTier === 'final' ? '{i:sparkle} A very rare fully evolved boss! ' : w.bossTier === 'stage2' ? 'A rare evolved boss! ' : '') + 'It\'s much stronger than usual. Beat it to spin the catch wheel!');
       else say(`A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · ${esc(name())} is Lv ${G.me.level}`);
       buttons([
         { label: '{i:sword} Fight', cls: 'red', fn: () => fight(false) },
