@@ -645,6 +645,16 @@ const PX = (() => {
       [[24, 3], [24, 23]].forEach(([x, y]) => g.rect(x, y, 2, 2, GOLD, true));
       g.rect(11, 4, 12, 1, '#e4606a', true);
     },
+    lock: g => {   // a gold padlock with a steel shackle
+      g.rect(9, 3, 14, 4, '#c3c9d8'); g.rect(9, 3, 4, 12, '#c3c9d8'); g.rect(19, 3, 4, 12, '#c3c9d8');
+      g.rect(13, 7, 6, 8, null);
+      g.rect(10, 4, 2, 9, '#eef1f7', true);
+      g.rect(5, 13, 22, 16, GOLD);
+      tint(g, (x, y) => y >= 13 && y < 29 && x >= 18, GOLD_D);
+      g.rect(6, 14, 20, 2, GOLD_L, true);
+      g.ell(16, 20, 2.6, 2.6, '#3a2a14', true); g.rect(15, 21, 2, 5, '#3a2a14', true);
+      g.rect(7, 26, 2, 1, GOLD_L, true);
+    },
     credits: g => {   // a gold medal on a ribbon
       g.poly([[8, 1], [14, 1], [18, 13], [13, 15]], '#e3350d'); g.poly([[18, 1], [24, 1], [19, 15], [14, 13]], '#3d7dca');
       g.ell(16, 21, 9.5, 9.5, GOLD);

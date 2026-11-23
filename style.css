@@ -499,6 +499,10 @@ details.more[open] > summary::before { content: '▾ '; }
 .bgcard b { font-family: var(--pixel); font-size: 15px; padding: 0 2px; }
 .bgcard .bgstate { font-family: var(--pixel); font-weight: 700; font-size: 13px; color: #9a6b00; padding: 0 2px 2px; display: inline-flex; align-items: center; gap: 3px; }
 .bgcard.using .bgstate { color: #2f8a3a; }
+.bgwrap { position: relative; display: block; }
+.bgcard.locked .bgthumb { filter: saturate(.45) brightness(.72); }
+.bglock { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.bglock .ic { width: 44px; height: 44px; margin: 0; padding: 8px; background: rgba(29,21,48,.72); border: 3px solid #f2c14e; border-radius: 50%; box-sizing: content-box; }
 .bgcard .bgstate .ic { width: 16px; height: 16px; margin: 0; }
 
 /* add-to-home-screen bar */

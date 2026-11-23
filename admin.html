@@ -226,7 +226,7 @@
 
   <section class="card" id="playersCard" hidden>
     <h2>Players</h2>
-    <p class="sub">Pick a player to view and edit their Pokémon. Changes reach the player's game straight away if it's open, or the next time they open it.</p>
+    <p class="sub">Pick a player to view and edit their Pokécoins and Pokémon. Changes reach the player's game straight away if it's open, or the next time they open it.</p>
     <div class="row"><input type="search" id="q" placeholder="Search username or player ID…" style="flex:1"><button class="btn alt" id="reload">Refresh</button></div>
     <div class="players" id="players"></div>
   </section>
@@ -682,14 +682,27 @@ function allMons() {
   (save.player.box || []).forEach((m, i) => out.push({ where: 'box', i, m }));
   return out;
 }
+const COIN_MAX = 99999999;
 function draw() {
   const P = save.player;
-  $('#edSub').innerHTML = `<span class="row" style="margin-bottom:6px"><label class="chk" style="font-size:14px!important">Pokécoins <input type="number" id="edCoins" min="0" max="99999999" value="${P.coins || 0}" style="width:140px"></label></span>${esc(cur.code)} · Dex ${Object.keys(P.dex || {}).length} · Party ${(P.party || []).length + (save.pet ? 1 : 0)}/${PARTY_MAX} · PC Box ${(P.box || []).length}`;
+  $('#edSub').innerHTML = `${esc(cur.code)} · Dex ${Object.keys(P.dex || {}).length} · Party ${(P.party || []).length + (save.pet ? 1 : 0)}/${PARTY_MAX} · PC Box ${(P.box || []).length}`;
   const sec = (title, items) => `<h3>${title}</h3>` + (items.length ? `<div class="mons">${items.map(card).join('')}</div>` : '<p class="note">Empty.</p>');
   const all = allMons();
-  $('#edBody').innerHTML = sec('Main Pokémon', all.filter(x => x.where === 'main')) + sec('Party', all.filter(x => x.where === 'party')) + sec('PC Box', all.filter(x => x.where === 'box'));
+  const had = JSON.parse(orig || '{}').player, before = had ? had.coins || 0 : 0, now = P.coins || 0, diff = now - before;
+  const coinsBox = `<h3>Pokécoins</h3>
+    <p style="margin:4px 0 8px;font-size:20px;font-weight:800">${now.toLocaleString()} <span class="note" style="font-size:14px;font-weight:600">${diff ? `(${diff > 0 ? '+' : '−'}${Math.abs(diff).toLocaleString()} not saved yet)` : 'current balance'}</span></p>
+    <div class="row"><input type="number" id="coinAmt" min="1" max="${COIN_MAX}" placeholder="Amount" style="width:150px">
+      <button class="btn ok sm" id="coinGive">+ Give</button><button class="btn red sm" id="coinTake">− Take</button><button class="btn alt sm" id="coinSet">Set balance to this</button></div>
+    <div class="row" style="margin-top:6px">${[1000, 5000, 10000, 50000].map(n => `<button class="btn alt sm" data-coin="${n}">+${n.toLocaleString()}</button>`).join('')}</div>
+    <p class="note">Then press <b>Save to player</b> to send it to their game.</p>`;
+  $('#edBody').innerHTML = coinsBox + sec('Main Pokémon', all.filter(x => x.where === 'main')) + sec('Party', all.filter(x => x.where === 'party')) + sec('PC Box', all.filter(x => x.where === 'box'));
   wire(); dirty();
-  $('#edCoins').onchange = e => { save.player.coins = Math.max(0, Math.min(99999999, parseInt(e.target.value, 10) || 0)); dirty(); };
+  const amt = () => { const n = parseInt($('#coinAmt').value, 10); if (!(n >= 0)) { toast('Type an amount first'); return null; } return Math.min(COIN_MAX, n); };
+  const setCoins = (n, msg) => { save.player.coins = Math.max(0, Math.min(COIN_MAX, n)); toast(msg); draw(); };
+  $('#coinGive').onclick = () => { const n = amt(); if (n) setCoins((save.player.coins || 0) + n, `+${n.toLocaleString()} Pokécoins`); };
+  $('#coinTake').onclick = () => { const n = amt(); if (n) setCoins((save.player.coins || 0) - n, `−${n.toLocaleString()} Pokécoins`); };
+  $('#coinSet').onclick = () => { const n = amt(); if (n != null) setCoins(n, `Balance set to ${n.toLocaleString()}`); };
+  $('#edBody').querySelectorAll('[data-coin]').forEach(b => b.onclick = () => setCoins((save.player.coins || 0) + +b.dataset.coin, `+${(+b.dataset.coin).toLocaleString()} Pokécoins`));
 }
 function card(x) {
   const m = x.m, id = `${x.where}-${x.i}`, egg = !!m.egg, tr = m.tr || { atk: 0, def: 0, spd: 0 };

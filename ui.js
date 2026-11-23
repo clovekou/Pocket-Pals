@@ -429,11 +429,19 @@
   const bgImgs = {};
   // a background bought in Options → Backgrounds (made on the Admin page), as an Image once it has loaded
   const shopBgImgs = {};
+  // backgrounds that ship with the game (backgrounds/shop/): locked until bought in Options → Backgrounds
+  const BUILTIN_BGS = [
+    ['beach', 'Tropical Beach'], ['crystal-cavern', 'Crystal Cavern'], ['moonlit-forest', 'Moonlit Forest'],
+    ['desert', 'Desert Dunes'], ['sky-kingdom', 'Sky Kingdom'], ['blossom', 'Blossom Grove'],
+    ['savanna', 'Savanna'], ['snowy-woods', 'Snowy Woods'], ['volcano', 'Volcano'],
+  ].map(([k, name]) => ({ id: 'pp-' + k, name, price: 5000, src: `backgrounds/shop/${k}.jpg`, thumb: `backgrounds/shop/thumb/${k}.jpg` }));
   function shopBgImage(id) {
     let im = shopBgImgs[id];
     if (!im) {
       im = shopBgImgs[id] = new Image();
-      Online.backgroundImage(id).then(url => { if (url) im.src = url; });   // one try per session (a deleted background just shows the classic one)
+      const own = BUILTIN_BGS.find(b => b.id === id);
+      if (own) im.src = own.src;
+      else Online.backgroundImage(id).then(url => { if (url) im.src = url; });   // one try per session (a deleted background just shows the classic one)
     }
     return im;
   }
@@ -1260,18 +1268,17 @@ if (!code) {
   }
   // ---------- backgrounds: buy once with Pokécoins, then switch any time ----------
   function openBackgrounds() {
-    const S = ST(), list = Online.state.backgrounds || [], cur = S.settings.bg || '';
+    const S = ST(), list = BUILTIN_BGS.concat(Online.state.backgrounds || []), cur = S.settings.bg || '';
     const classic = typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.default ? 'backgrounds/' + encodeURIComponent(BACKGROUNDS.assign.default) : '';
     const card = (id, name, price, thumb) => {
       const owned = Game.ownsBackground(id), using = cur === id || (!id && !cur);
-      return `<button class="bgcard ${using ? 'using' : ''}" data-bg="${esc(id)}" data-price="${price}">
-        <span class="bgthumb" style="${thumb ? `background-image:url('${thumb}')` : ''}"></span>
-        <b>${esc(name)}</b><span class="bgstate">${using ? '✓ Using' : owned ? 'Owned · tap to use' : `{i:coin}${price.toLocaleString()}`}</span></button>`;
+      return `<button class="bgcard ${using ? 'using' : ''} ${owned ? '' : 'locked'}" data-bg="${esc(id)}" data-price="${price}">
+        <span class="bgwrap"><span class="bgthumb" style="${thumb ? `background-image:url('${thumb}')` : ''}"></span>${owned ? '' : '<span class="bglock">{i:lock}</span>'}</span>
+        <b>${esc(name)}</b><span class="bgstate">${using ? '✓ Using' : owned ? 'Owned · tap to use' : `{i:coin}${price.toLocaleString()} · tap to unlock`}</span></button>`;
     };
     openSheet(head('Backgrounds') + `
-      <div class="shophead">{i:image}<div><b>Backgrounds</b><small>Buy a background once and it's yours to keep. Switch any time.</small></div>${coinsHtml()}</div>
+      <div class="shophead">{i:image}<div><b>Backgrounds</b><small>Locked backgrounds unlock when you buy them. Buy once, keep forever, switch any time.</small></div>${coinsHtml()}</div>
       <div class="bggrid">${card('', 'Classic', 0, classic)}${list.map(b => card(b.id, b.name, b.price, b.thumb)).join('')}</div>
-      ${list.length ? '' : `<p class="muted" style="text-align:center">${Online.state.enabled ? 'New backgrounds will appear here soon!' : 'New backgrounds need online play.'}</p>`}
       <div class="btns"><button class="btn alt" id="bgBack">← Back to Options</button></div>`);
     $('#bgBack').addEventListener('click', openSettings);
     sheet.querySelectorAll('[data-bg]').forEach(b => b.addEventListener('click', () => {
