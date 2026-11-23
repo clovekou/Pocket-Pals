@@ -293,6 +293,7 @@
     const s = Math.max(W / im.naturalWidth, H / im.naturalHeight); // cover the whole stage
     const w = im.naturalWidth * s, h = im.naturalHeight * s;
     cx.drawImage(im, (W - w) / 2, (H - h) * .5, w, h);            // centred, so the top of the scene isn't cut off
+    V.bg = { x: (W - w) / 2, y: (H - h) * .5, w, h };              // where the picture landed (party stands on its back lawn)
     if (cfg.night !== false) {
       if (phase === 'night') { cx.fillStyle = 'rgba(10,14,45,.5)'; cx.fillRect(0, 0, W, H); }
       else if (phase === 'dusk') { cx.fillStyle = 'rgba(90,40,100,.18)'; cx.fillRect(0, 0, W, H); }
@@ -385,10 +386,14 @@
     });
   }
   function drawPal(p, t) {
-    const tall = H > W * 1.1;                        // phone / portrait: party sits at the top, along the tree line, and smaller
-    const fy = (tall ? H * (.3 + (p.depth - .62) * .5) : H * p.depth) - V.lift * .5;
-    const size = baseSize() * (tall ? .34 : .55), x = p.x * W;
-    const fitH = baseSize() * (tall ? .68 : 1.15);   // every party Pokémon is drawn this tall, whatever its species
+    // with a background picture, the party stands far back on the open lawn below the trees
+    // (picture coords: 43-48% down, 18-80% across), small because they're further away
+    const bg = V.bg, far = !!bg;
+    const fy = far ? Math.max(H * .3, bg.y + bg.h * (.43 + (p.depth - .62) * .5)) - V.lift * .5
+                   : H * p.depth - V.lift * .5;
+    const x = far ? Math.max(bg.x, 0) + Math.min(bg.w, W) * (.18 + (p.x - .1) / .8 * .62) : p.x * W;
+    const size = baseSize() * (far ? .34 : .55);
+    const fitH = baseSize() * (far ? .68 : 1.15);   // every party Pokémon is drawn this tall, whatever its species
     cx.fillStyle = 'rgba(0,0,0,.14)'; cx.beginPath(); cx.ellipse(x, fy, size * .8, size * .16, 0, 0, Math.PI * 2); cx.fill();
     const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
     const pos = drawCreature(cx, p.sp, {
@@ -558,6 +563,7 @@
     const phase = dayPhase();
     const biome = p ? ELEMENTS[SPECIES_BY_ID[p.sp].el].biome : 'meadow';
     const scene = p && p.egg ? 'meadow' : biome;
+    V.bg = null;
     if (!drawCustomBg(scene, phase)) { drawSky(t, phase); drawBiome(scene, t, phase); }
     if (p && !p.egg) for (let i = 0; i < p.poops; i++) drawPoop(POOP_X[i] * W, feetY() - 2 + i * 4, t, i);
     if (V.anim && V.anim.type === 'evolve') drawEvolve(t, ms);
