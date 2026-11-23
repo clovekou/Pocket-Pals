@@ -881,12 +881,12 @@ if (!code) {
       </ol>
       <div class="btns"><button class="btn gold" id="wgCopy">{i:card} Copy widget script</button></div>
       <h4 style="font-family:var(--pixel);margin:16px 0 6px">Mac desktop app</h4>
-      <p class="muted" style="margin:0">Pocket Pals Dock lets your Pokémon walk around your Mac's desktop. When it asks for your key, paste this:</p>
-      <div class="btns"><button class="btn alt" id="wgKey">{i:card} Copy key for Mac app</button></div>
+      <p class="muted" style="margin:0">The Pocket Pals desktop app (Mac or Windows) lets your Pokémon walk around your computer's desktop. When it asks for your key, paste this:</p>
+      <div class="btns"><button class="btn alt" id="wgKey">{i:card} Copy key for desktop app</button></div>
       <p class="muted" style="margin-top:10px">Keep the script to yourself: it has your private widget key. Tapping the widget opens the game.</p>
       <p class="muted">Android: widgets need an installed app, so for now add the game to your home screen from Chrome's ⋮ menu → <b>Add to Home screen</b>.</p>`);
     $('#wgKey').addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(token); toast('Key copied! Paste it into Pocket Pals Dock.', 3500); }
+      try { await navigator.clipboard.writeText(token); toast('Key copied! Paste it into the Pocket Pals desktop app.', 3500); }
       catch (e) { const ta = document.createElement('textarea'); ta.value = token; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Key copied!'); }
     });
     $('#wgCopy').addEventListener('click', async () => {
@@ -1110,7 +1110,8 @@ if (!code) {
         <div class="row"><span>Shinies</span><b>${Game.shinyCount()} / ${SPECIES.length}</b></div>
         <div class="row"><span>Streak</span><b>{i:flame} ${S.player.streak} days (best ${S.player.bestStreak})</b></div>
         <div class="row"><span>Next milestone</span><b>${nextMs ? nextMs + ' days' : 'All reached!'}</b></div>
-        <div class="row"><span>Evolution</span><b>${need == null ? 'Final form' : `At Lv ${need}${p.mistakes ? ` (${s.evo} + ${p.mistakes} slip-ups)` : ''}`}</b></div>
+        <div class="row"><span>Evolution</span><b>${need == null ? (Game.evoMethods(p.sp).length ? 'With an item' : 'Final form') : `At Lv ${need}${p.mistakes ? ` (${s.evo} + ${p.mistakes} slip-ups)` : ''}`}</b></div>
+        ${Game.evoMethods(p.sp).some(m => m.item) ? `<div class="row"><span>Items</span><b>${Game.evoMethods(p.sp).filter(m => m.item).map(m => `${ic(Game.ITEMS[m.item].icon)} ${Game.ITEMS[m.item].name}${m.time ? ` (${m.time})` : ''}`).join(', ')}</b></div>` : ''}
         ${need == null ? '' : '<div class="row"><span>Also needs</span><b>Awake, every need ≥ 40</b></div>'}
         <div class="row"><span>Farewell</span><b>${fin == null ? 'After its final form' : fin === 0 ? 'Ready' : 'In ' + fmtDur(fin)}</b></div>
         <div class="row"><span>Egg luck bonus</span><b>+${Game.careBonus()} (streak + bond)</b></div>
@@ -1190,7 +1191,7 @@ if (!code) {
       <div class="rows">
         <div class="row"><span>Element</span><b><span class="pill" style="background:${el.color}">${el.label}</span></b></div>
         <div class="row"><span>Egg rarity</span><b>${TIER_LABEL[SPECIES_BY_ID[s.lineBase].tier]}</b></div>
-        <div class="row"><span>Evolves</span><b>${s.next.length ? s.next.map(n => Game.registered(n) ? SPECIES_BY_ID[n].name : '???').join(' / ') + ` at Lv ${s.evo}` : 'Final form'}</b></div>
+        <div class="row"><span>Evolves</span><b>${evoText(id) || 'Final form'}</b></div>
         <div class="row"><span>Favourite berry</span><b>${S.player.favKnown[id] ? FLAVORS[s.fav].label : '???'}</b></div>
         <div class="row"><span>Base ATK / DEF / SPD</span><b>${s.base.join(' / ')}</b></div>
         <div class="row"><span>Raised</span><b>${S.player.dex[id]}×${S.player.shiny[id] ? ` (${S.player.shiny[id]} shiny)` : ''}</b></div>
@@ -1643,24 +1644,34 @@ if (!code) {
   const coinsHtml = () => `<span class="coins">{i:coin}<b>${Game.coins().toLocaleString()}</b></span>`;
   // ---------- Poké Mart: buy with Pokécoins, sell treasure found while exploring ----------
   const shopQty = {};
+  let shopOpenAll = false;
   function openShop() {
     if (!Game.feature('shop')) { bagTab = 'items'; return openItems(); }
     const IT = Game.ITEMS, C = Game.config;
     const buy = Object.keys(C.shopBuy).filter(k => IT[k] && C.shopBuy[k] > 0);
     const sell = Object.keys(C.shopSell).filter(k => IT[k] && C.shopSell[k] > 0 && Game.itemCount(k) > 0);
     const row = (k, price, acts, extra = '') => `<div class="itemrow">${ic(IT[k].icon).replace('class="ic"', 'class="px"')}
-      <div class="ii"><b>${IT[k].name}</b><small>${IT[k].desc}</small><small class="price">{i:coin} ${price.toLocaleString()}${extra}</small></div>${acts}</div>`;
-    const buyRows = buy.map(k => {
+      <div class="ii"><b>${IT[k].name}</b><small>${IT[k].desc}</small>${IT[k].kind === 'evo' ? evoNote(k) : ''}<small class="price">{i:coin} ${price.toLocaleString()}${extra}</small></div>${acts}</div>`;
+    const buyRow = k => {
       const q = shopQty[k] || 1, cost = C.shopBuy[k] * q, can = Game.coins() >= cost;
       return row(k, C.shopBuy[k], `<div class="qty"><button class="alt" data-qm="${k}" ${q <= 1 ? 'disabled' : ''}>−</button><span>${q}</span><button class="alt" data-qp="${k}" ${q >= 99 ? 'disabled' : ''}>+</button></div>
         <button data-buy="${k}" ${can ? '' : 'disabled'}>Buy</button>`, Game.itemCount(k) ? ` · have ×${Game.itemCount(k)}` : '');
-    }).join('');
+    };
+    // supplies first, then evolution items: the ones your main can use on top, the rest folded away
+    const P = Game.pet(), forMain = k => P && !P.egg && Game.evoUsers(k).includes(P.sp);
+    const supplies = buy.filter(k => IT[k].kind !== 'evo'), evo = buy.filter(k => IT[k].kind === 'evo');
+    const evoMine = evo.filter(forMain), evoRest = evo.filter(k => !forMain(k));
+    const buyRows = supplies.map(buyRow).join('')
+      + (evo.length ? `<h4 class="shoph">{i:sparkle} Evolution items</h4>`
+        + (evoMine.length ? evoMine.map(buyRow).join('') : `<p class="muted" style="margin:0 0 8px">None of these evolve ${P && !P.egg ? esc(petName()) : 'an egg'}.</p>`)
+        + (evoRest.length ? `<details class="more"${shopOpenAll ? ' open' : ''}><summary>All evolution items (${evoRest.length})</summary>${evoRest.map(buyRow).join('')}</details>` : '') : '');
     const sellRows = sell.map(k => row(k, C.shopSell[k], `<span class="cnt">×${Game.itemCount(k)}</span><button class="gold" data-sell="${k}">Sell</button>${Game.itemCount(k) > 1 ? `<button class="gold" data-sellall="${k}">All</button>` : ''}`)).join('');
     openSheet(head('Bag') + bagTabs() + `
       <div class="shophead">{i:shop}<div><b>Poké Mart</b><small>Trade your treasure for Pokécoins, then stock up.</small></div>${coinsHtml()}</div>
       <h4 class="shoph">{i:cart} Buy</h4>${buyRows || '<p class="muted">Nothing on the shelves right now.</p>'}
-      <h4 class="shoph">{i:coin} Sell</h4>${sellRows || '<p class="muted">Nothing to sell yet. Find <b>Pearls</b>, <b>Star Pieces</b> and <b>Nuggets</b> while exploring!</p>'}`);
+      <h4 class="shoph">{i:coin} Sell</h4>${sellRows || '<p class="muted">Nothing to sell yet. Explore dungeons to find treasure like <b>Pearls</b>, <b>Stardust</b>, <b>Nuggets</b> and ancient <b>Relics</b>!</p>'}`);
     wireBagTabs();
+    const more = sheet.querySelector('details.more'); if (more) more.addEventListener('toggle', () => { shopOpenAll = more.open; });
     const q = (k, d) => { shopQty[k] = Math.max(1, Math.min(99, (shopQty[k] || 1) + d)); openShop(); };
     sheet.querySelectorAll('[data-qm]').forEach(b => b.addEventListener('click', () => q(b.dataset.qm, -1)));
     sheet.querySelectorAll('[data-qp]').forEach(b => b.addEventListener('click', () => q(b.dataset.qp, 1)));
@@ -1693,12 +1704,32 @@ if (!code) {
         <span class="cnt">${Math.min(n, need)}/${need}</span>${ready ? `<button data-summon="${id}">Summon</button>` : ''}</div>`;
     }).join('');
   }
+  // "Gardevoir (Lv 30) / Gallade ({i:dawnStone} Dawn Stone)"
+  function evoText(id) {
+    return Game.evoMethods(id).map(m => `${Game.registered(m.to) ? SPECIES_BY_ID[m.to].name : '???'} (${m.item ? `${ic(Game.ITEMS[m.item].icon)} ${Game.ITEMS[m.item].name}${m.time ? ', ' + m.time : ''}` : 'Lv ' + m.lv})`).join(' / ');
+  }
+  // who an evolution item works on, for its Bag / shop row
+  function evoNote(k) {
+    const p = Game.pet(), users = Game.evoUsers(k), it = Game.ITEMS[k];
+    const mine = p && !p.egg && users.includes(p.sp);
+    const names = users.slice(0, 4).map(id => Game.registered(id) ? SPECIES_BY_ID[id].name : '???').join(', ') + (users.length > 4 ? ` +${users.length - 4} more` : '');
+    return `<small class="evonote ${mine ? 'mine' : ''}">${mine ? `✓ Works on your ${esc(petName())}! ` : ''}${it.how === 'hold' ? 'Hold it, then level up' : 'Use it'} · ${names || '—'}</small>`;
+  }
   function openItems() {
-    const IT = Game.ITEMS, keys = Object.keys(IT);
+    const IT = Game.ITEMS, keys = Object.keys(IT), p = Game.pet();
     const have = keys.filter(k => Game.itemCount(k) > 0);
-    openSheet(head('Bag') + bagTabs() + (have.length || Object.keys(ST().player.fragments || {}).length ? have.map(k => `<div class="itemrow">${ic(IT[k].icon).replace('class="ic"', 'class="px"')}
-        <div class="ii"><b>${IT[k].name}</b><small>${IT[k].desc}</small></div><span class="cnt">×${Game.itemCount(k)}</span>
-        ${IT[k].use ? `<button data-use="${k}">Use</button>` : ''}</div>`).join('')
+    const row = k => `<div class="itemrow">${ic(IT[k].icon).replace('class="ic"', 'class="px"')}
+        <div class="ii"><b>${IT[k].name}</b><small>${IT[k].desc}</small>${IT[k].kind === 'evo' ? evoNote(k) : ''}</div><span class="cnt">×${Game.itemCount(k)}</span>
+        ${IT[k].use ? `<button data-use="${k}">Use</button>` : IT[k].kind === 'evo' ? (IT[k].how === 'hold' ? `<button class="gold" data-hold="${k}">Give</button>` : `<button data-evo="${k}">Use</button>`) : ''}</div>`;
+    const group = (title, list) => list.length ? `<h4 class="shoph">${title}</h4>` + list.map(row).join('') : '';
+    const kindOf = k => IT[k].kind || 'basic';
+    const heldRow = p && !p.egg && p.held && IT[p.held] ? `<div class="itemrow held">${ic(IT[p.held].icon).replace('class="ic"', 'class="px"')}
+        <div class="ii"><b>${esc(petName())} is holding a ${IT[p.held].name}</b><small>${Game.heldEvo() ? 'It can evolve now — keep its needs at 40+!' : 'It evolves at its next level-up' + (Game.evoTarget(p.held, p.sp).error === 'night' ? ' at night' : Game.evoTarget(p.held, p.sp).error === 'day' ? ' during the day' : '') + '.'}</small></div>
+        <button class="alt" data-take="1">Take</button></div>` : '';
+    openSheet(head('Bag') + bagTabs() + heldRow + (have.length || Object.keys(ST().player.fragments || {}).length
+      ? group('{i:bag} Items', have.filter(k => kindOf(k) === 'basic' || kindOf(k) === 'ball'))
+        + group('{i:sparkle} Evolution items', have.filter(k => kindOf(k) === 'evo'))
+        + group('{i:coin} Treasure', have.filter(k => kindOf(k) === 'value'))
       : '<p class="muted">No items yet. Go <b>Explore</b> to find treasure, Rare Candy and Mystery Eggs!</p>')
       + fragmentsHtml()
       + `<p class="muted" style="margin-top:12px">Deepest floor reached: B${ST().player.exploreBest || 0}F · Wild battles won: ${ST().player.wildWins || 0}</p>`);
@@ -1714,6 +1745,27 @@ if (!code) {
         } },
       ]);
     }));
+    sheet.querySelectorAll('[data-evo]').forEach(b => b.addEventListener('click', () => {
+      const k = b.dataset.evo, it = IT[k], pp = Game.pet();
+      const t = pp && !pp.egg ? Game.evoTarget(k, pp.sp) : { error: 'egg' };
+      if (t.error) { const r = Game.useEvoItem(k); toast(r.error || 'It won\'t have any effect.'); Sound.play('no'); return; }
+      dialog(`Use the ${it.name}?`, `Use it on ${esc(petName())}? It will evolve!`, [
+        { label: 'Not now', cls: 'alt', fn: () => openFeed('items') },
+        { label: `{i:${it.icon}} Use`, cls: 'red', fn: () => {
+          const r = Game.useEvoItem(k);
+          if (r.error) { toast(r.error); Sound.play('no'); return; }
+          V.anim = { type: 'evolve', from: r.from, to: r.to, start: now(), dur: 5200 }; Sound.play('evolve');
+        } },
+      ]);
+    }));
+    sheet.querySelectorAll('[data-hold]').forEach(b => b.addEventListener('click', () => {
+      const k = b.dataset.hold, r = Game.giveHeld(k);
+      if (r.error) { toast(r.error); Sound.play('no'); return; }
+      Sound.play('catch');
+      toast(`{i:${IT[k].icon}} ${petName()} is holding the ${IT[k].name}. It evolves at its next level-up${r.when ? (r.when === 'night' ? ' at night' : ' during the day') : ''}!`, 4500);
+      openFeed('items');
+    }));
+    sheet.querySelectorAll('[data-take]').forEach(b => b.addEventListener('click', () => { Game.takeHeld(); toast('Put back in the Bag.'); openFeed('items'); }));
     sheet.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', () => {
       const k = b.dataset.use, r = Game.useItem(k);
       if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return; }

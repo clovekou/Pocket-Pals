@@ -176,6 +176,7 @@
 
 <script src="online-config.js"></script>
 <script src="species.js"></script>
+<script src="items.js"></script>
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
@@ -252,13 +253,19 @@ $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => showTab(b.d
 // ---------------- game settings (config/game) ----------------
 const CFG_DEFAULT = { exploreFloors: 10, fragments: 20, exploreEnergy: 30, shinyMult: 1, legendMult: 1, treasureMult: 1, eggMult: 1, bossShinyMult: 1,
   features: { explore: true, training: true, codes: true, shop: true }, announcement: '',
-  shopBuy: { oran: 60, rareCandy: 800, greatBall: 400, ultraBall: 1500, mysteryEgg: 2500 },
-  shopSell: { pearl: 150, starPiece: 400, nugget: 1000, oran: 20 } };
-const ITEM_NAMES = { oran: 'Oran Berry', rareCandy: 'Rare Candy', mysteryEgg: 'Mystery Egg', pearl: 'Pearl', starPiece: 'Star Piece', nugget: 'Nugget',
-  greatBall: 'Great Ball', ultraBall: 'Ultra Ball', masterBall: 'Master Ball' };
-$('#shopPrices').innerHTML = Object.entries(ITEM_NAMES).map(([k, n]) => `<label>${n}<div class="g2">
+  shopBuy: {}, shopSell: {} };
+// every item comes from items.js (shared with the game)
+const ITEM_NAMES = {};
+Object.entries(typeof ITEM_DATA !== 'undefined' ? ITEM_DATA : {}).forEach(([k, it]) => {
+  ITEM_NAMES[k] = it.name;
+  if (it.buy > 0) CFG_DEFAULT.shopBuy[k] = it.buy;
+  if (it.sell > 0) CFG_DEFAULT.shopSell[k] = it.sell;
+});
+const KIND_LABEL = { basic: 'Supplies', ball: 'Balls', value: 'Treasure', evo: 'Evolution items' };
+$('#shopPrices').innerHTML = ['basic', 'ball', 'value', 'evo'].map(kind => `<h4 style="grid-column:1/-1;margin:8px 0 0">${KIND_LABEL[kind]}</h4>` +
+  Object.entries(ITEM_DATA).filter(([, it]) => (it.kind || 'basic') === kind).map(([k, it]) => [k, it.name]).map(([k, n]) => `<label>${n}<div class="g2">
   <input type="number" min="0" max="999999" step="1" data-buy="${k}" title="Buy price" placeholder="Buy">
-  <input type="number" min="0" max="999999" step="1" data-sell="${k}" title="Sell price" placeholder="Sell"></div><small>Buy price · Sell price</small></label>`).join('');
+  <input type="number" min="0" max="999999" step="1" data-sell="${k}" title="Sell price" placeholder="Sell"></div><small>Buy price · Sell price</small></label>`).join('')).join('');
 function fillConfig(c) {
   c = Object.assign({}, CFG_DEFAULT, c || {}); const f = Object.assign({}, CFG_DEFAULT.features, c.features || {});
   document.querySelectorAll('[data-cfg]').forEach(el => { el.value = c[el.dataset.cfg]; });
@@ -295,8 +302,7 @@ $('#cfgSave').onclick = async () => {
 $('#cfgReset').onclick = () => { fillConfig(null); toast('Defaults filled in — press Save to apply'); };
 
 // ---------------- gift codes (giftCodes/{CODE}) ----------------
-const ITEMS = { oran: 'Oran Berry', rareCandy: 'Rare Candy', mysteryEgg: 'Mystery Egg', pearl: 'Pearl', starPiece: 'Star Piece', nugget: 'Nugget',
-  greatBall: 'Great Ball', ultraBall: 'Ultra Ball', masterBall: 'Master Ball' };
+const ITEMS = ITEM_NAMES;
 const CODE_RE = /^[A-Z0-9-]{3,24}$/;
 function monRow() {
   const d = document.createElement('div'); d.className = 'giftrow';

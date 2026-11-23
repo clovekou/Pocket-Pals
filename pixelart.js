@@ -657,16 +657,19 @@ const PX = (() => {
     return c;
   }
   if (typeof document !== 'undefined') {
-    let pending = PICTURES.length, changed = false;
+    // item icons drawn for items.js (pic: true) live in assets/items/
+    const ITEM_PICS = typeof ITEM_DATA !== 'undefined' ? Object.values(ITEM_DATA).filter(it => it.pic).map(it => it.icon) : [];
+    const ALL = PICTURES.map(n => [n, `assets/ui/${n}.png`]).concat(ITEM_PICS.map(n => [n, `assets/items/${n}.png`]));
+    let pending = ALL.length, changed = false;
     const done = () => { if (--pending === 0 && changed) listeners.forEach(f => f()); };
-    PICTURES.forEach(name => {
+    ALL.forEach(([name, src]) => {
       const im = new Image();
       im.onload = () => {
         try { const c = nativePixels(im); if (c) { cache[name] = c; delete urls[name]; changed = true; } } catch (e) { /* local file: keep the drawn icon */ }
         done();
       };
       im.onerror = done;
-      im.src = `assets/ui/${name}.png`;
+      im.src = src;
     });
   }
 

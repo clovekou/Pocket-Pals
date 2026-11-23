@@ -6,7 +6,7 @@ edge, darker bottom-right edge) and a 1px navy outline, then is scaled 4x with
 nearest-neighbour to a 128x128 transparent PNG. The designs follow the original
 pack (Pokemon_Style_UI_Icons/) with tidier shapes and consistent shading.
 
-    python3 tools/make_ui_icons.py [out_dir]      # default: Pokemon_Style_UI_Icons_v2
+    python3 tools/make_ui_icons.py [out_dir]      # default: Pokemon_Style_UI_Icons_v2 (+ game item icons in assets/items/)
 
 No dependencies: PNGs are written with zlib.
 """
@@ -704,12 +704,321 @@ def _(g):
     g.circ(16, 16, 14, WHITE); g.vol(16, 16, 14, .12); g.circ(16, 16, 11, NAVY, True); pokeball(g, 16, 16, 10); shine(g, [(9, 6), (8, 7), (7, 8)])
 
 
+# ================================================================ game item icons (assets/items/)
+ITEM = {}
+def item(key):
+    def deco(f): ITEM[key] = f; return f
+    return deco
+
+
+ROCK = [(9, 5), (20, 3), (27, 10), (28, 21), (20, 28), (9, 28), (4, 19), (4, 10)]
+def stone(g, base, emblem=None):
+    g.poly(ROCK, base)
+    g.poly([(9, 5), (20, 3), (16, 11), (8, 12)], light(hexc(base), .25), True)
+    g.poly([(28, 21), (20, 28), (17, 21)], dark(hexc(base), .18), True)
+    if emblem: emblem(g)
+    shine(g, [(10, 7), (11, 6), (9, 8)])
+
+
+@item('fireStone')
+def _(g): stone(g, '#f0623a', lambda g: (g.poly([(16, 9), (21, 16), (20, 22), (16, 24), (12, 22), (11, 17), (14, 18)], '#ffd23b', True), g.poly([(16, 15), (18, 19), (16, 22), (14, 20)], '#fff2a0', True)))
+
+@item('waterStone')
+def _(g): stone(g, '#3d8ff0', lambda g: (g.poly([(16, 8), (21, 17), (19, 22), (13, 22), (11, 17)], '#bfe4ff', True), g.dots([(14, 16), (14, 17)], '#ffffff')))
+
+@item('thunderStone')
+def _(g): stone(g, '#5fbf5a', lambda g: g.poly([(18, 7), (11, 17), (16, 17), (13, 25), (21, 14), (16, 14)], '#ffe14a', True))
+
+@item('leafStone')
+def _(g): stone(g, '#3f9d4a', lambda g: (g.poly([(10, 22), (14, 11), (22, 8), (21, 17), (14, 23)], '#8fe07a', True), g.line(11, 22, 20, 10, '#2f7a3a')))
+
+@item('moonStone')
+def _(g): stone(g, '#55506e', lambda g: (g.circ(16, 16, 6, '#ffe9a0', True, where=lambda x, y: (x + .5 - 19) ** 2 + (y + .5 - 14) ** 2 > 22), g.dots([(22, 9), (9, 21), (23, 22)], '#fff6c8')))
+
+@item('sunStone')
+def _(g):
+    def em(g):
+        for k in range(8):
+            a = math.radians(k * 45); g.circ(16 + 7 * math.cos(a), 16 + 7 * math.sin(a), 1.3, '#ffe14a', True)
+        g.circ(16, 16, 4.5, '#ffd23b', True); g.circ(15, 15, 1.5, '#fff6c8', True)
+    stone(g, '#f07a32', em)
+
+@item('shinyStone')
+def _(g): stone(g, '#e6e9fb', lambda g: (g.star(16, 16, 7, 2.4, '#f5c518', n=4, flat=True), g.star(22, 10, 3, 1, '#ffe27a', n=4, flat=True), g.dots([(10, 22)], '#ffe27a')))
+
+@item('duskStone')
+def _(g): stone(g, '#4a3868', lambda g: (g.ell(16, 16, 7, 4.5, '#2a1f40', True), g.circ(16, 16, 2.6, '#c06cf0', True), g.dots([(15, 15)], '#f2d0ff')))
+
+@item('dawnStone')
+def _(g): stone(g, '#4fc8b8', lambda g: (g.star(16, 16, 7.5, 3, '#c9fff2', n=5, flat=True), g.dots([(16, 16)], '#ffffff')))
+
+@item('iceStone')
+def _(g):
+    def em(g):
+        for a in (0, 60, 120):
+            r = math.radians(a); g.line(16 - 7 * math.cos(r), 16 - 7 * math.sin(r), 16 + 7 * math.cos(r), 16 + 7 * math.sin(r), '#ffffff')
+        g.circ(16, 16, 1.6, '#ffffff', True)
+    stone(g, '#8fd4f5', em)
+
+@item('linkingCord')
+def _(g):
+    g.ring(12, 16, 8, 5.6, '#4a8ff0', False); g.ring(20, 16, 8, 5.6, '#ff7fa8', False)
+    for y in range(N):
+        for x in range(16, 19):
+            if 11 <= y <= 13 and g.get(x, y): g.set(x, y, '#4a8ff0')
+    shine(g, [(7, 11), (8, 10)])
+
+
+def apple(g, body, leafc=LEAF):
+    g.circ(11.5, 18, 9, body); g.circ(20.5, 18, 9, body); g.circ(16, 22, 8, body); g.vol(16, 18, 13, .14)
+    g.rect(15, 5, 2, 6, STEM); g.poly([(17, 8), (25, 4), (24, 9), (18, 11)], leafc)
+    shine(g, [(9, 13), (10, 12), (8, 14)])
+
+@item('sweetApple')
+def _(g): apple(g, '#c3dc4a')
+
+@item('tartApple')
+def _(g): apple(g, '#e8463a')
+
+@item('syrupyApple')
+def _(g):
+    apple(g, '#f07a2a'); g.poly([(13, 24), (19, 24), (17, 29), (15, 29)], '#ffc84a'); g.dots([(16, 30)], '#ffc84a')
+
+
+@item('crackedPot')
+def _(g):
+    g.ell(15, 19, 10, 8, '#9c86c9'); g.rect(10, 8, 10, 4, '#9c86c9'); g.rect(13, 6, 4, 2, '#7c66a9')
+    g.poly([(24, 16), (30, 11), (29, 15), (25, 20)], '#9c86c9'); g.ring(5, 19, 4, 2.4, '#9c86c9', False)
+    g.line(12, 13, 15, 18, NAVY); g.line(15, 18, 13, 22, NAVY); g.vol(15, 19, 10, .14)
+
+@item('unremarkableTeacup')
+def _(g):
+    g.poly([(5, 10), (25, 10), (23, 22), (19, 25), (11, 25), (7, 22)], '#8fc97a'); g.ring(26, 15, 4.5, 2.6, '#8fc97a', False)
+    g.rect(6, 10, 18, 2, '#e8f5d8', True); g.rrect(8, 26, 14, 3, 1, '#6fa95a')
+
+
+@item('blackAugurite')
+def _(g):
+    g.poly([(14, 3), (24, 10), (27, 22), (17, 29), (6, 22), (7, 10)], '#2f2a38')
+    g.poly([(14, 3), (17, 14), (7, 10)], '#5a5468', True); g.poly([(17, 14), (24, 10), (27, 22)], '#1f1a28', True)
+    shine(g, [(12, 7), (11, 8)])
+
+@item('peatBlock')
+def _(g):
+    g.poly([(4, 11), (16, 5), (28, 11), (16, 17)], '#9a6a3a'); g.poly([(4, 11), (16, 17), (16, 29), (4, 23)], '#7a4f2a'); g.poly([(16, 17), (28, 11), (28, 23), (16, 29)], '#5e3c20')
+    g.dots([(10, 10), (17, 9), (21, 12), (8, 17), (11, 22), (21, 20), (24, 17)], '#4a2f18')
+
+@item('metalAlloy')
+def _(g):
+    for i, c in enumerate(('#c9cbd8', '#9aa0b8', '#dfe3ee', '#8b93b5')):
+        g.rrect(5, 6 + i * 5, 22, 5, 1, c)
+    shine(g, [(7, 7), (8, 7)])
+
+
+def armor(g, c, gem):
+    g.poly([(6, 6), (12, 4), (16, 7), (20, 4), (26, 6), (27, 14), (22, 27), (16, 29), (10, 27), (5, 14)], c)
+    g.line(16, 8, 16, 26, dark(hexc(c), .2)); g.circ(16, 14, 2.6, gem, True); g.vol(16, 16, 14, .14)
+    shine(g, [(8, 8), (9, 7)])
+
+@item('auspiciousArmor')
+def _(g): armor(g, '#f5b81c', '#e8383d')
+
+@item('maliciousArmor')
+def _(g): armor(g, '#5a4aa0', '#8fd0ff')
+
+
+# ---- held items
+@item('kingsRock')
+def _(g):
+    g.poly([(5, 26), (8, 14), (16, 11), (25, 14), (28, 26)], '#9aa0b8')
+    g.poly([(8, 13), (9, 4), (13, 9), (16, 3), (19, 9), (23, 4), (24, 13)], GOLD)
+    g.dots([(12, 11), (16, 9), (20, 11)], '#e8383d'); shine(g, [(9, 17), (10, 16)])
+
+@item('metalCoat')
+def _(g):
+    g.poly([(8, 4), (24, 4), (26, 13), (16, 29), (6, 13)], '#c9cbd8'); g.poly([(11, 7), (21, 7), (22, 13), (16, 24), (10, 13)], '#9aa0b8', True)
+    g.line(16, 8, 16, 22, '#dfe3ee'); shine(g, [(9, 6), (10, 6)])
+
+@item('dragonScale')
+def _(g):
+    g.poly([(16, 3), (27, 13), (24, 26), (16, 29), (8, 26), (5, 13)], '#3fb8b0'); g.vol(16, 16, 14, .16)
+    for y in (12, 17, 22): g.line(9, y, 16, y + 3, '#2a8a88'); g.line(16, y + 3, 23, y, '#2a8a88')
+    shine(g, [(14, 7), (13, 8)])
+
+@item('upgrade')
+def _(g):
+    g.rrect(5, 8, 22, 16, 3, '#ff8fb3'); g.rect(5, 8, 11, 16, '#6fb8ff'); g.rrect(5, 8, 22, 16, 3, None) if False else None
+    g.rect(9, 12, 14, 8, '#f6f4f8', True); g.dots([(11, 15), (14, 15), (17, 15), (20, 15), (12, 17), (15, 17), (18, 17)], '#3d4a6e')
+
+@item('dubiousDisc')
+def _(g):
+    g.circ(16, 16, 13, '#a070e0'); g.ring(16, 16, 9, 7.5, '#c9a8ff'); g.circ(16, 16, 3.2, None) if False else None
+    for x in range(N):
+        for y in range(N):
+            if math.hypot(x + .5 - 16, y + .5 - 16) < 3: g.clear(x, y)
+    g.vol(16, 16, 13, .16); shine(g, [(9, 8), (10, 7), (8, 9)])
+
+@item('protector')
+def _(g):
+    g.poly([(5, 6), (27, 6), (27, 16), (16, 29), (5, 16)], '#4a4e66'); g.poly([(9, 9), (23, 9), (23, 15), (16, 24), (9, 15)], '#7d8096', True)
+    g.rect(14, 9, 4, 14, '#4a4e66', True); g.dots([(7, 8), (25, 8)], '#c9cbd8')
+
+def boxitem(g, c, mark):
+    g.rrect(5, 7, 22, 20, 3, c); g.rect(5, 7, 22, 5, dark(hexc(c), .2), True); mark(g); shine(g, [(7, 13), (7, 14)])
+
+@item('electirizer')
+def _(g): boxitem(g, '#ffd23b', lambda g: g.poly([(18, 13), (12, 20), (16, 20), (14, 26), (21, 18), (17, 18)], '#3d4a6e', True))
+
+@item('magmarizer')
+def _(g): boxitem(g, '#e8463a', lambda g: g.poly([(16, 13), (21, 20), (19, 25), (13, 25), (11, 20), (14, 21)], '#ffd23b', True))
+
+@item('reaperCloth')
+def _(g):
+    g.poly([(6, 6), (26, 6), (27, 26), (23, 22), (19, 27), (15, 22), (11, 27), (7, 22), (5, 26)], '#6a4a9a')
+    g.ell(16, 13, 4, 3, '#1d1530', True); g.circ(16, 13, 1.5, '#ff5a5a', True); shine(g, [(8, 8), (9, 8)])
+
+@item('razorClaw')
+def _(g):
+    g.poly([(8, 28), (6, 18), (10, 9), (19, 4), (27, 5), (20, 9), (15, 16), (14, 28)], '#eef0f6')
+    g.line(9, 20, 18, 7, '#b8bccc'); shine(g, [(18, 5), (19, 5)])
+
+@item('razorFang')
+def _(g):
+    g.poly([(8, 4), (24, 4), (22, 12), (17, 28), (15, 28), (10, 12)], '#f6f2ea'); g.line(16, 6, 16, 24, '#d8d0bc'); shine(g, [(11, 6), (11, 7)])
+
+@item('ovalStone')
+def _(g):
+    g.ell(16, 16, 9.5, 12.5, '#f2efe6'); g.vol(16, 16, 12.5, .12); g.dots([(12, 13), (20, 19), (15, 22)], '#d8d2c2'); shine(g, [(12, 7), (11, 8), (11, 9)])
+
+@item('deepSeaTooth')
+def _(g):
+    g.poly([(6, 5), (15, 3), (24, 8), (27, 20), (20, 29), (21, 17), (14, 10)], '#c9dcef'); g.line(9, 5, 22, 24, '#9fb8d8'); shine(g, [(9, 5), (10, 5)])
+
+@item('deepSeaScale')
+def _(g):
+    g.poly([(16, 3), (27, 14), (23, 26), (16, 29), (9, 26), (5, 14)], '#ff9fc4'); g.vol(16, 16, 14, .14)
+    for y in (12, 18): g.line(10, y, 16, y + 3, '#e07aa0'); g.line(16, y + 3, 22, y, '#e07aa0')
+    shine(g, [(14, 7), (13, 8)])
+
+@item('prismScale')
+def _(g):
+    g.poly([(16, 3), (27, 14), (23, 26), (16, 29), (9, 26), (5, 14)], '#ff8fb3')
+    g.poly([(16, 3), (27, 14), (16, 16)], '#ffd23b'); g.poly([(27, 14), (23, 26), (16, 16)], '#5fbf5a'); g.poly([(23, 26), (16, 29), (9, 26), (16, 16)], '#4a8ff0'); g.poly([(9, 26), (5, 14), (16, 16)], '#9b7af0')
+    shine(g, [(14, 7), (13, 8)])
+
+@item('sachet')
+def _(g):
+    g.ell(16, 20, 10, 9, '#ff8fb3'); g.poly([(10, 12), (22, 12), (19, 9), (13, 9)], '#ff8fb3'); g.rect(10, 11, 12, 2, '#c83a6b', True)
+    g.poly([(13, 9), (11, 3), (16, 6), (21, 3), (19, 9)], '#ffc2d6'); g.vol(16, 20, 10, .14); shine(g, [(9, 17), (10, 16)])
+
+@item('whippedDream')
+def _(g):
+    g.ell(16, 24, 12, 5, '#fff6ea'); g.ell(16, 18, 9, 5, '#fff6ea'); g.ell(16, 12, 6, 4, '#fff6ea'); g.poly([(14, 9), (16, 3), (18, 9)], '#fff6ea')
+    g.dots([(11, 22), (19, 17), (22, 24), (14, 13)], '#ff8fb3'); g.vol(16, 18, 13, .1)
+
+
+# ---- treasure
+def mushroom(g, cap, dot, cx=16, cy=13, r=11):
+    g.rrect(int(cx - r * .36), int(cy), int(r * .72), int(r * 1.3), 2, '#f2ead8')
+    g.ell(cx, cy, r, r * .78, cap, where=lambda x, y: y + .5 <= cy + 1)
+    for dx, dy in ((-.45, -.3), (.1, -.55), (.5, -.15)): g.circ(cx + dx * r, cy + dy * r * .78, max(1.3, r * .17), dot, True)
+    shine(g, [(int(cx - r * .7), int(cy - r * .3))])
+
+@item('tinyMushroom')
+def _(g): mushroom(g, '#e8463a', '#ffffff', 16, 16, 8)
+
+@item('bigMushroom')
+def _(g): mushroom(g, '#e8463a', '#ffffff', 16, 13, 13)
+
+@item('balmMushroom')
+def _(g): mushroom(g, '#d07ae0', '#fff0ff', 16, 13, 13); g.star(26, 5, 3, 1, '#ffe27a', n=4, flat=True)
+
+def pearlball(g, cx, cy, r):
+    g.circ(cx, cy, r, '#efe4fa'); g.vol(cx, cy, r, .14); g.circ(cx - r * .35, cy - r * .35, max(1, r * .28), '#ffffff', True)
+
+@item('bigPearl')
+def _(g): pearlball(g, 16, 16, 13.5); g.dots([(21, 23), (22, 22)], '#f6d9ee')
+
+@item('pearlString')
+def _(g):
+    for k in range(9):
+        a = math.radians(200 - k * 25); pearlball(g, 16 + 11 * math.cos(a), 13 - 9 * math.sin(a) + 6, 3.2)
+
+@item('stardust')
+def _(g):
+    g.ell(16, 22, 12, 6, '#ff7a7a'); g.ell(16, 18, 8, 5, '#ff7a7a', where=lambda x, y: y < 20); g.vol(16, 20, 12, .12)
+    g.dots([(10, 21), (14, 18), (19, 21), (22, 23), (16, 24), (12, 24)], '#ffd0d0')
+    g.star(9, 8, 3.5, 1.2, '#ffe27a', n=4, flat=True); g.star(23, 6, 2.5, .9, '#ffe27a', n=4, flat=True)
+
+@item('cometShard')
+def _(g):
+    g.poly([(3, 29), (12, 18), (15, 21)], '#bfe4ff'); g.poly([(6, 29), (13, 21), (14, 24)], '#ffffff', True)
+    g.poly([(14, 12), (22, 4), (29, 9), (25, 19), (16, 21)], '#4a8ff0'); g.poly([(14, 12), (22, 4), (21, 13)], '#8fd0ff', True)
+    shine(g, [(20, 7), (19, 8)])
+
+@item('bigNugget')
+def _(g):
+    g.poly([(7, 8), (17, 3), (27, 8), (29, 19), (23, 28), (10, 29), (3, 20)], GOLD)
+    g.poly([(9, 10), (17, 6), (24, 10), (20, 17), (11, 17)], GOLD_L)
+    g.line(20, 17, 26, 25, GOLD_D); g.line(11, 17, 7, 23, GOLD_D); g.line(20, 17, 11, 17, '#e09a14')
+    g.star(26, 5, 3.5, 1.2, '#ffffff', n=4, flat=True); shine(g, [(13, 8), (12, 9)])
+
+@item('rareBone')
+def _(g):
+    for cx, cy in ((7, 22), (10, 26), (22, 6), (26, 10)): g.circ(cx, cy, 3.6, '#f2ead8')
+    g.poly([(8, 21), (21, 8), (25, 11), (11, 25)], '#f2ead8'); g.line(11, 22, 22, 11, '#d8cdb4')
+
+@item('prettyFeather')
+def _(g):
+    g.poly([(6, 27), (9, 17), (15, 9), (24, 4), (27, 8), (22, 17), (13, 24)], '#eef4ff'); g.line(5, 28, 24, 6, '#8fb3e0')
+    for k in range(4): g.line(10 + k * 3, 20 - k * 3, 14 + k * 3, 22 - k * 3, '#c9dcf5')
+
+def relic_coin(g, face, rim, mark):
+    g.circ(16, 16, 13, face); g.vol(16, 16, 13, .2); g.ring(16, 16, 10.5, 9.5, rim); mark(g)
+    shine(g, [(8, 9), (9, 8)])
+
+@item('relicCopper')
+def _(g): relic_coin(g, '#d9843a', '#a35a20', lambda g: g.rect(13, 11, 6, 10, '#a35a20', True))
+
+@item('relicSilver')
+def _(g): relic_coin(g, '#c9cbd8', '#7d8096', lambda g: (g.circ(16, 16, 4, '#7d8096', True), g.circ(16, 16, 2, '#dfe3ee', True)))
+
+@item('relicGold')
+def _(g): relic_coin(g, GOLD, GOLD_D, lambda g: g.star(16, 16.5, 6, 2.6, GOLD_D, flat=True))
+
+@item('relicVase')
+def _(g):
+    g.poly([(11, 4), (21, 4), (20, 8), (25, 15), (23, 25), (19, 28), (13, 28), (9, 25), (7, 15), (12, 8)], '#4a8ff0')
+    g.rect(8, 15, 16, 2, GOLD, True); g.rect(9, 22, 14, 2, GOLD, True); g.vol(16, 18, 12, .14); shine(g, [(10, 13), (10, 14)])
+
+@item('relicBand')
+def _(g):
+    g.ring(16, 17, 12, 8.5, GOLD, False); g.vol(16, 17, 12, .16)
+    for a in (210, 270, 330): r = math.radians(a); g.circ(16 + 10.2 * math.cos(r), 17 + 10.2 * math.sin(r), 2, '#e8383d', True)
+
+@item('relicStatue')
+def _(g):
+    g.rrect(8, 25, 16, 5, 1, '#9a8a6a'); g.rect(12, 14, 8, 11, '#c9b48a'); g.circ(16, 10, 5, '#c9b48a')
+    g.poly([(11, 7), (13, 2), (15, 6)], '#c9b48a'); g.poly([(21, 7), (19, 2), (17, 6)], '#c9b48a')
+    g.dots([(14, 10), (18, 10)], NAVY); shine(g, [(12, 8), (13, 16)])
+
+@item('relicCrown')
+def _(g):
+    g.poly([(4, 24), (5, 9), (11, 16), (16, 6), (21, 16), (27, 9), (28, 24)], GOLD); g.rect(4, 22, 25, 5, GOLD_D)
+    for x, c in ((9, '#e8383d'), (16, '#4a8ff0'), (23, '#5fbf5a')): g.circ(x, 24.5, 1.8, c, True)
+    g.dots([(5, 9), (16, 6), (27, 9)], GOLD_L)
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(here, '..', 'Pokemon_Style_UI_Icons_v2')
     for path, f in D.items():
         g = G(); f(g); save_png(os.path.join(out, path), render(g))
     print(f'wrote {len(D)} icons to {os.path.normpath(out)}')
+    items = os.path.join(here, '..', 'assets', 'items')
+    for key, f in ITEM.items():
+        g = G(); f(g); save_png(os.path.join(items, key + '.png'), render(g))
+    print(f'wrote {len(ITEM)} item icons to {os.path.normpath(items)}')
 
 
 if __name__ == '__main__':

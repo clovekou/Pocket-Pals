@@ -32,10 +32,14 @@ const Game = (() => {
     shinyMult: 1, legendMult: 1, treasureMult: 1, eggMult: 1, bossShinyMult: 1,
     features: { explore: true, training: true, codes: true, shop: true },
     announcement: '',
-    // Poké Mart prices in Pokécoins (0 = not on the shelf). The admin can change them.
-    shopBuy: { oran: 60, rareCandy: 800, greatBall: 400, ultraBall: 1500, mysteryEgg: 2500 },
-    shopSell: { pearl: 150, starPiece: 400, nugget: 1000, oran: 20 },
+    // Poké Mart prices in Pokécoins (0 = not on the shelf), from items.js. The admin can change them.
+    shopBuy: priceList('buy'), shopSell: priceList('sell'),
   };
+  function priceList(k) {
+    const out = {};
+    Object.entries(typeof ITEM_DATA !== 'undefined' ? ITEM_DATA : {}).forEach(([key, it]) => { if (it[k] > 0) out[key] = it[k]; });
+    return out;
+  }
   const CFG = JSON.parse(JSON.stringify(CFG_DEFAULT));
   function applyConfig(c) {
     c = c || {};
@@ -47,15 +51,13 @@ const Game = (() => {
     CFG.announcement = String(c.announcement || '').slice(0, 400);
     const prices = (def, over) => {
       const out = Object.assign({}, def);
-      Object.entries(over || {}).forEach(([k, v]) => { const n = Math.round(Number(v)); if (k in ITEM_KEYS && Number.isFinite(n)) out[k] = Math.max(0, Math.min(999999, n)); });
+      Object.entries(over || {}).forEach(([k, v]) => { const n = Math.round(Number(v)); if (ITEMS[k] && Number.isFinite(n)) out[k] = Math.max(0, Math.min(999999, n)); });
       return out;
     };
     CFG.shopBuy = prices(CFG_DEFAULT.shopBuy, c.shopBuy); CFG.shopSell = prices(CFG_DEFAULT.shopSell, c.shopSell);
     emit('config');
   }
   const feature = k => CFG.features[k] !== false;
-  // every item the shop may list (kept in step with ITEMS below)
-  const ITEM_KEYS = { oran: 1, rareCandy: 1, mysteryEgg: 1, pearl: 1, starPiece: 1, nugget: 1, greatBall: 1, ultraBall: 1, masterBall: 1 };
   const oneIn = (n, mult) => Math.random() * Math.max(1, n / mult) < 1;   // a "1 in n" chance, boosted by mult
 
   let S = null;
@@ -416,25 +418,60 @@ const Game = (() => {
   }
 
   // ---------------- evolution ----------------
+  // ---- item evolution (like the main games): stones are used, trade items are held until the next level-up
+  const isDay = () => { const h = new Date().getHours(); return h >= 6 && h < 18; };
+  const itemTargets = id => { const out = new Set(); Object.values(EVO).forEach(rows => rows.forEach(([f, t]) => { if (f === id) out.add(t); })); return out; };
+  /** what this evolution item turns Pokémon `id` into right now: { to } or { error } */
+  function evoTarget(k, id) {
+    const rows = (EVO[k] || []).filter(([f, t]) => f === id && SPECIES_BY_ID[t]);
+    if (!rows.length) return { error: 'none' };
+    const ok = rows.filter(([, , time]) => !time || (time === 'day') === isDay());
+    if (!ok.length) return { error: rows[0][2] === 'night' ? 'night' : 'day' };
+    const fresh = ok.filter(([, t]) => !registered(t)), pool = fresh.length ? fresh : ok;
+    return { to: pool[rnd(pool.length)][1] };
+  }
+  /** Pokémon (species ids) an evolution item works on */
+  const evoUsers = k => [...new Set((EVO[k] || []).map(([f]) => f))].filter(id => SPECIES_BY_ID[id]);
+  const levelTargets = s => { const it = itemTargets(s.id); return s.next.filter(n => !it.has(n)); };
+  /** how species `id` evolves: [{ to, lv } | { to, item, time }] */
+  function evoMethods(id) {
+    const s = SPECIES_BY_ID[id]; if (!s) return [];
+    const out = levelTargets(s).map(to => ({ to, lv: s.evo }));
+    Object.entries(EVO).forEach(([k, rows]) => rows.forEach(([f, to, time]) => {
+      if (f === id && SPECIES_BY_ID[to] && ITEMS[k] && !out.some(m => m.to === to && m.item === k)) out.push({ to, item: k, time });
+    }));
+    return out;
+  }
+  /** the held item is ready to evolve it (it has levelled up since it was given) */
+  function heldEvo() {
+    const p = S.pet;
+    if (!p || p.egg || !p.held || !ITEMS[p.held] || ITEMS[p.held].how !== 'hold') return null;
+    if (level() < (p.heldLevel || 0)) return null;
+    const r = evoTarget(p.held, p.sp);
+    return r.to ? r.to : null;
+  }
   function evoLevel() {
     const p = S.pet, s = sp();
-    if (!p || p.egg || !s.next.length) return null;
+    if (!p || p.egg || !levelTargets(s).length) return null;
     return s.evo + p.mistakes;
   }
   function canEvolve() {
     const p = S.pet;
     if (!p || p.egg || p.asleep || S.ceremony) return false;
-    const need = evoLevel(); if (need == null) return false;
     const lv = level();
+    if (heldEvo() && lowest() >= 40 && lv > p.declinedLevel) return true;
+    const need = evoLevel(); if (need == null) return false;
     return lv >= need && lowest() >= 40 && lv > p.declinedLevel;
   }
   function evolve() {
     if (!canEvolve()) return null;
-    const p = S.pet, s = sp(), from = p.sp;
-    let to = s.next[0];
-    if (s.next.length > 1) {
-      const missing = s.next.filter(n => !registered(n));
-      const pool = missing.length ? missing : s.next;
+    const p = S.pet, s = sp(), from = p.sp, held = heldEvo();
+    let to;
+    if (held) { to = held; delete p.held; delete p.heldLevel; }
+    else {
+      const next = levelTargets(s);
+      const missing = next.filter(n => !registered(n));
+      const pool = missing.length ? missing : next;
       to = pool[rnd(pool.length)];
     }
     p.sp = to; p.declinedLevel = 0;
@@ -443,6 +480,35 @@ const Game = (() => {
     return { from, to };
   }
   function declineEvolve() { if (S.pet) { S.pet.declinedLevel = level(); save(); } }
+  /** use an evolution item (how: 'use') on your main: it evolves straight away */
+  function useEvoItem(k) {
+    const p = S.pet, it = ITEMS[k];
+    if (!it || it.kind !== 'evo' || it.how !== 'use' || !itemCount(k)) return { error: 'You have none left.' };
+    if (!p || p.egg) return { error: 'Hatch your egg first.' };
+    if (p.asleep || S.ceremony) return { error: 'Not right now — it\'s asleep.' };
+    const r = evoTarget(k, p.sp);
+    if (r.error) return { error: r.error === 'none' ? `It won't have any effect on ${p.name || sp().name}.` : `It only works during the ${r.error}.` };
+    S.player.bag[k]--;
+    const from = p.sp; p.sp = r.to; p.declinedLevel = 0;
+    register(r.to, p.shiny); checkMedals(); save();
+    return { from, to: r.to };
+  }
+  /** give a held evolution item (how: 'hold') to your main; any item it was holding goes back to the Bag */
+  function giveHeld(k) {
+    const p = S.pet, it = ITEMS[k];
+    if (!it || it.how !== 'hold' || !itemCount(k)) return { error: 'You have none left.' };
+    if (!p || p.egg) return { error: 'Hatch your egg first.' };
+    const r = evoTarget(k, p.sp), any = (EVO[k] || []).some(([f]) => f === p.sp);
+    if (!any) return { error: `${p.name || sp().name} can't use the ${it.name}.` };
+    if (p.held) S.player.bag[p.held] = itemCount(p.held) + 1;
+    S.player.bag[k]--; p.held = k; p.heldLevel = level() + 1; p.declinedLevel = 0;
+    save(); emit('change');
+    return { ok: true, when: r.error === 'night' || r.error === 'day' ? r.error : '' };
+  }
+  function takeHeld() {
+    const p = S.pet; if (!p || !p.held) return false;
+    S.player.bag[p.held] = itemCount(p.held) + 1; delete p.held; delete p.heldLevel; save(); emit('change'); return true;
+  }
 
   // ---------------- endings ----------------
   function canFarewell() {
@@ -524,18 +590,9 @@ const Game = (() => {
   const memberLevel = m => 1 + Math.floor(m.ageMin / MIN_PER_LEVEL);
 
   // ---------------- explore ----------------
-  const ITEMS = {
-    oran:      { name: 'Oran Berry',  icon: 'oran',          use: true,  desc: 'Restores every need by 25.' },
-    rareCandy: { name: 'Rare Candy',  icon: 'rareCandy',     use: true,  desc: 'Your main grows 1 level.' },
-    mysteryEgg:{ name: 'Mystery Egg', icon: 'egg_legend_0',  use: true,  desc: 'A new egg — no Lv 5 needed (needs a free party slot).' },
-    pearl:     { name: 'Pearl',       icon: 'pearl',         use: false, desc: 'A pretty pearl. A collector\'s item.' },
-    starPiece: { name: 'Star Piece',  icon: 'starPiece',     use: false, desc: 'A shard of a shooting star. A collector\'s item.' },
-    nugget:    { name: 'Nugget',      icon: 'nugget',        use: false, desc: 'A nugget of pure gold. A collector\'s item.' },
-    // catch-wheel balls: use one before spinning (after beating a floor boss or a legendary)
-    greatBall: { name: 'Great Ball',  icon: 'greatball',     use: false, wheel: 'great',  desc: 'Use it on the catch wheel: every Poké Ball slot becomes a Great Ball.' },
-    ultraBall: { name: 'Ultra Ball',  icon: 'ultraball',     use: false, wheel: 'ultra',  desc: 'Very rare. On the catch wheel, every weaker slot becomes an Ultra Ball.' },
-    masterBall:{ name: 'Master Ball', icon: 'masterball',    use: false, wheel: 'master', desc: 'Extremely rare. Turns the whole catch wheel into Master Balls — a sure catch!' },
-  };
+  // every item (items.js); which Pokémon an evolution item works on is in evoitems.js
+  const ITEMS = typeof ITEM_DATA !== 'undefined' ? ITEM_DATA : {};
+  const EVO = typeof EVO_ITEMS !== 'undefined' ? EVO_ITEMS : {};
   // Ultra Beasts and Paradox Pokémon aren't flagged legendary in the data, but count as "special"
   const SPECIAL_IDS = new Set([793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806,
     984, 985, 986, 987, 988, 989, 990, 991, 992, 993, 994, 995, 1005, 1006, 1009, 1010, 1020, 1021, 1022, 1023]);
@@ -583,11 +640,17 @@ const Game = (() => {
     return 'none';
   }
   function rollTreasure(floor) {
-    const table = [['oran', 40], ['pearl', 18], ['starPiece', 14 + floor], ['nugget', 8 + floor * 1.5], ['rareCandy', 6 + floor * 1.5], ['mysteryEgg', 2 + floor * .5],
-      ['greatBall', 5 + floor * .3], ['ultraBall', 1 + floor * .15], ['masterBall', .08 + floor * .01]];   // rare / very rare / extremely rare
-    let r = Math.random() * table.reduce((a, [, w]) => a + w, 0);
-    for (const [k, w] of table) { if ((r -= w) < 0) return k; }
-    return 'oran';
+    // weights from items.js (`find`); deeper floors make rarer finds a little more likely
+    const table = Object.entries(ITEMS).filter(([, it]) => it.find > 0)
+      .map(([k, it]) => [k, it.find * (it.kind === 'evo' ? .3 : 1) * (k === 'oran' ? 1 : 1 + floor * (it.find < 2 ? .15 : .08))]);   // evolution items are rare
+    let r = Math.random() * table.reduce((a, [, w]) => a + w, 0), pick = 'oran';
+    for (const [k, w] of table) { if ((r -= w) < 0) { pick = k; break; } }
+    // an evolution item leans toward one your main can use
+    if (ITEMS[pick] && ITEMS[pick].kind === 'evo' && S.pet && !S.pet.egg && Math.random() < .4) {
+      const mine = Object.keys(EVO).filter(k => ITEMS[k] && (EVO[k] || []).some(([f]) => f === S.pet.sp));
+      if (mine.length) pick = mine[rnd(mine.length)];
+    }
+    return pick;
   }
   /** a wild Pokémon 3–5 levels below your main (never legendary) */
   function rollWild() {
@@ -811,7 +874,8 @@ const Game = (() => {
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
     ITEMS, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
-    applyConfig, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
+    applyConfig, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem,
+    useEvoItem, giveHeld, takeHeld, evoTarget, evoUsers, heldEvo, evoMethods, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
     setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
     canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,

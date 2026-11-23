@@ -433,3 +433,12 @@ html.standalone #top { padding-top: 10px; }
 .qty { display: flex; align-items: center; gap: 4px; }
 .qty span { font-family: var(--pixel); font-weight: 700; min-width: 22px; text-align: center; }
 @media (max-width: 380px) { .itemrow { flex-wrap: wrap; } .itemrow .ii { flex-basis: calc(100% - 52px); } }
+
+/* ---------- evolution items ---------- */
+.itemrow .evonote { color: #6a5fb0 !important; font-weight: 700; margin-top: 2px; }
+.itemrow .evonote.mine { color: #2f8a3a !important; }
+.itemrow.held { background: linear-gradient(180deg, #f3fff0, #e0f6d8); }
+details.more { margin: 4px 0 8px; }
+details.more > summary { font-family: var(--pixel); font-weight: 700; cursor: pointer; padding: 8px 4px; color: var(--muted); list-style: none; }
+details.more > summary::before { content: '▸ '; }
+details.more[open] > summary::before { content: '▾ '; }

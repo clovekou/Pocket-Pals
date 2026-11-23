@@ -68,6 +68,20 @@ Rarely, a **legendary or special Pokémon** appears. Beat it, then spin the catc
 fragment — collect 20 to summon it (100% catch) from **Bag → Items**. Caught Pokémon join your
 party, or the **PC Box** (in the Party menu) when the party is full.
 
+## Items, evolution items and the Poké Mart
+- **Bag → Items** holds everything you find; **Bag → Shop** is the Poké Mart (buy with Pokécoins, sell treasure).
+- **Treasure** (Tiny/Big/Balm Mushroom, Pearl, Big Pearl, Pearl String, Stardust, Star Piece, Comet Shard,
+  Nugget, Big Nugget, Rare Bone, Pretty Feather and seven Relics) turns up in dungeon chests. Sell it for Pokécoins.
+- **Evolution items** work like the main games. Stones and other "use" items (Fire, Water, Thunder, Leaf,
+  Moon, Sun, Shiny, Dusk, Dawn and Ice Stone, Linking Cord, the apples, pots, armours…) evolve your main
+  straight away. "Hold" items (King's Rock, Metal Coat, Dragon Scale, Up-Grade, Razor Claw, Oval Stone…)
+  are given to your main, and it evolves at its next level-up. A few depend on the time of day.
+  Pokémon that evolve by an item no longer evolve by level. They're rare dungeon finds (more often one
+  your main can use) and can be bought in the shop.
+- All items are defined in `items.js` (names, prices, how rare they are). Which Pokémon each evolution item
+  works on comes from PokéAPI data: `python3 tools/build_evo_items.py` regenerates `evoitems.js`.
+  Item icons are drawn by `python3 tools/make_ui_icons.py` into `assets/items/`.
+
 ## Backgrounds
 In the dashboard's **Backgrounds** section you can upload your own scene pictures
 (PNG/JPG/GIF/WebP) and pick one for every scene or a different one per landscape
