@@ -323,6 +323,9 @@
     if (h >= 17.5 && h < 20) return 'dusk';
     return 'night';
   }
+  // the scene's lighting: full daylight while the Pokémon is awake, dimmed to night only while it sleeps
+  // (dayPhase() still follows the clock for what the Pokémon says)
+  function scenePhase() { const p = Game.pet(); return p && !p.egg && p.asleep ? 'night' : 'day'; }
   const SKY = { dawn: ['#ff9e7a', '#ffe0b0'], day: ['#5fb8f5', '#cdeeff'], dusk: ['#5b4a9e', '#ff9a72'], night: ['#0f1433', '#2c2f66'] };
 
   function drawSky(t, phase) {
@@ -557,11 +560,11 @@
     // they stay put when the chat box opens (only the main Pokémon rises above it)
     const fy = far ? Math.max(H * .3, bg.y + bg.h * (.43 + (p.depth - .62) * .5)) : H * p.depth;
     const x = far ? Math.max(bg.x, 0) + Math.min(bg.w, W) * (.18 + (p.x - .1) / .8 * .62) : p.x * W;
-    const size = baseSize() * (far ? .34 : .55);
+    const size = baseSize() * (far ? .44 : .7);
     // every party Pokémon shares one pixel size (snapped to whole device pixels), so their sprite
     // pixels line up and each species keeps its natural PMD size relative to the others
-    const pxScale = Math.max(1, Math.round(baseSize() * (far ? .68 : 1.15) / 28 * DPR)) / DPR;
-    const maxH = baseSize() * (far ? 1.5 : 2.4);
+    const pxScale = Math.max(1, Math.round(baseSize() * (far ? .88 : 1.45) / 28 * DPR)) / DPR;
+    const maxH = baseSize() * (far ? 1.95 : 3);
     pixelShadow(cx, x, fy, size * .8, size * .16, .14, pxScale);
     const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
     const pos = drawCreature(cx, p.sp, {
@@ -728,7 +731,7 @@
 
   function draw(t, ms) {
     const p = Game.pet();
-    const phase = dayPhase();
+    const phase = scenePhase();
     const biome = p ? ELEMENTS[SPECIES_BY_ID[p.sp].el].biome : 'meadow';
     const scene = p && p.egg ? 'meadow' : biome;
     V.bg = null;
@@ -2935,6 +2938,8 @@ if (!code) {
         else if (!b.egg && b.level > a.level) msg += `: it grew to Lv ${b.level}.`;
         else msg += '.';
         if (!b.egg && Math.min(b.food, b.joy, b.ene, b.hyg) < 25) msg += ' It really needs you now!';
+        if (!b.egg && d.woke) msg += ` It slept the whole time and woke up rested (energy ${b.ene}).`;
+        else if (!b.egg && d.asleep) msg += ` It's still asleep, recharging (energy ${b.ene}).`;
       }
       toast(msg, 5000);
       if (b && !b.egg && !Game.pet().asleep) { awayGreeted = true; Talk.say(Math.min(b.food, b.joy, b.ene, b.hyg) < 25 ? 'backNeedy' : 'backHappy', { prio: 2 }); }
@@ -2994,7 +2999,7 @@ if (!code) {
   }
   window.__pocketPalError = reportError;
   // away from the phone or app closed -> the Pokémon goes to sleep right away (and the game is saved)
-  document.addEventListener('visibilitychange', () => { if (document.hidden) Game.sleepNow(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) Game.sleepNow(); else Game.resume(); });
   window.addEventListener('pagehide', () => Game.sleepNow());
 
   // the dock / header icons are drawn as smooth SVG, then re-rendered small so they read as chunky pixel art

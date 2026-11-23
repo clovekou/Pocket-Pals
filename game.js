@@ -63,6 +63,9 @@ const Game = (() => {
   let S = null;
   const listeners = [];
   let quiet = false;
+  // set when the app opens or comes back into view: the next update() wakes a rested Pokémon (energy over WAKE_ENERGY)
+  let wakeCheck = false;
+  const WAKE_ENERGY = 80;
   const emit = (ev, d) => {
     if (quiet && ev !== 'save') return;
     // a UI error while reacting to an event must never break the game state
@@ -122,6 +125,7 @@ const Game = (() => {
     if (S.player.lastCareDay && dayNum() > S.player.lastCareDay + 1) { S.player.streak = 0; S.player.lastMilestone = 0; }
     // the app was closed without saying goodbye (killed / crashed): it fell asleep the moment you left
     if (S.pet && !S.pet.egg && !S.pet.asleep && Date.now() - S.lastTick > 2 * 60000) S.pet.asleep = true;
+    wakeCheck = true;
     return S;
   }
   function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage blocked */ } }
@@ -139,19 +143,31 @@ const Game = (() => {
 
   // ---------------- time ----------------
   function update(now = Date.now()) {
-    if (!S.player.starterPicked || S.ceremony || !S.pet) { S.lastTick = now; return 0; }
+    if (!S.player.starterPicked || S.ceremony || !S.pet) { S.lastTick = now; wakeCheck = false; return 0; }
     const mpm = msPerMin();
     let n = Math.floor((now - S.lastTick) / mpm);
-    if (n <= 0) return 0;
     if (n > OFFLINE_CAP) { S.lastTick = now - OFFLINE_CAP * mpm; n = OFFLINE_CAP; }
-    quiet = n > 3;
-    const before = snapshot();
-    for (let i = 0; i < n && !S.ceremony; i++) { S.lastTick += mpm; tick(); }
-    quiet = false;
+    const before = n > 0 ? snapshot() : null;
+    if (n > 0) {                       // time away is spent asleep, so energy recharges
+      quiet = n > 3;
+      for (let i = 0; i < n && !S.ceremony; i++) { S.lastTick += mpm; tick(); }
+      quiet = false;
+    }
+    // back in the app: a Pokémon that has slept enough (energy over WAKE_ENERGY) is already up; otherwise it keeps sleeping
+    let woke = false;
+    if (wakeCheck) {
+      wakeCheck = false;
+      const p = S.pet;
+      if (p && !p.egg && p.asleep && !S.ceremony && p.ene > WAKE_ENERGY) { p.asleep = false; woke = true; }
+    }
+    if (n <= 0 && !woke) return 0;
     save();
-    if (n > 3) emit('away', { minutes: n, before, after: snapshot() });
-    return n;
+    if (n > 3) emit('away', { minutes: n, before, after: snapshot(), woke, asleep: !!(S.pet && S.pet.asleep) });
+    if (woke) emit('change');
+    return Math.max(0, n);
   }
+  /** the app came back into view (phone unlocked, switched back): check on the sleeping Pokémon at the next update */
+  function resume() { wakeCheck = true; }
   function setFast(on) { S.settings.fast = !!on; S.lastTick = Date.now(); save(); }
   function snapshot() {
     const p = S.pet; if (!p) return null;
@@ -902,7 +918,7 @@ const Game = (() => {
     applyEvolutions(o) { if (EV) { EV.setOverrides(o); emit('config'); } }, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
     setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, useHeal, exploreEnd,
-    canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
+    resume, canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
     stat, registered, registeredCount, shinyCount, careBonus, isFinal,
     LEGEND_UNLOCK, FAREWELL_AGE,
     _tick: tick, // for testing
