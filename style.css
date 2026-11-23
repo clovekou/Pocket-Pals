@@ -410,8 +410,5 @@ p { line-height: 1.55; margin: 6px 0; }
 }
 
 /* ---------- home-screen app (iPhone) ---------- */
-/* fill the real screen height (see the script in index.html) */
-html.standalone, html.standalone body { bottom: auto; height: var(--app-h, 100%); }
-html.standalone #app { bottom: auto; height: var(--app-h, 100%); }
-/* iOS draws a soft blur under the status bar: keep the header clear of it */
-html.standalone #top { padding-top: 16px; }
+/* the status bar sits above the app now, so no extra top room is needed; keep a little breathing space */
+html.standalone #top { padding-top: 10px; }

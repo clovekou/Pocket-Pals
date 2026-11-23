@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#e3350d">
+<meta name="theme-color" content="#2a3d91">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Pocket Pals">
 <title>Pocket Pal</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -18,19 +18,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <script>
-// Home-screen app on newer iPhones: the page can come out shorter than the screen (gap at the bottom).
-// Size it to the real screen height instead.
-(function () {
-  var sa = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-  if (!sa) return;
-  var root = document.documentElement; root.classList.add('standalone');
-  function fit() {
-    var portrait = window.innerHeight >= window.innerWidth;
-    var h = portrait ? Math.max(window.innerHeight, Math.max(screen.height, screen.width)) : window.innerHeight;
-    root.style.setProperty('--app-h', h + 'px');
-  }
-  fit(); addEventListener('resize', fit); addEventListener('orientationchange', function () { setTimeout(fit, 300); });
-})();
+// home-screen app: lets the CSS tell it apart from a Safari tab
+if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) document.documentElement.classList.add('standalone');
 </script>
 </head>
 <body>
