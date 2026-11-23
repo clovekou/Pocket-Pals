@@ -572,6 +572,7 @@
     bars: [...document.querySelectorAll('.bar')].map(b => ({ k: b.dataset.k, el: b, fill: b.querySelector('i'), val: b.querySelector('.bv') })),
   };
   let cerSig = '';
+  let curUntil = 0;
   function hud() {
     const p = Game.pet(), S = ST();
     if (!p) { els.name.textContent = 'Pocket Pal'; els.name.dataset.sig = ''; els.sub.textContent = 'Choose a partner'; els.avatar.className = 'egg'; els.avatar.src = PX.url('egg_rare_0'); els.lv.textContent = ''; els.lv.classList.add('hidden'); return; }
@@ -587,6 +588,7 @@
     }
     els.lv.textContent = p.egg ? '' : 'Lv ' + Game.level();
     els.lv.classList.toggle('hidden', !!p.egg);
+    if (p.egg) delete els.sub.dataset.lv; else els.sub.dataset.lv = 'Lv ' + Game.level();
     for (const b of els.bars) {
       const v = p.egg ? 0 : p[b.k];
       b.fill.style.width = v + '%';
@@ -601,6 +603,7 @@
       const a = b.dataset.act;
       const off = (p.egg && a !== 'dex' && a !== 'party') || (asleep && ['feed', 'play', 'train', 'explore'].includes(a));
       b.classList.toggle('off', off);
+      if (b.classList.contains('cur') && performance.now() > curUntil && $('#scrim').classList.contains('hidden') && $('#arena').classList.contains('hidden')) b.classList.remove('cur');
     });
     els.hint.textContent = !S.player.starterPicked ? '' : p.egg ? 'Tap the egg 3× to hatch it' : '';
     // ceremony buttons
@@ -1169,6 +1172,7 @@ if (!code) {
   // ======================= action bar =======================
   document.querySelectorAll('#actions button').forEach(b => b.addEventListener('click', () => {
     if (!ST().player.starterPicked) return;
+    if (!b.classList.contains('off')) { document.querySelectorAll('#actions button.cur').forEach(x => x.classList.remove('cur')); b.classList.add('cur'); curUntil = performance.now() + 700; }
     const a = b.dataset.act;
     if (a === 'dex') return openDex();
     if (a === 'party') return openParty();
