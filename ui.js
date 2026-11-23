@@ -1058,7 +1058,11 @@ if (!code) {
     openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.</p>
       <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="pslot empty">Empty slot</div>'.repeat(empties)}</div>
       ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 8px">PC Box (${Game.box().length})</h4><div class="partylist">${Game.box().map((m, i) => boxSlot(m, i)).join('')}</div>` : ''}`);
-    sheet.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', () => { closeSheet(); doSwitch(+b.dataset.sw); }));
+    sheet.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', () => {   // stays on the Party tab
+      const pp = Game.pet();
+      if (!pp || pp.egg) { toast('Hatch your egg first, then you can switch.'); return; }
+      doSwitch(+b.dataset.sw); openParty();
+    }));
     sheet.querySelectorAll('[data-tobox]').forEach(b => b.addEventListener('click', () => { Game.partyToBox(+b.dataset.tobox); openParty(); }));
     sheet.querySelectorAll('[data-frombox]').forEach(b => b.addEventListener('click', () => { if (Game.boxToParty(+b.dataset.frombox)) openParty(); else toast('Your party is full.'); }));
     sheet.querySelectorAll('[data-relbox]').forEach(b => b.addEventListener('click', () => {
@@ -1093,7 +1097,8 @@ if (!code) {
     let body = '';
     if (cardTab === 'profile') {
       const hearts = Math.round(p.bond / 20);
-      body = `<div class="hero">${miniCanvas(p.sp, { px: 104, shiny: p.shiny })}<div>
+      const face = portraitUrl(p.sp, p.shiny, Game.lowest() < 25 ? 'Sad' : p.bond >= 60 ? 'Happy' : 'Normal');   // its portrait, like the Party list
+      body = `<div class="hero">${face ? `<img class="portrait" src="${face}" alt="">` : miniCanvas(p.sp, { px: 104, shiny: p.shiny })}<div>
           <h3>${esc(petName())} ${p.shiny ? '<span style="color:#e0a81f">{i:sparkle}</span>' : ''}</h3>
           <div class="muted">${s.name} · Lv ${Game.level()}</div>
           <span class="pill" style="background:${el.color}">${el.label}</span>
@@ -1233,7 +1238,7 @@ if (!code) {
       <label class="toggle"><span><b>Music volume</b><small id="musicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Fast time (testing)</b><small>1 second = 1 game minute. Normally 1 real minute = 1 game minute.</small></span><span class="sw"><input type="checkbox" id="setFast" ${S.settings.fast ? 'checked' : ''}><i></i></span></label>
-      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:card} Home-screen widget</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
+      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:card} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCredits">{i:star} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
     $('#setMusic').addEventListener('change', e => { S.settings.music = e.target.checked; Game.save(); });
@@ -1241,6 +1246,8 @@ if (!code) {
     $('#setPlayer').addEventListener('input', e => { S.settings.player = e.target.value.slice(0, 14); Game.save(); });
     $('#setFast').addEventListener('change', e => { Game.setFast(e.target.checked); toast(e.target.checked ? 'Fast time ON' : 'Fast time OFF'); });
     $('#howTo').addEventListener('click', openManual);
+    $('#openCredits').addEventListener('click', openCredits);
+    if ($('#openInstall')) $('#openInstall').addEventListener('click', () => Install.start(openSettings));
     if ($('#openCode')) $('#openCode').addEventListener('click', openRedeem);
     $('#openOnline').addEventListener('click', () => openOnline());
     $('#openWidget').addEventListener('click', openWidget);
@@ -1282,6 +1289,75 @@ if (!code) {
   }
 
   // ---------- gift codes (event Pokémon set by the admin) ----------
+  // ---------- add to the home screen ----------
+  // Browsers never install a website without the player's tap, so the game offers it: on Android / Chrome / Edge
+  // the Install button opens the browser's own install prompt; on iPhone / iPad (no prompt there) it shows the
+  // Share → "Add to Home Screen" steps. The bar appears by itself a few seconds after the game opens, unless the game
+  // is already running from the home screen or the player closed the bar in the last 3 days.
+  const Install = (() => {
+    const KEY = 'pp-install-dismissed', SNOOZE = 3 * 864e5;
+    let evt = window.__ppInstall || null, bar = null;
+    const standalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const snoozed = () => { try { return Date.now() - (+localStorage.getItem(KEY) || 0) < SNOOZE; } catch (e) { return false; } };
+    const available = () => !standalone() && (!!evt || ios);
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; autoShow(); });
+    window.addEventListener('appinstalled', () => { evt = null; hide(); toast('{i:sparkle} Pocket Pals is on your home screen!', 4000); });
+    function hide() { if (bar) { bar.remove(); bar = null; } }
+    function dismiss() { try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {} hide(); }
+    function iosSteps(back) {
+      openSheet(head('Add to Home Screen') + `
+        <p class="muted" style="margin-top:0">Play Pocket Pals like an app — full screen, one tap from your home screen.</p>
+        <ol class="installsteps">
+          <li>Tap the <b>Share</b> button <span class="shareic" aria-hidden="true"></span> in Safari's toolbar${/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent) ? ' (in Chrome it\'s at the top right)' : ''}.</li>
+          <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+          <li>Tap <b>Add</b>. Pocket Pals appears on your home screen!</li>
+        </ol>
+        <div class="btns"><button class="btn alt" id="instBack">${back ? '← Back' : 'Got it'}</button></div>`);
+      $('#instBack').addEventListener('click', () => (back ? back() : closeSheet()));
+    }
+    async function start(back) {
+      if (evt) {
+        const e = evt; evt = null; hide();
+        try { e.prompt(); const r = await e.userChoice; if (r && r.outcome !== 'accepted') dismiss(); } catch (er) {}
+        return;
+      }
+      if (ios) { hide(); iosSteps(back); return; }
+      toast('Use your browser menu → "Install app" or "Add to Home screen".', 4500);
+    }
+    function show() {
+      if (bar || !available()) return;
+      bar = document.createElement('div'); bar.id = 'installBar';
+      bar.innerHTML = icons(`<img src="icons/icon-192.png" alt=""><div class="ib"><b>Add Pocket Pals to your Home Screen</b><small>Play it like an app, full screen</small></div>
+        <button class="ibgo">${ios ? 'How?' : 'Install'}</button><button class="ibx" aria-label="Close">✕</button>`);
+      bar.querySelector('.ibgo').addEventListener('click', () => start());
+      bar.querySelector('.ibx').addEventListener('click', dismiss);
+      document.body.appendChild(bar);
+    }
+    let timer = null;
+    function autoShow() { if (snoozed() || standalone()) return; clearTimeout(timer); timer = setTimeout(show, 3500); }
+    autoShow();
+    return { available, start, show };
+  })();
+
+  // ---------- credits ----------
+  function openCredits() {
+    const link = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
+    openSheet(head('Credits') + `
+      <div class="credits">
+        <p><b>Pocket Pals is a free, fan-made game.</b> It is not official and is not made, endorsed or supported by Nintendo, Creatures Inc., GAME FREAK or The Pokémon Company.</p>
+        <p>Pokémon and all Pokémon character names, designs and related marks are © and ™ Nintendo, Creatures Inc., GAME FREAK and The Pokémon Company. <b>All credit for Pokémon goes to The Pokémon Company</b> and its partners.</p>
+        <h4>Pokémon sprites &amp; portraits</h4>
+        <p>All Pokémon sprites and portraits come from the <b>PMD Sprite Collab</b> project, drawn by its many artists. Thank you to every contributor!<br>
+          ${link('https://sprites.pmdcollab.org/#/Contributors', '{i:star} See all sprite &amp; portrait contributors')}</p>
+        <h4>Data &amp; fonts</h4>
+        <p>Pokémon evolution and stat data: ${link('https://pokeapi.co', 'PokéAPI')}.<br>
+          Number font: Jersey 15 (SIL Open Font License). Pixelify Sans and Nunito from Google Fonts (SIL Open Font License).</p>
+        <p class="muted">Made with love by fans, for fans. Please support the official Pokémon games!</p>
+      </div>
+      <div class="btns"><button class="btn alt" id="credBack">← Back</button></div>`);
+    $('#credBack').addEventListener('click', openSettings);
+  }
   function openRedeem() {
     const signedIn = !!(Online.state.user && Online.state.profile);
     openSheet(head('Redeem a code') + `
@@ -1841,13 +1917,30 @@ if (!code) {
       openFeed('items');
     }));
     sheet.querySelectorAll('[data-take]').forEach(b => b.addEventListener('click', () => { Game.takeHeld(); toast('Put back in the Bag.'); openFeed('items'); }));
-    sheet.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', () => {
-      const k = b.dataset.use, r = Game.useItem(k);
-      if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return; }
+    const afterUse = (k, r) => {
       closeSheet();
       if (k === 'oran') { startEat('#4a86e8', 'oran'); addHearts(4); toast('{i:oran} Every need +25!'); Talk.say('fav', { vars: { berry: 'Oran Berry' } }); }
       if (k === 'rareCandy') { startEat('#4a7fe0', 'rareCandy'); addSparkles(V.x * W, feetY() - petSize(), 18); toast(`{i:rareCandy} ${petName()} grew to Lv ${Game.level()}!`); }
-      if (r.egg) { V.x = .5; V.loaded = null; Talk.clear(); Sound.play('hatch'); toast('{i:egg_legend_0} The Mystery Egg is your new main — tap it 3 times!', 4000); Talk.say('newEgg', { prio: 2 }); }
+      if (k === 'sitrus') { startEat('#f2d23a', 'sitrus'); addHearts(2); toast('{i:sitrus} Food +35!'); }
+      if (r.egg) { V.x = .5; V.loaded = null; Talk.clear(); Sound.play('hatch'); toast(`{i:egg_legend_0} The Mystery Egg is your new main${r.boxed ? ` (${esc(r.prevName)} went to the PC Box)` : ''} — tap it 3 times!`, 4500); Talk.say('newEgg', { prio: 2 }); }
+    };
+    sheet.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', () => {
+      const k = b.dataset.use, prevName = petName(), r = Game.useItem(k);
+      if (r.full) {   // party is full: ask before sending the main to the PC Box
+        Sound.play('no');
+        dialog('Your party is full', `Your party already has ${Game.PARTY_MAX} Pokémon, so there's no room for the Mystery Egg. Send ${esc(prevName)} to the PC Box and start the egg, or make room in your Party first.`, [
+          { label: 'Not now', cls: 'alt', fn: () => openFeed('items') },
+          { label: '{i:party} Open Party', cls: 'alt', fn: () => openParty() },
+          { label: `Send ${esc(prevName)} to PC`, cls: 'gold', fn: () => {
+            const r2 = Game.useItem(k, { toBox: true });
+            if (r2.error) { toast(r2.error === 'none' ? 'You have none left.' : r2.error); return; }
+            afterUse(k, Object.assign(r2, { prevName }));
+          } },
+        ]);
+        return;
+      }
+      if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return; }
+      afterUse(k, Object.assign(r, { prevName }));
     }));
   }
 
@@ -2066,8 +2159,13 @@ if (!code) {
       else if (w.boss) say(`{i:sword} The <b>floor boss</b> blocks the way! It's a mighty ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
         (w.bossTier === 'final' ? '{i:sparkle} A very rare fully evolved boss! ' : w.bossTier === 'stage2' ? 'A rare evolved boss! ' : '') + 'It\'s much stronger than usual. Beat it to spin the catch wheel!');
       else say(`A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · ${esc(name())} is Lv ${G.me.level}`);
+      G.wildFirst = false;
+      encounterButtons();
+    }
+    function encounterButtons() {
       buttons([
-        { label: '{i:sword} Fight', cls: 'red', fn: () => fight(false) },
+        { label: '{i:sword} Fight', cls: 'red', fn: () => fight(G.wildFirst) },
+        { label: '{i:oran} Items', cls: 'alt', fn: () => showItems(true) },
         { label: '{i:speed} Run', cls: 'alt', fn: run },
       ]);
     }
@@ -2312,14 +2410,22 @@ if (!code) {
       ]);
     }
     // ---- use berries / items between floors ----
-    function showItems() {
+    // inBattle: used while a wild Pokémon is waiting; it then gets to attack first
+    function showItems(inBattle) {
+      G.itemsInBattle = !!inBattle;
       const p = Game.pet(), hpPct = Math.round(Math.max(0, G.meHp) / G.me.maxHp * 100);
-      say(`Use an item? <small>HP ${hpPct}% · Food ${Math.round(p.food)} · Energy ${Math.round(p.ene)}</small>`);
-      const list = FLAVORS.map((f, i) => ({ label: `{i:${f.icon}} ${f.label.replace(' Berry', '')}`, cls: 'alt', fn: () => useInDungeon('berry', i) }));
-      list.push({ label: '{i:poffin} Poffin', cls: 'alt', fn: () => useInDungeon('poffin') });
-      if (Game.itemCount('oran')) list.push({ label: `{i:oran} Oran ×${Game.itemCount('oran')}`, cls: 'alt', fn: () => useInDungeon('oran') });
+      say(`Use an item? <small>HP ${hpPct}% · Food ${Math.round(p.food)} · Energy ${Math.round(p.ene)}${inBattle ? ' · the wild Pokémon will attack first' : ''}</small>`);
+      const list = [];
+      // healing items from the Bag first (Potions, Sitrus Berry, Oran Berry)
+      Object.keys(Game.ITEMS).filter(k => Game.ITEMS[k].heal && Game.itemCount(k)).forEach(k => {
+        const it = Game.ITEMS[k];
+        list.push({ label: `{i:${it.icon}} ${it.name.replace(' Berry', '')} ×${Game.itemCount(k)}`, cls: 'gold', fn: () => useInDungeon('heal', k) });
+      });
+      if (Game.itemCount('oran')) list.push({ label: `{i:oran} Oran ×${Game.itemCount('oran')}`, cls: 'gold', fn: () => useInDungeon('oran') });
       if (Game.itemCount('rareCandy')) list.push({ label: `{i:rareCandy} Candy ×${Game.itemCount('rareCandy')}`, cls: 'alt', fn: () => useInDungeon('rareCandy') });
-      list.push({ label: '← Back', cls: 'red', fn: () => { say('What next?'); afterFloor(); } });
+      FLAVORS.forEach((f, i) => list.push({ label: `{i:${f.icon}} ${f.label.replace(' Berry', '')}`, cls: 'alt', fn: () => useInDungeon('berry', i) }));
+      list.push({ label: '{i:poffin} Poffin', cls: 'alt', fn: () => useInDungeon('poffin') });
+      list.push({ label: '← Back', cls: 'red', fn: () => { if (inBattle) { say(`The wild ${esc(G.wild.name)} is waiting…`); encounterButtons(); } else { say('What next?'); afterFloor(); } } });
       buttons(list, true);
     }
     function healHp(frac) { G.meHp = Math.min(G.me.maxHp, Math.max(0, G.meHp) + Math.round(G.me.maxHp * frac)); }
@@ -2337,6 +2443,11 @@ if (!code) {
       } else if (kind === 'oran') {
         const r = Game.useItem('oran'); if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return showItems(); }
         healHp(.4); Sound.play('level'); msg = `${nm} ate an {i:oran} Oran Berry! <small>Every need +25 · +40% HP</small>`;
+      } else if (kind === 'heal') {
+        const it = Game.ITEMS[i], before = Math.max(0, G.meHp), r = Game.useHeal(i);
+        if (r.error) { toast(r.error); return showItems(G.itemsInBattle); }
+        healHp(r.heal); Sound.play('level');
+        msg = `${nm} used ${/^[AEIOU]/.test(it.name) ? 'an' : 'a'} {i:${it.icon}} ${it.name}! <small>+${Math.round(G.meHp - before)} HP${i === 'sitrus' ? ' · +35 food' : ''}</small>`;
       } else if (kind === 'rareCandy') {
         const ratio = Math.max(0, G.meHp) / G.me.maxHp, r = Game.useItem('rareCandy');
         if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return showItems(); }
@@ -2345,6 +2456,10 @@ if (!code) {
       }
       G.tired = Game.pet().ene < 8;
       $('#arenaInfo').innerHTML = icons(`B${G.floor}F &nbsp;{i:energy}${Math.round(Game.pet().ene)}`);
+      if (G.itemsInBattle && G.wild) {           // mid-encounter: the wild Pokémon gets the first move
+        G.wildFirst = true; say(msg + `<small>The wild ${esc(G.wild.name)} is getting ready…</small>`);
+        return encounterButtons();
+      }
       say(msg);
       if (G.tired) return buttons([{ label: '{i:map} Too tired — go home', cls: 'gold', fn: () => finish(true) }]);
       afterFloor();
@@ -2551,7 +2666,16 @@ if (!code) {
     const trade = id => ON().trades.find(t => t.id === id);
     on('[data-tx]', 'click', safe(async e => { await Online.declineTrade(trade(e.currentTarget.dataset.tx)); }));
     on('[data-tk]', 'click', safe(async e => { await Online.confirmTrade(trade(e.currentTarget.dataset.tk)); toast('Trade confirmed — swapping…'); }));
-    on('[data-tc]', 'click', e => pickForTrade(`Pick a Pokémon to give ${trade(e.currentTarget.dataset.tc).fromName}`, async key => { await Online.counterTrade(trade(e.currentTarget.dataset.tc), key); toast('Sent! They just need to confirm.'); openOnline('trades'); }));
+    on('[data-tc]', 'click', e => {
+      // read the trade now: e.currentTarget is null by the time a Pokémon is picked
+      const id = e.currentTarget.dataset.tc, t = trade(id);
+      if (!t) { toast('That trade is no longer available.'); openOnline('trades'); return; }
+      pickForTrade(`Pick a Pokémon to give ${t.fromName}`, async key => {
+        const cur = trade(id);
+        if (!cur || cur.status !== 'offered') throw new Error('That trade is no longer available.');
+        await Online.counterTrade(cur, key); toast('Sent! They just need to confirm.'); openOnline('trades');
+      }, () => openOnline('trades'));
+    });
     on('[data-ft]', 'click', e => {
       const f = ON().friends[+e.currentTarget.dataset.ft];
       pickForTrade(`Offer a Pokémon to ${f.username}`, async key => { await Online.offerTrade(f, key); toast(`Offer sent to ${f.username}. Your Pokémon is locked until the trade is done.`, 4000); openOnline('trades'); });
@@ -2564,7 +2688,7 @@ if (!code) {
       closeSheet(); onlineOpen = false; startFriendBattle(f, team.main);
     }));
   }
-  function pickForTrade(title, onPick) {
+  function pickForTrade(title, onPick, onBack) {
     const list = Game.tradeable();
     if (!list.length) { toast('You need a Pokémon in your party or PC Box (not your main) to trade.'); return; }
     openSheet(head('Choose a Pokémon') + `<p class="muted">${esc(title)}. Your main can't be traded. The one you pick is locked until the trade finishes or is cancelled.</p>
@@ -2574,7 +2698,7 @@ if (!code) {
       b.disabled = true;
       try { await onPick(list[+b.dataset.pick].pet.key); } catch (er) { toast(er.message || String(er)); b.disabled = false; }
     }));
-    $('#pickBack').addEventListener('click', () => openOnline());
+    $('#pickBack').addEventListener('click', () => (onBack ? onBack() : openOnline()));
   }
   Online.on((s, ev) => {
     updateBadge();

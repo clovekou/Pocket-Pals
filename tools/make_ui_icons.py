@@ -1036,6 +1036,32 @@ def _(g):
     g.dots([(5, 9), (16, 6), (27, 9)], GOLD_L)
 
 
+# ---- healing items (used in Explore)
+def spray(g, body, band):
+    g.rrect(13, 3, 6, 4, 1, '#3d4258'); g.rect(17, 4, 4, 2, '#3d4258', True)          # nozzle + trigger
+    g.rect(14, 7, 4, 3, '#cfd6e6')                                                   # neck
+    g.rrect(8, 10, 16, 19, 5, body); g.vol(16, 19, 10, .18)
+    g.rect(8, 16, 16, 6, band); g.rect(12, 17, 8, 4, '#ffffff', True)
+    g.rect(15, 17, 2, 4, band, True); g.rect(14, 18, 4, 2, band, True)               # little cross
+    shine(g, [(10, 12), (10, 13), (11, 12)])
+
+@item('potion')
+def _(g): spray(g, '#9b6ae0', '#6b3fb5')
+
+@item('superPotion')
+def _(g): spray(g, '#f0b43a', '#c8781f')
+
+@item('hyperPotion')
+def _(g): spray(g, '#f06aa0', '#c23a72')
+
+@item('sitrus')
+def _(g):
+    g.ell(16, 19, 11, 10, '#f2d23a'); g.vol(16, 19, 11, .2)
+    g.dots([(12, 21), (19, 17), (21, 23), (15, 25), (10, 17)], '#c9a51f')
+    g.line(16, 9, 16, 6, '#7a5a2a', w=2); leaves(g, 15, 8)
+    shine(g, [(10, 14), (11, 13), (9, 15)])
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(here, '..', 'Pokemon_Style_UI_Icons_v2')

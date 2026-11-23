@@ -716,24 +716,35 @@ const Game = (() => {
     S.player.bag[k] -= n; S.player.coins = coins() + price * n;
     save(); emit('coins'); return { ok: true, earned: price * n };
   }
-  function useItem(k) {
+  function useItem(k, opts) {
     const p = S.pet, it = ITEMS[k];
     if (!it || !it.use || !itemCount(k)) return { error: 'none' };
     if (k === 'mysteryEgg') {
       if (!p || p.egg) return { error: 'Hatch your current egg first.' };
-      if (S.player.party.length + 1 >= PARTY_MAX) return { error: `Your party is full (${PARTY_MAX}). Release one first.` };
+      if (p.locked) return { error: 'Your main is in a trade right now.' };
+      const full = S.player.party.length + 1 >= PARTY_MAX;
+      if (full && !(opts && opts.toBox)) return { error: `Your party is full (${PARTY_MAX}).`, full: true };
       S.player.bag[k]--;
       const id = pickMysterySpecies(), shiny = rollShiny();
-      p.asleep = false; S.player.party.push(p); S.pet = Object.assign(makeEgg(id, shiny), { mystery: true }); S.lastTick = Date.now();
+      p.asleep = false; (full ? S.player.box : S.player.party).push(p); S.pet = Object.assign(makeEgg(id, shiny), { mystery: true }); S.lastTick = Date.now();
       save(); emit('newegg'); emit('party');
-      return { egg: true };
+      return { egg: true, boxed: full };
     }
     const b = blocked(false); if (b) return { error: b === 'egg' ? 'Hatch your egg first.' : 'Not right now.' };
     S.player.bag[k]--;
     if (k === 'oran') { p.food = clamp(p.food + 25); p.joy = clamp(p.joy + 25); p.ene = clamp(p.ene + 25); p.hyg = clamp(p.hyg + 25); }
     if (k === 'rareCandy') { p.ageMin += MIN_PER_LEVEL - (p.ageMin % MIN_PER_LEVEL); emit('level', level()); }
+    if (k === 'sitrus') p.food = clamp(p.food + 35);
     afterCare();
     return {};
+  }
+  /** a healing item (Potion…) used while exploring: takes one from the Bag; the dungeon restores the HP */
+  function useHeal(k) {
+    const it = ITEMS[k];
+    if (!it || !it.heal || !itemCount(k)) return { error: 'You have none left.' };
+    if (it.use) { const r = useItem(k); if (r.error) return r; }
+    else { S.player.bag[k]--; save(); emit('change'); }
+    return { heal: it.heal };
   }
   /** a fully grown Pokémon (caught or summoned) at a given level */
   function makeCaught(id, lv, shiny) {
@@ -890,7 +901,7 @@ const Game = (() => {
     /** admin edits to evolutions (Firestore config/evolutions) */
     applyEvolutions(o) { if (EV) { EV.setOverrides(o); emit('config'); } }, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
-    setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
+    setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, useHeal, exploreEnd,
     canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
     stat, registered, registeredCount, shinyCount, careBonus, isFinal,
     LEGEND_UNLOCK, FAREWELL_AGE,

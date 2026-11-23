@@ -10,6 +10,8 @@
 <meta name="apple-mobile-web-app-title" content="Pocket Pals">
 <title>Pocket Pal</title>
 <link rel="manifest" href="manifest.webmanifest">
+<script>/* keep the browser's install prompt for the "Add to Home Screen" bar (ui.js) */
+window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__ppInstall = e; });</script>
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="icons/icon-180.png" sizes="180x180">

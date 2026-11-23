@@ -13,6 +13,11 @@ const ITEM_DATA = {
   oran:       { name: 'Oran Berry',  icon: 'oran',         kind: 'basic', use: true, buy: 60,   sell: 20,  find: 40, desc: 'Restores every need by 25.' },
   rareCandy:  { name: 'Rare Candy',  icon: 'rareCandy',    kind: 'basic', use: true, buy: 800,  sell: 0,   find: 6,  desc: 'Your main grows 1 level.' },
   mysteryEgg: { name: 'Mystery Egg', icon: 'egg_legend_0', kind: 'basic', use: true, buy: 2500, sell: 0,   find: .15, desc: 'A new egg that hatches into a random Pokémon (needs a free party slot). Very rare in dungeons.' },
+  // ---- healing (heal = share of HP restored in Explore; use them from the Items button in a dungeon)
+  sitrus:      { name: 'Sitrus Berry', icon: 'sitrus',      pic: true, kind: 'basic', use: true, heal: .3, buy: 150, sell: 40,  find: 16, desc: 'Food +35. In Explore it also restores 30% HP.' },
+  potion:      { name: 'Potion',       icon: 'potion',      pic: true, kind: 'basic', heal: .35, buy: 120, sell: 30,  find: 20, desc: 'Restores 35% HP while exploring.' },
+  superPotion: { name: 'Super Potion', icon: 'superPotion', pic: true, kind: 'basic', heal: .65, buy: 350, sell: 90,  find: 7,  desc: 'Restores 65% HP while exploring.' },
+  hyperPotion: { name: 'Hyper Potion', icon: 'hyperPotion', pic: true, kind: 'basic', heal: 1,   buy: 900, sell: 250, find: 2,  desc: 'Fully restores HP while exploring.' },
   // ---- catch-wheel balls: use one before spinning (after beating a floor boss or a legendary)
   greatBall:  { name: 'Great Ball',  icon: 'greatball',  kind: 'ball', wheel: 'great',  buy: 400,  sell: 0, find: 5,   desc: 'Use it on the catch wheel: every Poké Ball slot becomes a Great Ball.' },
   ultraBall:  { name: 'Ultra Ball',  icon: 'ultraball',  kind: 'ball', wheel: 'ultra',  buy: 1500, sell: 0, find: 1,   desc: 'Very rare. On the catch wheel, every weaker slot becomes an Ultra Ball.' },
