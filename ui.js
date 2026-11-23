@@ -588,7 +588,7 @@
       els.name.dataset.sig = nameSig;
       els.name.innerHTML = esc(petName()) + (p.shiny && !p.egg ? ic('sparkle') : '');
       const s = SPECIES_BY_ID[p.sp];
-      els.sub.textContent = p.egg ? `${TIER_LABEL[s.tier || 'common']} egg` : `${p.name ? s.name + ' · ' : ''}${ELEMENTS[s.el].label}`;
+      els.sub.innerHTML = p.egg ? esc(`${TIER_LABEL[s.tier || 'common']} egg`) : `${p.name ? esc(s.name) + ' ' : ''}<span class="typ" style="background:${ELEMENTS[s.el].color}">${ELEMENTS[s.el].label}</span>`;
       const face = !p.egg && portraitUrl(p.sp, p.shiny, 'Normal');
       els.avatar.className = face ? '' : 'egg';
       els.avatar.src = face || PX.url(`egg_${s.tier || 'common'}_0`);
@@ -2275,6 +2275,30 @@ if (!code) {
   document.addEventListener('visibilitychange', () => { if (document.hidden) Game.sleepNow(); });
   window.addEventListener('pagehide', () => Game.sleepNow());
 
+  // the dock / header icons are drawn as smooth SVG, then re-rendered small so they read as chunky pixel art
+  function pixelizeIcons() {
+    const defs = document.querySelector('#dkDefs defs');
+    document.querySelectorAll('svg.dk').forEach(svg => {
+      const css = svg.getBoundingClientRect().width || 32, n = Math.max(16, Math.round(css * .75));
+      const c = svg.cloneNode(true);
+      c.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); c.setAttribute('width', '48'); c.setAttribute('height', '48');
+      if (defs) c.insertBefore(defs.cloneNode(true), c.firstChild);
+      const im = new Image();
+      im.onload = () => {
+        try {
+          const cv = document.createElement('canvas'); cv.width = cv.height = n;
+          const g = cv.getContext('2d'); g.drawImage(im, 0, 0, n, n);
+          const d = g.getImageData(0, 0, n, n), a = d.data;
+          for (let i = 3; i < a.length; i += 4) a[i] = a[i] < 110 ? 0 : 255;   // hard pixel edges
+          g.putImageData(d, 0, 0);
+          const out = new Image(); out.className = 'dk'; out.alt = ''; out.setAttribute('aria-hidden', 'true'); out.src = cv.toDataURL();
+          svg.replaceWith(out);
+        } catch (e) { /* keep the smooth icon */ }
+      };
+      im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(c));
+    });
+  }
+  pixelizeIcons();
   PX.hydrate();
   PX.onUpdate(() => { PX.hydrate(); if (els && els.name) els.name.dataset.sig = ''; }); // egg picture loaded
   // phones: stop double-tap zoom / pinch zoom from shifting the layout (text fields still work normally)
