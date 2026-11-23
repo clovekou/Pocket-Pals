@@ -341,6 +341,17 @@ p { line-height: 1.55; margin: 6px 0; }
 .tradeline .ic { width: 28px; height: 28px; }
 .note-ok { color: #2f8a3f; } .note-bad { color: var(--red); }
 .pslot.locked { opacity: .75; }
+.boxgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.boxtile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 8px 5px 7px; background: #fff;
+  border: 3px solid var(--line); border-radius: 14px; box-shadow: 0 3px 0 rgba(0, 0, 0, .18); color: var(--ink); font: inherit; cursor: pointer; }
+.boxtile:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, .18); }
+.boxtile img.face, .boxtile canvas { width: 100%; max-width: 76px; height: auto; aspect-ratio: 1; border-radius: 10px; border: 2px solid var(--line); background: #e6f2ff; image-rendering: pixelated; }
+.boxtile b { font-family: var(--pixel); font-size: 13px; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.boxtile small { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.boxtile .boxshiny, .boxtile .boxlock { position: absolute; top: 4px; }
+.boxtile .boxshiny { left: 4px; } .boxtile .boxlock { right: 4px; }
+.boxtile .boxshiny .ic, .boxtile .boxlock .ic { width: 18px; height: 18px; margin: 0; }
+.boxtile.locked { opacity: .7; }
 .google { background: #fff !important; color: var(--ink) !important; }
 
 /* ---------- welcome / sign-in gate ---------- */

@@ -1123,30 +1123,37 @@ if (!code) {
         <div class="acts">${isMain ? '<span class="tag">{i:arrow}Main</span>' : m.locked ? '<span class="tag">{i:lock}In a trade</span>' : `<button data-sw="${i}">Make main</button><button class="alt" data-tobox="${i}">To Box</button>`}</div></div>`;
     };
     const roomInParty = party.length + 1 < Game.PARTY_MAX;
+    // the PC Box is a grid, three to a row; tap one to move it to the party or release it
     const boxSlot = (m, i) => {
       const s = SPECIES_BY_ID[m.sp], face = portraitUrl(m.sp, m.shiny, 'Normal');
-      return `<div class="pslot">${face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny })}<div class="pi"><b>${esc(memberName(m))}${m.shiny ? '{i:sparkle}' : ''}</b>
-        <small>${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)} · in the PC</small></div>
-        <div class="acts">${m.locked ? '<span class="tag">{i:lock}In a trade</span>' : `<button data-frombox="${i}" ${roomInParty ? '' : 'disabled'}>To party</button><button class="alt" data-relbox="${i}">Release</button>`}</div></div>`;
+      return `<button class="boxtile ${m.locked ? 'locked' : ''}" data-box="${i}">${face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny })}
+        <b>${esc(memberName(m))}</b><small>Lv ${Game.memberLevel(m)} · ${ELEMENTS[s.el].label}</small>
+        ${m.shiny ? '<span class="boxshiny">{i:sparkle}</span>' : ''}${m.locked ? '<span class="boxlock">{i:lock}</span>' : ''}</button>`;
     };
     const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
     openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.</p>
       <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="pslot empty">Empty slot</div>'.repeat(empties)}</div>
-      ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 8px">PC Box (${Game.box().length})</h4><div class="partylist">${Game.box().map((m, i) => boxSlot(m, i)).join('')}</div>` : ''}`);
+      ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 4px">PC Box (${Game.box().length})</h4><p class="muted" style="margin:0 0 8px">Tap a Pokémon to move it to your party or release it.</p>
+        <div class="boxgrid">${Game.box().map((m, i) => boxSlot(m, i)).join('')}</div>` : ''}`);
+    sheet.querySelectorAll('[data-box]').forEach(b => b.addEventListener('click', () => {
+      const i = +b.dataset.box, m = Game.box()[i]; if (!m) return;
+      const s = SPECIES_BY_ID[m.sp];
+      if (m.locked) { toast(`${memberName(m)} is in a trade right now.`); return; }
+      dialog(`${m.shiny ? '{i:sparkle} ' : ''}${esc(memberName(m))}`, `Lv ${Game.memberLevel(m)} · ${ELEMENTS[s.el].label}. It's resting in your PC Box.`, [
+        { label: 'Close', cls: 'alt', fn: () => openParty() },
+        { label: '{i:pokeball} To party', cls: 'red', fn: () => { if (!roomInParty) { toast('Your party is full.'); return openParty(); } Game.boxToParty(i); openParty(); } },
+        { label: 'Release', cls: 'alt', fn: () => dialog(`Release ${esc(memberName(m))}?`, 'It goes back to the wild. This can\'t be undone.', [
+          { label: 'Cancel', cls: 'alt', fn: () => openParty() },
+          { label: 'Release', cls: 'red', fn: () => { Game.releaseBox(i); openParty(); } },
+        ]) },
+      ]);
+    }));
     sheet.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', () => {   // stays on the Party tab
       const pp = Game.pet();
       if (!pp || pp.egg) { toast('Hatch your egg first, then you can switch.'); return; }
       doSwitch(+b.dataset.sw); openParty();
     }));
     sheet.querySelectorAll('[data-tobox]').forEach(b => b.addEventListener('click', () => { Game.partyToBox(+b.dataset.tobox); openParty(); }));
-    sheet.querySelectorAll('[data-frombox]').forEach(b => b.addEventListener('click', () => { if (Game.boxToParty(+b.dataset.frombox)) openParty(); else toast('Your party is full.'); }));
-    sheet.querySelectorAll('[data-relbox]').forEach(b => b.addEventListener('click', () => {
-      const m = Game.box()[+b.dataset.relbox];
-      dialog(`Release ${esc(memberName(m))}?`, 'It goes back to the wild. This can\'t be undone.', [
-        { label: 'Cancel', cls: 'alt', fn: () => openParty() },
-        { label: 'Release', cls: 'red', fn: () => { Game.releaseBox(+b.dataset.relbox); openParty(); } },
-      ]);
-    }));
     sheet.querySelectorAll('[data-rel]').forEach(b => b.addEventListener('click', () => {
       const m = party[+b.dataset.rel];
       dialog(`Release ${esc(memberName(m))}?`, 'It goes back to the wild and is remembered under Companions in the Pokédex. This can\'t be undone.', [
