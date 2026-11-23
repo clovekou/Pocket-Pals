@@ -48,7 +48,7 @@ locked until both players confirm; your main can never be traded). Pokémon reme
 Trainer. Needs a free Firebase project: see **[ONLINE-SETUP.md](ONLINE-SETUP.md)**.
 
 ## Training games
-**Games** on the bottom bar: Poké Ball Catch (Speed), Rock Smash (Attack) and Protect (Defence).
+**Explore → Training** on the bottom bar: Poké Ball Catch (Speed), Rock Smash (Attack) and Protect (Defence).
 
 ## Party
 Keep up to 6 Pokémon. Your main (marked with a ▼) is the one you care for; the others

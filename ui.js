@@ -575,7 +575,7 @@
   // ======================= HUD =======================
   const els = {
     name: $('#petName'), lv: $('#petLevel'), cer: $('#cerBtns'), hint: $('#hint'),
-    lightIcon: $('#lightIcon'), lightLbl: $('#lightLbl'), sub: $('#petSub'), avatar: $('#avatar'),
+    sub: $('#petSub'), avatar: $('#avatar'),
     bars: [...document.querySelectorAll('.bar')].map(b => ({ k: b.dataset.k, el: b, fill: b.querySelector('i'), val: b.querySelector('.bv') })),
   };
   let cerSig = '';
@@ -604,11 +604,9 @@
       b.el.classList.toggle('mid', !p.egg && v > 20 && v <= 50);
     }
     const asleep = !p.egg && p.asleep;
-    const li = PX.url(asleep ? 'wake' : 'sleep'); if (els.lightIcon.src !== li) els.lightIcon.src = li;
-    els.lightLbl.textContent = asleep ? 'Wake' : 'Sleep';
     document.querySelectorAll('#actions button').forEach(b => {
       const a = b.dataset.act;
-      const off = (p.egg && a !== 'dex' && a !== 'party') || (asleep && ['feed', 'play', 'train', 'explore'].includes(a));
+      const off = (p.egg && a !== 'dex' && a !== 'party') || (asleep && a === 'explore');
       b.classList.toggle('off', off);
       if (b.classList.contains('cur') && performance.now() > curUntil && $('#scrim').classList.contains('hidden') && $('#arena').classList.contains('hidden')) b.classList.remove('cur');
     });
@@ -1184,24 +1182,52 @@ if (!code) {
     if (a === 'dex') return openDex();
     if (a === 'party') return openParty();
     if (V.anim) return;
-    if (a === 'feed') return openFeed();
-    if (a === 'play') return openGames();
-    if (a === 'explore') return startExplore();
-    if (a === 'bath') {
-      if (!guard(false)) return;
-      if (now() < V.bathUntil) return;
-      V.bathUntil = now() + 2400; Sound.play('bath');
-      const stinky = Game.pet().poops >= 2 || Game.pet().hyg < 30;
-      setTimeout(() => { Game.clean(); if (!Game.pet().asleep) Talk.say(stinky ? 'bathStinky' : 'bath'); }, 1800);
-      return;
-    }
-    if (a === 'light') {
-      if (!guard(false)) return;
-      const r = Game.toggleSleep(); if (r.error) return;
-      Sound.play(r.asleep ? 'sleep' : 'wake');
-      Talk.say(r.asleep ? 'sleep' : Game.pet().ene < 50 ? 'wakeTired' : 'wake');
-    }
+    if (a === 'bag') { if (!guard(false)) return; return openFeed('items'); }
+    if (a === 'care') return openCare();
+    if (a === 'explore') return openAdventure();
   }));
+  function doBath() {
+    if (!guard(false)) return;
+    if (now() < V.bathUntil) return;
+    V.bathUntil = now() + 2400; Sound.play('bath');
+    const stinky = Game.pet().poops >= 2 || Game.pet().hyg < 30;
+    setTimeout(() => { Game.clean(); if (!Game.pet().asleep) Talk.say(stinky ? 'bathStinky' : 'bath'); }, 1800);
+  }
+  function doLight() {
+    if (!guard(false)) return;
+    const r = Game.toggleSleep(); if (r.error) return;
+    Sound.play(r.asleep ? 'sleep' : 'wake');
+    Talk.say(r.asleep ? 'sleep' : Game.pet().ene < 50 ? 'wakeTired' : 'wake');
+  }
+  const optCard = (data, icon, title, desc, off) => `<button class="food${off ? ' dim' : ''}" ${data} style="grid-column:1/-1">${ic(icon).replace('class="ic"', 'class="px"')}<span><b>${title}</b><small>${desc}</small></span></button>`;
+  // ---------- Care: feed, bath and sleep in one place ----------
+  function openCare() {
+    if (!guard(false)) return;
+    const p = Game.pet(), asleep = p.asleep, v = k => Math.round(p[k]);
+    openSheet(head('Care') + `<div class="foods">
+      ${optCard('data-care="feed"', 'oran', 'Feed', asleep ? 'It\'s asleep — wake it up first' : `Berries &amp; Poffins · Food ${v('food')}`, asleep)}
+      ${optCard('data-care="bath"', 'bath', 'Bath', `Wash up and clean the area · Hygiene ${v('hyg')}`)}
+      ${optCard('data-care="light"', asleep ? 'wake' : 'sleep', asleep ? 'Wake up' : 'Sleep', asleep ? `Rise and shine · Energy ${v('ene')}` : `Lights out to refill energy · Energy ${v('ene')}`)}
+      </div>`);
+    sheet.querySelectorAll('[data-care]').forEach(b => b.addEventListener('click', () => {
+      const a = b.dataset.care;
+      if (a === 'feed') { if (Game.pet().asleep) { toast(blockedMsg.asleep); Sound.play('no'); return; } return openFeed('berries'); }
+      closeSheet();
+      if (a === 'bath') doBath(); else doLight();
+    }));
+  }
+  // ---------- Explore: dungeon or training ----------
+  function openAdventure() {
+    if (!guard()) return;
+    openSheet(head('Explore') + `<div class="foods">
+      ${optCard('data-adv="dungeon"', 'map', 'Explore a dungeon', 'Battle wild Pokémon and find treasure')}
+      ${optCard('data-adv="training"', 'pokeball', 'Training', 'Mini-games that build ATK, DEF &amp; SPD')}
+      </div><p class="muted" style="margin-top:12px">Both use some energy.</p>`);
+    sheet.querySelectorAll('[data-adv]').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.adv === 'training') return openGames();
+      closeSheet(); startExplore();
+    }));
+  }
   $('#nameBtn').addEventListener('click', () => openCard());
   $('#settingsBtn').addEventListener('click', openSettings);
 
@@ -1288,7 +1314,7 @@ if (!code) {
     if (!guard()) return;
     const p = Game.pet();
     const card = (id, icon, title, stat, desc) => `<button class="food" data-game="${id}" style="grid-column:1/-1">${ic(icon).replace('class="ic"', 'class="px"')}<span><b>${title}</b><small>${stat} · ${desc}</small></span></button>`;
-    openSheet(head('Training games') + `<div class="foods">
+    openSheet(head('Training') + `<div class="foods">
       ${card('catch', 'pokeball', 'Poké Ball Catch', '{i:speed} Builds SPEED', 'drag to catch the falling Poké Balls')}
       ${card('smash', 'rock', 'Rock Smash', '{i:sword} Builds ATTACK', 'tap the rocks before they sink back down')}
       ${card('protect', 'shield', 'Protect', '{i:shield} Builds DEFENCE', 'tap the incoming attacks before they hit')}
@@ -2151,7 +2177,7 @@ if (!code) {
     }
     function end(won) {
       G.state = won ? 'won' : 'lost'; G.at = now(); Sound.play(won ? 'level' : 'sad');
-      say(won ? `You beat ${esc(friend.username)}'s ${esc(opp.name)}!` : `${esc(friend.username)}'s ${esc(opp.name)} won this time…`, won ? `${esc(petName())} feels proud!` : 'Train in the Games menu and try again.');
+      say(won ? `You beat ${esc(friend.username)}'s ${esc(opp.name)}!` : `${esc(friend.username)}'s ${esc(opp.name)} won this time…`, won ? `${esc(petName())} feels proud!` : 'Train in Explore → Training and try again.');
       Online.recordBattle(friend, won, { sp: p.sp, level: me.level, shiny: !!p.shiny }, { sp: opp.id, level: opp.level, shiny: !!opp.shiny }).catch(() => {});
       Game.exploreEnd({ floor: 0, wins: won ? 1 : 0, lost: !won });
       buttons([{ label: 'Done', cls: 'red', fn: () => G.finish(true) }]);

@@ -101,11 +101,22 @@ img.px { image-rendering: pixelated; width: 28px; height: 28px; flex: none; }
   text-shadow: 2px 2px 0 var(--line), -1px -1px 0 var(--line), 1px -1px 0 var(--line), -1px 1px 0 var(--line); pointer-events: none; }
 
 /* ---------- dock ---------- */
-#actions { flex: none; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin: 12px 12px calc(12px + var(--safe-b)); padding: 6px; border-radius: 20px; position: relative; overflow: hidden; }
-#actions::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--red); }
+#actions { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; margin: 12px 12px calc(12px + var(--safe-b)); padding: 6px; border-radius: 20px; position: relative; overflow: visible; }
+#actions::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--red); border-radius: 20px 20px 0 0; }
 #actions button { background: transparent; border: 0; border-radius: 14px; padding: 8px 0 5px; font-family: var(--pixel); font-size: 11px; font-weight: 700; color: var(--ink);
   display: flex; flex-direction: column; align-items: center; gap: 3px; transition: background .12s; -webkit-user-select: none; user-select: none; position: relative; }
 #actions button img.px { width: 30px; height: 30px; pointer-events: none; }
+#actions svg.dk { width: 32px; height: 32px; pointer-events: none; display: block; transition: transform .15s; }
+#actions button:active svg.dk { transform: scale(.9); }
+/* raised Poké Ball-style hub in the middle of the dock */
+#actions button.center { background: transparent !important; }
+#actions .hub { width: 62px; height: 62px; margin: -30px 0 1px; border-radius: 50%; display: grid; place-items: center; pointer-events: none;
+  background: linear-gradient(180deg, #ff6f61 0 50%, #f4f5fa 50% 100%); border: 4px solid #fff;
+  box-shadow: 0 0 0 2.5px #2b2f45, 0 6px 14px rgba(30, 40, 80, .35); transition: transform .15s; }
+#actions .hub svg.dk { width: 44px; height: 44px; }
+#actions button.center:active .hub { transform: scale(.93); }
+#actions button.center.off .hub { filter: grayscale(.6); }
+#actions button.center.off { opacity: .6; }
 #actions button span { pointer-events: none; white-space: nowrap; }
 #actions button:active { background: #f6d3c9; }
 #actions button.off { opacity: .35; }
@@ -147,6 +158,7 @@ p { line-height: 1.55; margin: 6px 0; }
 .food { border: 3px solid var(--line); background: #fff; border-radius: 16px; padding: 10px; text-align: left; display: flex; gap: 10px; align-items: center; color: var(--ink); box-shadow: 0 3px 0 rgba(0, 0, 0, .2); }
 .food:active { transform: translateY(2px); background: #fff4c4; }
 .food img.px { width: 44px; height: 44px; }
+.food.dim { opacity: .5; }
 .food b { display: block; font-family: var(--pixel); font-size: 16px; font-weight: 700; }
 .food small { color: var(--muted); font-size: 12px; }
 .food .heart { margin-left: auto; width: 22px; height: 22px; }

@@ -207,7 +207,7 @@ const Game = (() => {
   function pickStarter(id) {
     const first = !S.player.starterPicked;
     S.player.starterPicked = true;
-    // welcome gift: a Mystery Egg with a random first-stage Pokémon (Bag -> Items)
+    // welcome gift: a Mystery Egg with a random first-stage Pokémon (Bag)
     if (first && !S.player.starterGift) { S.player.starterGift = true; S.player.bag = S.player.bag || {}; S.player.bag.mysteryEgg = (S.player.bag.mysteryEgg || 0) + 1; }
     S.pet = makeEgg(id, rollShiny());
     S.lastTick = Date.now();
