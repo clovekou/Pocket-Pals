@@ -1,4 +1,14 @@
 /* Pocket Pal — Pokémon-game style mobile theme */
+/* Numbers: Pixelify Sans digits are hard to tell apart (7 vs 1, 8 vs S), so digits use Jersey 15,
+   a clearer pixel font. unicode-range limits it to 0-9; letters stay Pixelify Sans. */
+@font-face {
+  font-family: "PP Digits";
+  src: url("assets/fonts/Jersey15-Regular.ttf") format("truetype");
+  unicode-range: U+0030-0039;
+  font-weight: 100 900;      /* one file for every weight, so the browser doesn't fake a bold */
+  size-adjust: 128%;         /* match Pixelify Sans' letter height */
+  font-display: swap;
+}
 :root {
   --red: #e3350d;          /* Pokédex red */
   --red-d: #b3260a;
@@ -16,8 +26,8 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   /* all game text uses the pixel font (Mystery Dungeon-style menus) */
-  --font: "Pixelify Sans", "Nunito", ui-rounded, system-ui, -apple-system, sans-serif;
-  --pixel: "Pixelify Sans", "Nunito", ui-rounded, system-ui, sans-serif;
+  --font: "PP Digits", "Pixelify Sans", "Nunito", ui-rounded, system-ui, -apple-system, sans-serif;
+  --pixel: "PP Digits", "Pixelify Sans", "Nunito", ui-rounded, system-ui, sans-serif;
   /* kept for inline styles used by the game code */
   --card: #ffffff; --card2: #f1eedf; --glass-hi: #ece8d8; --accent: #e3350d; --gold: #ffcb05;
 }
