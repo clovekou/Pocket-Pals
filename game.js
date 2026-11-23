@@ -126,6 +126,7 @@ const Game = (() => {
     // the app was closed without saying goodbye (killed / crashed): it fell asleep the moment you left
     if (S.pet && !S.pet.egg && !S.pet.asleep && Date.now() - S.lastTick > 2 * 60000) S.pet.asleep = true;
     wakeCheck = true;
+    if (S.settings.fast) { S.settings.fast = false; S.lastTick = Date.now(); }   // the old "fast time" testing switch is gone: back to real time
     return S;
   }
   function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage blocked */ } }
