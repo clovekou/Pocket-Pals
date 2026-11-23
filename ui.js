@@ -2265,15 +2265,18 @@ if (!code) {
     if (iw / ih > 1.3) {
       // wide panorama: one journey through the picture, from the entrance on the left to the far end on the right,
       // reached on the last floor. Each floor's walk carries the view one step further; it holds still for battles.
-      // Zoomed in and anchored to the bottom, so the ground fills the screen under your Pokémon's feet
-      // (it stands about 85% of the way down the picture); a light camera bob while walking.
-      const ZOOM = 1.25;
+      // The camera: zoomed out to the whole picture while exploring (walking, chests, between floors) so the scenery
+      // shows, and eased in for battles so the Pokémon stand big on the ground. Anchored to the bottom of the picture.
+      const want = G.wild || G.state === 'battle' ? 1.25 : 1;
+      const zdt = Math.min(.05, (ms - (G.zoomAt || ms)) / 1000); G.zoomAt = ms;
+      G.zoom = G.zoom == null ? want : G.zoom + (want - G.zoom) * Math.min(1, zdt * 5);
+      const ZOOM = G.zoom;
       const h = AH * ZOOM, s2 = h / ih, w = iw * s2, span = Math.max(0, w - AW), maxF = Math.max(1, Game.EXPLORE_MAX_FLOOR);
       const at = f => span * Math.max(0, Math.min(1, f / maxF));
       const k = G.state === 'walk' ? Math.min(1, (ms - G.at) / WALK_MS) : 1;   // steady walking pace
       const pan = at(G.floor - 1) + (at(G.floor) - at(G.floor - 1)) * k;
       const bob = G.state === 'walk' && k < 1 ? Math.round(Math.abs(Math.sin(ms / 160)) * 3) : 0;
-      ac.drawImage(exploreImg, -Math.round(pan), Math.round(AH - h * .96) + bob, w, h);
+      ac.drawImage(exploreImg, -Math.round(pan), Math.min(0, Math.round(AH - h * .96)) + bob, w, h);
     } else {
       // tall picture: walking deeper slowly zooms in; each new floor starts a fresh walk
       const walkK = G.state === 'walk' ? Math.min(1, (ms - G.at) / 1700) : 1;
