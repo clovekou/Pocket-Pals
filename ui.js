@@ -65,6 +65,37 @@
     const CH = { C: ['C3', ['C4', 'E4', 'G4']], Am: ['A2', ['A3', 'C4', 'E4']], F: ['F2', ['F3', 'A3', 'C4']], G: ['G2', ['G3', 'B3', 'D4']], Em: ['E2', ['E3', 'G3', 'B3']], Dm: ['D3', ['D4', 'F4', 'A4']] };
     const BARS = ['C', 'Am', 'F', 'G', 'C', 'Em', 'F', 'G', 'F', 'C', 'Dm', 'G', 'F', 'Am', 'Dm', 'C'];
     const E8 = 60 / 84 / 2; // eighth note at 84 bpm
+
+    // ---- Dungeon: a slow, cozy minor-key cave tune with soft echoing drips (16 bars at 66 bpm, ~58 s) ----
+    const D_MEL = [
+      ['A4', 3], ['C5', 1], ['E5', 4],  ['D5', 2], ['C5', 2], ['B4', 4],
+      ['G4', 3], ['B4', 1], ['D5', 4],  ['C5', 2], ['B4', 2], ['A4', 4],
+      ['F4', 2], ['A4', 2], ['C5', 4],  ['B4', 2], ['G4', 2], ['E4', 4],
+      ['A4', 2], ['B4', 2], ['C5', 2], ['E5', 2], ['D5', 6], [null, 2],
+      ['E5', 3], ['D5', 1], ['C5', 4],  ['D5', 2], ['E5', 2], ['G5', 4],
+      ['F5', 3], ['E5', 1], ['D5', 4],  ['C5', 2], ['B4', 2], ['G4', 4],
+      ['A4', 2], ['C5', 2], ['F5', 4],  ['E5', 2], ['C5', 2], ['B4', 4],
+      ['C5', 2], ['B4', 2], ['G4', 2], ['B4', 2], ['A4', 6], [null, 2],
+    ];
+    const D_CH = { Am: ['A2', ['A3', 'C4', 'E4']], G: ['G2', ['G3', 'B3', 'D4']], F: ['F2', ['F3', 'A3', 'C4']], Em: ['E2', ['E3', 'G3', 'B3']], C: ['C3', ['C4', 'E4', 'G4']], Dm: ['D3', ['D4', 'F4', 'A4']] };
+    const D_BARS = ['Am', 'Am', 'G', 'Am', 'F', 'Em', 'Am', 'Em', 'C', 'G', 'Dm', 'Em', 'F', 'Am', 'Em', 'Am'];
+    const D8 = 60 / 66 / 2;
+
+    // ---- Boss: a driving, tense battle loop (8 bars at 148 bpm, ~13 s) ----
+    const B_MEL = [
+      ['E5', 1], ['E5', 1], ['G5', 1], ['E5', 1], ['A5', 2], ['G5', 1], ['F#5', 1],
+      ['E5', 1], ['D5', 1], ['E5', 2], ['B4', 4],
+      ['C5', 1], ['C5', 1], ['E5', 1], ['C5', 1], ['G5', 2], ['F#5', 1], ['E5', 1],
+      ['D5', 1], ['C5', 1], ['D5', 2], ['B4', 2], ['D#5', 2],
+      ['E5', 1], ['E5', 1], ['G5', 1], ['E5', 1], ['B5', 2], ['A5', 1], ['G5', 1],
+      ['F#5', 1], ['G5', 1], ['A5', 2], ['G5', 2], ['F#5', 2],
+      ['E5', 2], ['C5', 2], ['A4', 2], ['C5', 2],
+      ['B4', 2], ['D#5', 2], ['F#5', 2], ['B5', 2],
+    ];
+    const B_BARS = ['E2', 'E2', 'C2', 'D2', 'E2', 'D2', 'A1', 'B1'];
+    const B8 = 60 / 148 / 2;
+
+    let track = 'town', cur = 'town', switching = 0;
     let master = null, filt = null, timer = null, next = 0, step = 0, melIdx = 0, melLeft = 0;
     const want = () => ST().settings.music !== false && vol() > 0 && !document.hidden;
     const vol = () => { const v = ST().settings.musicVol; return (v == null ? 60 : v) / 100; };
@@ -75,6 +106,56 @@
       g.gain.exponentialRampToValueAtTime(vol * .55, t + Math.min(.18, d * .5)); g.gain.exponentialRampToValueAtTime(.0001, t + d);
       o.connect(g); g.connect(dest); o.start(t); o.stop(t + d + .05);
     }
+    // a cave drip: a short high ping that echoes away
+    function drip(t, dest) {
+      const f = 1400 + Math.random() * 900;
+      for (let k = 0; k < 3; k++) tone('sine', f * (1 - k * .02), t + k * .28, .12, .03 * Math.pow(.45, k), dest);
+    }
+    // a soft drum hit for the boss theme (pitch-dropping triangle)
+    function kick(t, dest, v) {
+      const ac = Sound.ctx(), o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + .12);
+      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .16);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + .2);
+    }
+    function stepTown(ac) {
+      const bar = Math.floor(step / 8) % BARS.length, beat = step % 8, [root, tri] = CH[BARS[bar]];
+      if (melLeft <= 0) {
+        const [n, len] = MEL[melIdx]; melIdx = (melIdx + 1) % MEL.length; melLeft = len;
+        if (n) tone('square', NOTE(n), next, len * E8 * .95, .045, filt);
+      }
+      melLeft--;
+      if (beat === 0 || beat === 4) tone('triangle', NOTE(root), next, E8 * 3.6, .16, filt);
+      if (beat === 2 || beat === 6) tone('triangle', NOTE(root) * 1.5, next, E8 * 1.8, .1, filt);
+      tone('sine', NOTE(tri[[0, 1, 2, 1][beat % 4]]) * 2, next, E8 * 1.6, .03, filt);
+      next += E8; step = (step + 1) % (BARS.length * 8);
+    }
+    function stepDungeon(ac) {
+      const bar = Math.floor(step / 8) % D_BARS.length, beat = step % 8, [root, tri] = D_CH[D_BARS[bar]];
+      if (melLeft <= 0) {
+        const [n, len] = D_MEL[melIdx]; melIdx = (melIdx + 1) % D_MEL.length; melLeft = len;
+        if (n) { tone('triangle', NOTE(n), next, len * D8 * 1.1, .07, filt); tone('sine', NOTE(n) * 2, next + D8 * .75, len * D8 * .8, .012, filt); }
+      }
+      melLeft--;
+      if (beat === 0) tone('sine', NOTE(root), next, D8 * 7.5, .14, filt);                 // long, warm bass
+      if (beat === 0) tri.forEach(n => tone('sine', NOTE(n), next, D8 * 7.8, .018, filt));  // soft pad
+      if (beat % 2 === 1) tone('sine', NOTE(tri[[0, 2, 1, 2][(beat >> 1) % 4]]) * 2, next, D8 * 1.4, .02, filt); // music-box twinkle
+      if (Math.random() < .07) drip(next + Math.random() * D8, filt);
+      next += D8; step = (step + 1) % (D_BARS.length * 8);
+    }
+    function stepBoss(ac) {
+      const bar = Math.floor(step / 8) % B_BARS.length, beat = step % 8, root = NOTE(B_BARS[bar]);
+      if (melLeft <= 0) {
+        const [n, len] = B_MEL[melIdx]; melIdx = (melIdx + 1) % B_MEL.length; melLeft = len;
+        if (n) tone('square', NOTE(n), next, len * B8 * .9, .04, filt);
+      }
+      melLeft--;
+      tone('sawtooth', root * (beat % 2 ? 2 : 1), next, B8 * .8, .05, filt);                // chugging eighth-note bass
+      if (beat === 0 || beat === 3 || beat === 4) kick(next, filt, .22);
+      if (beat === 2 || beat === 6) tone('square', 3000 + Math.random() * 800, next, .03, .012, filt); // hi-hat tick
+      if (beat === 0) tone('square', root * 4, next, B8 * 7, .012, filt);                   // tense high drone
+      next += B8; step = (step + 1) % (B_BARS.length * 8);
+    }
     function schedule() {
       const ac = Sound.ctx();
       if (!ac || ac.state !== 'running') return;
@@ -84,24 +165,22 @@
         filt = ac.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 2200;
         filt.connect(master); master.connect(ac.destination);
       }
-      const P = Game.pet(), quiet = P && P.asleep;
-      master.gain.setTargetAtTime(vol() * (quiet ? .5 : 1.2), ac.currentTime, .15);
+      if (track !== cur) {                                // fade out, then start the new tune from its first bar
+        if (!switching) { switching = ac.currentTime + .6; master.gain.setTargetAtTime(0, ac.currentTime, .12); }
+        if (ac.currentTime < switching) return;
+        cur = track; switching = 0; step = 0; melIdx = 0; melLeft = 0; next = ac.currentTime + .05;
+      } else switching = 0;
+      const P = Game.pet(), quiet = cur === 'town' && P && P.asleep;
+      filt.frequency.setTargetAtTime(cur === 'dungeon' ? 1500 : cur === 'boss' ? 3200 : 2200, ac.currentTime, .2);
+      master.gain.setTargetAtTime(vol() * (quiet ? .5 : cur === 'boss' ? 1.1 : 1.2), ac.currentTime, .15);
       if (next < ac.currentTime) next = ac.currentTime + .1;
-      while (next < ac.currentTime + .35) {
-        const bar = Math.floor(step / 8) % BARS.length, beat = step % 8, [root, tri] = CH[BARS[bar]];
-        if (melLeft <= 0) {
-          const [n, len] = MEL[melIdx]; melIdx = (melIdx + 1) % MEL.length; melLeft = len;
-          if (n) tone('square', NOTE(n), next, len * E8 * .95, .045, filt);
-        }
-        melLeft--;
-        if (beat === 0 || beat === 4) tone('triangle', NOTE(root), next, E8 * 3.6, .16, filt);
-        if (beat === 2 || beat === 6) tone('triangle', NOTE(root) * 1.5, next, E8 * 1.8, .1, filt);
-        tone('sine', NOTE(tri[[0, 1, 2, 1][beat % 4]]) * 2, next, E8 * 1.6, .03, filt);
-        next += E8; step = (step + 1) % (BARS.length * 8);
-      }
+      const fn = cur === 'dungeon' ? stepDungeon : cur === 'boss' ? stepBoss : stepTown;
+      while (next < ac.currentTime + .35) fn(ac);
     }
     function start() { if (!timer) timer = setInterval(() => { try { schedule(); } catch (e) { /* audio hiccup */ } }, 90); }
-    return { start };
+    /** pick the tune: 'town' (home), 'dungeon' (exploring) or 'boss' (floor boss fight) */
+    function set(name) { track = name; }
+    return { start, set };
   })();
   document.addEventListener('pointerdown', () => { Sound.unlock(); Music.start(); }, { capture: true });
 
@@ -393,11 +472,14 @@
     const fy = far ? Math.max(H * .3, bg.y + bg.h * (.43 + (p.depth - .62) * .5)) : H * p.depth;
     const x = far ? Math.max(bg.x, 0) + Math.min(bg.w, W) * (.18 + (p.x - .1) / .8 * .62) : p.x * W;
     const size = baseSize() * (far ? .34 : .55);
-    const fitH = baseSize() * (far ? .68 : 1.15);   // every party Pokémon is drawn this tall, whatever its species
+    // every party Pokémon shares one pixel size (snapped to whole device pixels), so their sprite
+    // pixels line up and each species keeps its natural PMD size relative to the others
+    const pxScale = Math.max(1, Math.round(baseSize() * (far ? .68 : 1.15) / 28 * DPR)) / DPR;
+    const maxH = baseSize() * (far ? 1.5 : 2.4);
     cx.fillStyle = 'rgba(0,0,0,.14)'; cx.beginPath(); cx.ellipse(x, fy, size * .8, size * .16, 0, 0, Math.PI * 2); cx.fill();
     const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
     const pos = drawCreature(cx, p.sp, {
-      x, y: fy, size, t: t + p.depth * 10, fitH, shiny: p.shiny, sleep: sleeping, walking: p.moving, flip: p.flip,
+      x, y: fy, size, t: t + p.depth * 10, pxScale, maxH, dpr: DPR, shiny: p.shiny, sleep: sleeping, walking: p.moving, flip: p.flip,
       anim: playing ? 'Hop' : undefined, animT: playing ? ((t - p.t0) % Math.max(.4, animLength(p.sp, 'Hop') + .5)) : undefined,
     });
     const top = pos ? pos.top : fy - size * 2;
@@ -790,7 +872,7 @@ if (!code) {
     if (!guard()) return;
     const p = Game.pet(), s = Game.sp();
     const known = p.berryKnown;
-    openSheet(head('Bag') + bagTabs() + `<div class="foods">
+    openSheet(head('Feed') + `<div class="foods">
       ${FLAVORS.map((f, i) => `<button class="food" data-f="${i}">${ic(f.icon).replace('class="ic"', 'class="px"')}<span><b>${f.label}</b><small>${f.taste} · +25 food${known && s.fav === i ? ' · favourite!' : ''}</small></span>${known && s.fav === i ? '<span class="heart">{i:heart}</span>' : ''}</button>`).join('')}
       <button class="food" data-f="candy">${ic('poffin').replace('class="ic"', 'class="px"')}<span><b>Poffin</b><small>Treat · +12 happy, fattening</small></span></button>
       </div><p class="muted" style="margin-top:12px">${known ? `Its favourite is the ${FLAVORS[s.fav].label} (${FLAVORS[s.fav].taste.toLowerCase()}).` : 'Every Pokémon has a hidden favourite berry. Try them all!'}</p>`);
@@ -1080,7 +1162,7 @@ if (!code) {
       <label class="toggle"><span><b>Music volume</b><small id="musicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Fast time (testing)</b><small>1 second = 1 game minute. Normally 1 real minute = 1 game minute.</small></span><span class="sw"><input type="checkbox" id="setFast" ${S.settings.fast ? 'checked' : ''}><i></i></span></label>
-      <div class="btns"><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:card} Home-screen widget</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
+      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:card} Home-screen widget</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
     $('#setMusic').addEventListener('change', e => { S.settings.music = e.target.checked; Game.save(); });
@@ -1088,6 +1170,7 @@ if (!code) {
     $('#setPlayer').addEventListener('input', e => { S.settings.player = e.target.value.slice(0, 14); Game.save(); });
     $('#setFast').addEventListener('change', e => { Game.setFast(e.target.checked); toast(e.target.checked ? 'Fast time ON' : 'Fast time OFF'); });
     $('#howTo').addEventListener('click', openManual);
+    if ($('#openCode')) $('#openCode').addEventListener('click', openRedeem);
     $('#openOnline').addEventListener('click', () => openOnline());
     $('#openWidget').addEventListener('click', openWidget);
     $('#openCard').addEventListener('click', () => openCard());
@@ -1096,6 +1179,43 @@ if (!code) {
       { label: 'Erase', cls: 'red', fn: () => { Game.reset(); V.anim = null; V.x = .5; startNewGame(); } },
     ]));
   }
+  // ---------- gift codes (event Pokémon set by the admin) ----------
+  function openRedeem() {
+    const signedIn = !!(Online.state.user && Online.state.profile);
+    openSheet(head('Redeem a code') + `
+      <p class="muted" style="margin-top:0">Got a code from an event? Enter it to receive a special Pokémon or items. Each code works once per account.</p>
+      ${signedIn ? '' : '<p class="muted"><b>Sign in first</b> under Options → Account &amp; friends.</p>'}
+      <input id="codeIn" maxlength="24" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ENTER-CODE"
+        style="width:100%;box-sizing:border-box;border:2px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-family:var(--pixel);font-size:20px;text-align:center;letter-spacing:2px;text-transform:uppercase">
+      <p class="muted" id="codeMsg" style="min-height:1.4em;text-align:center"></p>
+      <div class="btns two"><button class="btn alt" id="codeBack">Back</button><button class="btn gold" id="codeGo" ${signedIn ? '' : 'disabled'}>Redeem</button></div>`);
+    const inp = $('#codeIn'), go = $('#codeGo');
+    $('#codeBack').addEventListener('click', openSettings);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') go.click(); });
+    go.addEventListener('click', async () => {
+      if (!inp.value.trim()) return;
+      go.disabled = true; $('#codeMsg').textContent = 'Checking…';
+      try {
+        const r = await Online.redeemCode(inp.value);
+        Sound.play('evolve');
+        const mons = r.mons.map(m => `${m.shiny ? '{i:sparkle}' : ''}<b>${esc(m.name)}</b> (${m.where === 'party' ? 'joined your party' : 'sent to your PC Box'})`);
+        const items = r.items.map(i => `{i:${Game.ITEMS[i.k].icon}} ${Game.ITEMS[i.k].name} ×${i.n}`);
+        dialog(icons(`{i:sparkle} ${esc(r.label)}`), icons((r.message ? esc(r.message) + '<br><br>' : '') + 'You received: ' + ([...mons, ...items].join(', ') || 'nothing this time') + '!'), [{ label: 'Yay!', cls: 'gold' }]);
+      } catch (e) {
+        Sound.play('no'); $('#codeMsg').textContent = e.message; go.disabled = false;
+      }
+    });
+    setTimeout(() => inp.focus(), 50);
+  }
+
+  // ---------- admin announcement: shown once per new message ----------
+  function showAnnouncement() {
+    const msg = Game.config.announcement; if (!msg || !ST().player.starterPicked) return;
+    if (ST().settings.seenNews === msg || !sheet.classList.contains('hidden')) return;
+    ST().settings.seenNews = msg; Game.save();
+    dialog(icons('{i:sparkle} News'), esc(msg).replace(/\n/g, '<br>'), [{ label: 'OK', cls: 'gold' }]);
+  }
+
   function openManual() {
     openSheet(head('How to play') + `<div class="manual">
       <h4>Time</h4><ul><li>1 real minute = 1 game minute. +1 level every hour.</li><li>It keeps living while the app is closed (up to 2 weeks of catch-up).</li></ul>
@@ -1219,10 +1339,11 @@ if (!code) {
   // ---------- Explore: dungeon or training ----------
   function openAdventure() {
     if (!guard()) return;
+    const ex = Game.feature('explore'), tr = Game.feature('training');
     openSheet(head('Explore') + `<div class="foods">
-      ${optCard('data-adv="dungeon"', 'map', 'Explore a dungeon', 'Battle wild Pokémon and find treasure')}
-      ${optCard('data-adv="training"', 'pokeball', 'Training', 'Mini-games that build ATK, DEF &amp; SPD')}
-      </div><p class="muted" style="margin-top:12px">Both use some energy.</p>`);
+      ${ex ? optCard('data-adv="dungeon"', 'map', 'Explore a dungeon', 'Battle wild Pokémon and find treasure') : ''}
+      ${tr ? optCard('data-adv="training"', 'pokeball', 'Training', 'Mini-games that build ATK, DEF &amp; SPD') : ''}
+      </div><p class="muted" style="margin-top:12px">${ex || tr ? 'These use some energy.' : 'Exploring and training are closed right now. Check back soon!'}</p>`);
     sheet.querySelectorAll('[data-adv]').forEach(b => b.addEventListener('click', () => {
       if (b.dataset.adv === 'training') return openGames();
       closeSheet(); startExplore();
@@ -1239,7 +1360,7 @@ if (!code) {
     const r = acv.getBoundingClientRect(), d = Math.min(3, window.devicePixelRatio || 1);
     AW = r.width; AH = r.height; acv.width = AW * d; acv.height = AH * d; ac.setTransform(d, 0, 0, d, 0, 0);
   }
-  function closeArena() { arena.classList.add('hidden'); $('#arenaPanel').classList.add('hidden'); arenaGame = null; }
+  function closeArena() { Music.set('town'); arena.classList.add('hidden'); $('#arenaPanel').classList.add('hidden'); arenaGame = null; }
   $('#arenaClose').addEventListener('click', () => { if (arenaGame) arenaGame.finish(true); });
   const aPos = e => { const r = acv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   acv.addEventListener('pointerdown', e => arenaGame && arenaGame.down && arenaGame.down(aPos(e)));
@@ -1312,6 +1433,7 @@ if (!code) {
   // ---------- training games menu ----------
   function openGames() {
     if (!guard()) return;
+    if (!Game.feature('training')) { toast('Training is closed right now. Check back soon!'); return; }
     const p = Game.pet();
     const card = (id, icon, title, stat, desc) => `<button class="food" data-game="${id}" style="grid-column:1/-1">${ic(icon).replace('class="ic"', 'class="px"')}<span><b>${title}</b><small>${stat} · ${desc}</small></span></button>`;
     openSheet(head('Training') + `<div class="foods">
@@ -1466,7 +1588,7 @@ if (!code) {
 
   // ---------- bag: items found while exploring ----------
   function bagTabs() {
-    return `<div class="tabs"><button data-bag="berries" class="${bagTab === 'berries' ? 'on' : ''}">Berries</button><button data-bag="items" class="${bagTab === 'items' ? 'on' : ''}">Items</button></div>`;
+    return '';   // berries live under Care → Feed, so the Bag only holds items
   }
   function wireBagTabs() { sheet.querySelectorAll('[data-bag]').forEach(b => b.addEventListener('click', () => openFeed(b.dataset.bag))); }
   function fragmentsHtml() {
@@ -1846,7 +1968,7 @@ if (!code) {
           const n = Game.addFragment(w.sp);
           G.state = 'fled'; G.at = now(); Sound.play('sad');
           say(`Oh no! ${esc(G.wild.name)} broke free and fled…`,
-            `It left behind a {i:fragment} ${esc(G.wild.name)} Fragment (${Math.min(n, Game.FRAGMENTS_TO_SUMMON)}/${Game.FRAGMENTS_TO_SUMMON}). ${n >= Game.FRAGMENTS_TO_SUMMON ? 'You can summon it from Bag → Items!' : 'Collect 20 to summon it.'}`);
+            `It left behind a {i:fragment} ${esc(G.wild.name)} Fragment (${Math.min(n, Game.FRAGMENTS_TO_SUMMON)}/${Game.FRAGMENTS_TO_SUMMON}). ${n >= Game.FRAGMENTS_TO_SUMMON ? 'You can summon it from Bag → Items!' : `Collect ${Game.FRAGMENTS_TO_SUMMON} to summon it.`}`);
           setTimeout(() => { if (G.state === 'fled') G.wild = null; }, 1000);
         }
         afterFloor();
@@ -2025,6 +2147,7 @@ if (!code) {
       requestAnimationFrame(G.loop);
       const ms = now(), t = ms / 1000;
       const P = Game.pet(); if (!P) return;
+      Music.set(G.wild && G.wild.boss && G.state !== 'fled' && G.state !== 'caught' ? 'boss' : 'dungeon');
       const walking = G.state === 'walk';
       if (walking) G.scroll = (G.scroll || 0) + 70 * Math.min(.05, (ms - last2) / 1000);
       last2 = ms;
@@ -2042,8 +2165,9 @@ if (!code) {
         const fade = G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : G.state === 'fled' ? Math.max(0, 1 - (ms - G.at) / 900) : 1;
         if (G.wild.boss && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,90,70,.4)'); gr.addColorStop(1, 'rgba(255,90,70,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
         if (G.wild.legend && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,220,120,.45)'); gr.addColorStop(1, 'rgba(255,220,120,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
-        ac.fillStyle = 'rgba(0,0,0,.22)'; ac.beginPath(); ac.ellipse(wx, wy, size * .8, size * .18, 0, 0, Math.PI * 2); ac.fill();
-        drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0), y: wy - (G.state === 'fled' ? (ms - G.at) / 12 : 0), size: size * (G.wild.boss ? 1.25 : .95), silhouette: throwing === 'flash' ? '#ffffff' : false, t, maxH: AH * .26, shiny: G.wild.shiny, dir: 'downleft',
+        const fled = G.state === 'fled', runX = fled ? Math.pow((ms - G.at) / 900, 1.4) * AW * .4 : 0;   // dashes off to the right
+        ac.fillStyle = `rgba(0,0,0,${.22 * fade})`; ac.beginPath(); ac.ellipse(wx + runX, wy, size * .8, size * .18, 0, 0, Math.PI * 2); ac.fill();
+        drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0) + runX, y: wy, size: size * (G.wild.boss ? 1.25 : .95), silhouette: throwing === 'flash' ? '#ffffff' : false, t, maxH: AH * .26, shiny: G.wild.shiny, dir: fled ? 'right' : 'downleft', walking: fled,
           anim: hurt ? 'Hurt' : att ? 'Attack' : undefined, animT: hurt ? (ms - G.hurtAt) / 1000 : att ? (ms - G.actAt) / 1000 : undefined, alpha: (hurt && Math.floor(ms / 80) % 2 ? .4 : 1) * fade });
         if (!['wheel', 'throw', 'fled'].includes(G.state)) hpBox(ac, 10, 10, Math.min(250, AW * .62), (G.wild.legend ? '★ ' : G.wild.boss ? 'BOSS ' : '') + G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
       }
@@ -2306,6 +2430,7 @@ if (!code) {
 
   // ======================= game events =======================
   Game.on((ev, d) => {
+    if (ev === 'config') { setTimeout(showAnnouncement, 1500); return; }
     if (ev === 'level') { toast(`{i:up} Level up! Lv ${d}`); Sound.play('level'); if (!Game.pet().asleep) Talk.say('level', { vars: { lv: d } }); }
     else if (ev === 'medal') { toast(`New medal: {i:${d.icon}} ${d.label}`, 3500); Sound.play('medal'); if (!Game.pet().asleep) Talk.say('medal', { vars: { medal: d.label } }); }
     else if (ev === 'milestone') { toast(`{i:flame} ${d}-day streak! Your eggs are getting luckier.`, 4000); Sound.play('medal'); Talk.say('milestone', { vars: { n: d }, prio: 2 }); }
@@ -2420,6 +2545,7 @@ if (!code) {
   ['gesturestart', 'gesturechange'].forEach(ev => document.addEventListener(ev, e => e.preventDefault()));
   Talk.init({ sound: Sound.play, player: () => (ST().settings.player || '').trim() || 'partner' });
   Online.init(); updateBadge();
+  setTimeout(showAnnouncement, 2500);
   if (!ST().player.starterPicked) startNewGame();
   else setTimeout(greet, 900);
   requestAnimationFrame(frame);

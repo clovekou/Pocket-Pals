@@ -25,6 +25,28 @@ const Game = (() => {
   const PARTY_MAX = 6;                  // main + up to 5 resting in the background
   const NEW_EGG_LEVEL = 5;              // main must reach this level before you can take another egg
 
+  // Settings the admin can change for everyone (Admin page → Game settings, stored in Firestore config/game).
+  // These are the defaults; applyConfig() overrides them, clamped to safe ranges.
+  const CFG_DEFAULT = {
+    exploreFloors: 10, fragments: 20, exploreEnergy: 30,
+    shinyMult: 1, legendMult: 1, treasureMult: 1, eggMult: 1, bossShinyMult: 1,
+    features: { explore: true, training: true, codes: true },
+    announcement: '',
+  };
+  const CFG = JSON.parse(JSON.stringify(CFG_DEFAULT));
+  function applyConfig(c) {
+    c = c || {};
+    const num = (k, lo, hi) => { const v = Number(c[k]); CFG[k] = Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : CFG_DEFAULT[k]; };
+    num('exploreFloors', 3, 50); num('fragments', 1, 200); num('exploreEnergy', 0, 100);
+    num('shinyMult', .1, 50); num('legendMult', 0, 100); num('treasureMult', 0, 5); num('eggMult', 0, 10); num('bossShinyMult', .1, 50);
+    CFG.exploreFloors = Math.round(CFG.exploreFloors); CFG.fragments = Math.round(CFG.fragments);
+    CFG.features = Object.assign({}, CFG_DEFAULT.features, c.features || {});
+    CFG.announcement = String(c.announcement || '').slice(0, 400);
+    emit('config');
+  }
+  const feature = k => CFG.features[k] !== false;
+  const oneIn = (n, mult) => Math.random() * Math.max(1, n / mult) < 1;   // a "1 in n" chance, boosted by mult
+
   let S = null;
   const listeners = [];
   let quiet = false;
@@ -195,7 +217,7 @@ const Game = (() => {
   }
   function rollShiny() {
     const denom = Math.max(8, (S.player.lastEnd === 'farewell' ? 24 : 48) - careBonus() * 3);
-    return rnd(denom) === 0;
+    return oneIn(denom, CFG.shinyMult);
   }
   function makeEgg(id, shiny) { return { egg: true, sp: id, shiny, ageMin: 0, taps: 0 }; }
   function newEgg() {
@@ -502,8 +524,6 @@ const Game = (() => {
     ultraBall: { name: 'Ultra Ball',  icon: 'ultraball',     use: false, wheel: 'ultra',  desc: 'Very rare. On the catch wheel, every weaker slot becomes an Ultra Ball.' },
     masterBall:{ name: 'Master Ball', icon: 'masterball',    use: false, wheel: 'master', desc: 'Extremely rare. Turns the whole catch wheel into Master Balls — a sure catch!' },
   };
-  const EXPLORE_MAX_FLOOR = 10;
-  const FRAGMENTS_TO_SUMMON = 20;
   // Ultra Beasts and Paradox Pokémon aren't flagged legendary in the data, but count as "special"
   const SPECIAL_IDS = new Set([793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806,
     984, 985, 986, 987, 988, 989, 990, 991, 992, 993, 994, 995, 1005, 1006, 1009, 1010, 1020, 1021, 1022, 1023]);
@@ -527,7 +547,8 @@ const Game = (() => {
     if (!p || S.ceremony) return { ok: false, why: 'Not right now.' };
     if (p.egg) return { ok: false, why: 'Hatch your egg first!' };
     if (p.asleep) return { ok: false, why: 'It\'s asleep. Wake it up first.' };
-    if (p.ene < 30) return { ok: false, why: 'Too tired to explore — needs 30+ energy.' };
+    if (!feature('explore')) return { ok: false, why: 'Exploring is closed right now. Check back soon!' };
+    if (p.ene < CFG.exploreEnergy) return { ok: false, why: `Too tired to explore — needs ${CFG.exploreEnergy}+ energy.` };
     if (p.food < 20) return { ok: false, why: 'Too hungry to explore — feed it first.' };
     return { ok: true };
   }
@@ -541,7 +562,8 @@ const Game = (() => {
   /** what happens on a floor: 'none' | 'wild' | 'treasure' | 'egg' */
   function rollFloor(floor) {
     const r = Math.random();
-    const legend = .0008 + floor * .0002, eggChance = .05 + floor * .006, treasure = .2 + floor * .015, wild = .3;
+    const legend = (.0008 + floor * .0002) * CFG.legendMult, eggChance = Math.min(.4, (.05 + floor * .006) * CFG.eggMult),
+      treasure = Math.min(.55, (.2 + floor * .015) * CFG.treasureMult), wild = .3;
     if (Math.random() < legend && SPECIES.some(s => isSpecial(s.id))) return 'legend';
     if (r < eggChance) return 'egg';
     if (r < eggChance + treasure) return 'treasure';
@@ -563,7 +585,7 @@ const Game = (() => {
     const fit = pool.filter(s => (s.stage === 1) || (s.stage === 2 && lv >= 18) || (s.stage >= 3 && lv >= 34));
     const list = fit.length ? fit : pool;
     const s = list[rnd(list.length)];
-    return { sp: s.id, level: lv, shiny: rnd(200) === 0 };
+    return { sp: s.id, level: lv, shiny: oneIn(200, CFG.shinyMult) };
   }
   /** the boss waiting on the deepest floor. Usually a first-stage Pokémon;
    *  rare: a middle stage (12%) · very rare: a final stage (3%) · extremely rare: a legendary (0.5%) */
@@ -578,7 +600,7 @@ const Game = (() => {
     let tier = 'stage1', pool = normal.filter(s => s.stage === 1 && !s.prev);
     for (const [t, upTo, list] of pools) if (r < upTo && list.length) { tier = t; pool = list; break; }
     const s = pool[rnd(pool.length)];
-    return { sp: s.id, level: Math.max(5, level() + (tier === 'legend' ? 3 : 2)), shiny: rnd(150) === 0, boss: true, bossTier: tier, legend: tier === 'legend' };
+    return { sp: s.id, level: Math.max(5, level() + (tier === 'legend' ? 3 : 2)), shiny: oneIn(150, CFG.bossShinyMult), boss: true, bossTier: tier, legend: tier === 'legend' };
   }
   /** battle numbers for any Pokémon at a level (mine uses genes + training) */
   function battler(id, lv, mine) {
@@ -627,10 +649,30 @@ const Game = (() => {
     S.player.box.push(m); save(); emit('party'); return 'box';
   }
   function catchLegend(w) { return keepPokemon(makeCaught(w.sp, w.level, w.shiny)); }
+  /** gift-code reward (set by the admin): event Pokémon and/or items. Returns what was given. */
+  function redeemGift(code, gift) {
+    S.player.redeemed = S.player.redeemed || {};
+    const out = { mons: [], items: [] };
+    for (const g of gift.pokemon || []) {
+      if (!SPECIES_BY_ID[g.sp]) continue;
+      const m = makeCaught(g.sp, Math.max(1, Math.min(100, g.level || 5)), !!g.shiny);
+      if (g.name) m.name = String(g.name).slice(0, 14);
+      m.event = String(gift.label || code).slice(0, 40); m.gift = true;
+      out.mons.push({ name: m.name || SPECIES_BY_ID[g.sp].name, shiny: m.shiny, where: keepPokemon(m) });
+    }
+    for (const [k, n] of Object.entries(gift.items || {})) {
+      if (!ITEMS[k] || !(n > 0)) continue;
+      S.player.bag[k] = (S.player.bag[k] || 0) + Math.min(99, n | 0); out.items.push({ k, n: Math.min(99, n | 0) });
+    }
+    S.player.redeemed[code] = Date.now();
+    save(); emit('party'); emit('change');
+    return out;
+  }
+  const hasRedeemed = code => !!(S.player.redeemed && S.player.redeemed[code]);
   function addFragment(id) { S.player.fragments[id] = (S.player.fragments[id] || 0) + 1; save(); return S.player.fragments[id]; }
   function summonLegend(id) {
-    if ((S.player.fragments[id] || 0) < FRAGMENTS_TO_SUMMON) return null;
-    S.player.fragments[id] -= FRAGMENTS_TO_SUMMON;
+    if ((S.player.fragments[id] || 0) < CFG.fragments) return null;
+    S.player.fragments[id] -= CFG.fragments;
     if (!S.player.fragments[id]) delete S.player.fragments[id];
     return keepPokemon(makeCaught(id, Math.max(5, level() || 5), false));
   }
@@ -735,7 +777,8 @@ const Game = (() => {
     pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, sleepNow, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
-    ITEMS, EXPLORE_MAX_FLOOR, FRAGMENTS_TO_SUMMON, isSpecial, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
+    ITEMS, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
+    applyConfig, feature, get config() { return CFG; }, redeemGift, hasRedeemed, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
     setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, exploreEnd,
     canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,

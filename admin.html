@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2b2438">
-<title>Player Admin</title>
+<title>Pocket Pal Admin</title>
 <link rel="icon" href="icons/favicon-32.png" type="image/png">
 <style>
   :root { --bg: #f4efe4; --panel: #fffdf8; --ink: #2b2438; --muted: #776f86; --line: #e4dccb; --accent: #7b61ff; --red: #e8503a; --ok: #3e9a5a; --gold: #f2b51d; --chip: #efe8da; }
@@ -45,6 +45,20 @@
   .tag.lock { background: #ffe3dc; color: #a33; } .tag.gold { background: #fff0c2; color: #8a6400; }
   .savebar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--ink); color: #fff; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; gap: 12px; align-items: center; transform: translateY(110%); transition: transform .2s; z-index: 5; flex-wrap: wrap; }
   .savebar.show { transform: none; }
+  .tabs { display: flex; gap: 6px; margin: 0 0 16px; flex-wrap: wrap; }
+  .tabs button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 8px 14px; font-weight: 700; cursor: pointer; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .set { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .set label, .gc label { font-size: 12px; color: var(--muted); font-weight: 700; display: grid; gap: 3px; }
+  .set label small { font-weight: 500; }
+  textarea { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 10px; width: 100%; font: inherit; min-height: 70px; resize: vertical; }
+  input[type=date] { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 7px 10px; width: 100%; }
+  .codes { display: grid; gap: 8px; margin-top: 10px; }
+  .code { border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .code .c { font-family: ui-monospace, Menlo, monospace; font-weight: 800; font-size: 16px; }
+  .code .grow { flex: 1; min-width: 180px; } .code small { color: var(--muted); display: block; }
+  .giftrow { display: grid; grid-template-columns: 2fr 80px auto auto; gap: 8px; align-items: center; margin-bottom: 6px; }
+  @media (max-width: 560px) { .giftrow { grid-template-columns: 1fr 70px; } }
   .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 9; max-width: calc(100% - 32px); }
   @media (max-width: 560px) { .mons { grid-template-columns: 1fr; } }
 </style>
@@ -52,13 +66,78 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Player Admin</h1>
+    <h1>Pocket Pal Admin</h1>
     <span id="who" class="note"></span>
     <button class="btn alt sm" id="signOut" hidden>Sign out</button>
     <a class="back" href="dashboard.html">← Dashboard</a>
   </header>
 
   <div id="status" class="card"><p class="sub" style="margin:0">Connecting…</p></div>
+
+  <nav class="tabs" id="tabs" hidden>
+    <button data-tab="settings" class="on">Game settings</button>
+    <button data-tab="codes">Gift codes</button>
+    <button data-tab="players">Players</button>
+  </nav>
+
+  <section class="card" id="settingsCard" hidden>
+    <h2>Game settings</h2>
+    <p class="sub">These apply to every player. Games that are open pick up changes within a few seconds; others get them the next time they open (they keep the last settings they saw when offline).</p>
+    <h3>Features</h3>
+    <div class="row" style="gap:18px">
+      <label class="chk"><input type="checkbox" data-feat="explore"> Explore (dungeons)</label>
+      <label class="chk"><input type="checkbox" data-feat="training"> Training mini-games</label>
+      <label class="chk"><input type="checkbox" data-feat="codes"> Gift codes in Options</label>
+    </div>
+    <h3>Announcement</h3>
+    <textarea id="cfgNews" maxlength="400" placeholder="Shown once to every player when it changes, e.g. “Mew event this weekend! Code: MEW2026”. Leave empty for none."></textarea>
+    <h3>Explore</h3>
+    <div class="set">
+      <label>Floors per dungeon<input type="number" data-cfg="exploreFloors" min="3" max="50" step="1"><small>Default 10. The boss waits on the last floor.</small></label>
+      <label>Energy needed to explore<input type="number" data-cfg="exploreEnergy" min="0" max="100" step="1"><small>Default 30.</small></label>
+      <label>Treasure chance ×<input type="number" data-cfg="treasureMult" min="0" max="5" step="0.1"><small>Default 1.</small></label>
+      <label>Mystery Egg chance ×<input type="number" data-cfg="eggMult" min="0" max="10" step="0.1"><small>Default 1.</small></label>
+      <label>Legendary encounter chance ×<input type="number" data-cfg="legendMult" min="0" max="100" step="0.5"><small>Default 1. Try 10 for a legendary event.</small></label>
+      <label>Fragments to summon a legendary<input type="number" data-cfg="fragments" min="1" max="200" step="1"><small>Default 20.</small></label>
+    </div>
+    <h3>Shiny odds</h3>
+    <div class="set">
+      <label>Shiny chance × (eggs &amp; wild)<input type="number" data-cfg="shinyMult" min="0.1" max="50" step="0.5"><small>Default 1. 2 = twice as likely.</small></label>
+      <label>Shiny boss chance ×<input type="number" data-cfg="bossShinyMult" min="0.1" max="50" step="0.5"><small>Default 1.</small></label>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn ok" id="cfgSave">Save settings</button>
+      <button class="btn alt" id="cfgReset">Reset to defaults</button>
+      <span class="note" id="cfgNote"></span>
+    </div>
+  </section>
+
+  <section class="card" id="codesCard" hidden>
+    <h2>Gift codes</h2>
+    <p class="sub">Make a code for an event Pokémon (and/or items). Players enter it in <b>Options → Redeem a code</b> while signed in. Each account can redeem a code once.</p>
+    <div class="gc">
+      <div class="g2">
+        <label>Code<input type="text" id="gcCode" maxlength="24" placeholder="e.g. MEW2026" style="text-transform:uppercase;font-family:ui-monospace,Menlo,monospace"></label>
+        <label>Event name (shown to the player)<input type="text" id="gcLabel" maxlength="40" placeholder="e.g. Mythical Mew Event"></label>
+      </div>
+      <label style="margin-top:8px">Message (optional)<input type="text" id="gcMsg" maxlength="160" placeholder="e.g. Thanks for playing! Take good care of it."></label>
+      <h3>Pokémon</h3>
+      <div id="gcMons"></div>
+      <button class="btn alt sm" id="gcAddMon">+ Add a Pokémon</button>
+      <h3>Items</h3>
+      <div id="gcItems"></div>
+      <button class="btn alt sm" id="gcAddItem">+ Add an item</button>
+      <h3>Limits</h3>
+      <div class="g3">
+        <label>Max redemptions (0 = unlimited)<input type="number" id="gcMax" min="0" value="0"></label>
+        <label>Expires (optional)<input type="date" id="gcExp"></label>
+        <label class="chk" style="align-self:end"><input type="checkbox" id="gcActive" checked> Active</label>
+      </div>
+      <div class="row" style="margin-top:14px"><button class="btn" id="gcCreate">Create code</button><button class="btn alt" id="gcRandom">Random code</button></div>
+    </div>
+    <h3 style="margin-top:22px">Existing codes</h3>
+    <div class="codes" id="gcList"><p class="note">Loading…</p></div>
+  </section>
 
   <section class="card" id="playersCard" hidden>
     <h2>Players</h2>
@@ -133,7 +212,7 @@ async function signIn() {
 $('#signOut').onclick = () => auth.signOut();
 
 async function onUser(u) {
-  $('#playersCard').hidden = $('#editCard').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
+  $('#playersCard').hidden = $('#editCard').hidden = $('#settingsCard').hidden = $('#codesCard').hidden = $('#tabs').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
   cur = save = null; dirty();
   if (!u) { status('<h2>Admin sign-in</h2><p class="sub">Sign in with the Google account that has admin access.</p><button class="btn" id="signIn">Sign in with Google</button>'); $('#signIn').onclick = signIn; return; }
   $('#who').textContent = u.displayName || '';
@@ -151,7 +230,120 @@ async function onUser(u) {
     $('#copyUid').onclick = () => navigator.clipboard.writeText(u.uid).then(() => toast('UID copied'));
     return;
   }
-  status(''); $('#playersCard').hidden = false; loadUsers();
+  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadConfig(); loadCodes();
+}
+
+// ---------------- tabs ----------------
+let tab = 'settings';
+function showTab(t) {
+  tab = t;
+  $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  $('#settingsCard').hidden = t !== 'settings'; $('#codesCard').hidden = t !== 'codes';
+  $('#playersCard').hidden = t !== 'players'; $('#editCard').hidden = t !== 'players' || !cur;
+}
+$('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+// ---------------- game settings (config/game) ----------------
+const CFG_DEFAULT = { exploreFloors: 10, fragments: 20, exploreEnergy: 30, shinyMult: 1, legendMult: 1, treasureMult: 1, eggMult: 1, bossShinyMult: 1,
+  features: { explore: true, training: true, codes: true }, announcement: '' };
+function fillConfig(c) {
+  c = Object.assign({}, CFG_DEFAULT, c || {}); const f = Object.assign({}, CFG_DEFAULT.features, c.features || {});
+  document.querySelectorAll('[data-cfg]').forEach(el => { el.value = c[el.dataset.cfg]; });
+  document.querySelectorAll('[data-feat]').forEach(el => { el.checked = f[el.dataset.feat] !== false; });
+  $('#cfgNews').value = c.announcement || '';
+}
+async function loadConfig() {
+  try {
+    const d = await db.collection('config').doc('game').get();
+    fillConfig(d.exists ? d.data() : null);
+    const at = d.exists && d.data().updatedAt; $('#cfgNote').textContent = at ? 'Last saved ' + at.toDate().toLocaleString() : 'Using the defaults.';
+  } catch (e) { $('#cfgNote').textContent = "Couldn't load settings: " + e.message; fillConfig(null); }
+}
+$('#cfgSave').onclick = async () => {
+  const c = { features: {}, announcement: $('#cfgNews').value.trim().slice(0, 400) };
+  for (const el of document.querySelectorAll('[data-cfg]')) {
+    const v = Number(el.value), lo = Number(el.min), hi = Number(el.max);
+    if (!Number.isFinite(v) || el.value === '') { toast('Fill in every number'); el.focus(); return; }
+    c[el.dataset.cfg] = Math.max(lo, Math.min(hi, v));
+  }
+  document.querySelectorAll('[data-feat]').forEach(el => { c.features[el.dataset.feat] = el.checked; });
+  try {
+    await db.collection('config').doc('game').set({ ...c, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: auth.currentUser.uid });
+    toast('Settings saved — live for every player'); loadConfig();
+  } catch (e) { toast("Couldn't save: " + e.message, 5000); }
+};
+$('#cfgReset').onclick = () => { fillConfig(null); toast('Defaults filled in — press Save to apply'); };
+
+// ---------------- gift codes (giftCodes/{CODE}) ----------------
+const ITEMS = { oran: 'Oran Berry', rareCandy: 'Rare Candy', mysteryEgg: 'Mystery Egg', pearl: 'Pearl', starPiece: 'Star Piece', nugget: 'Nugget',
+  greatBall: 'Great Ball', ultraBall: 'Ultra Ball', masterBall: 'Master Ball' };
+const CODE_RE = /^[A-Z0-9-]{3,24}$/;
+function monRow() {
+  const d = document.createElement('div'); d.className = 'giftrow';
+  d.innerHTML = `<input type="text" list="spList" class="gm-sp" placeholder="Species (name or number)"><input type="number" class="gm-lv" min="1" max="100" value="5" title="Level">
+    <label class="chk"><input type="checkbox" class="gm-sh"> Shiny</label><button class="btn red sm" type="button">✕</button>`;
+  d.querySelector('button').onclick = () => d.remove(); $('#gcMons').appendChild(d);
+}
+function itemRow() {
+  const d = document.createElement('div'); d.className = 'giftrow';
+  d.innerHTML = `<select class="gi-k">${Object.entries(ITEMS).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select><input type="number" class="gi-n" min="1" max="99" value="1" title="How many">
+    <span></span><button class="btn red sm" type="button">✕</button>`;
+  d.querySelector('button').onclick = () => d.remove(); $('#gcItems').appendChild(d);
+}
+$('#gcAddMon').onclick = monRow; $('#gcAddItem').onclick = itemRow; monRow();
+$('#gcRandom').onclick = () => { const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; $('#gcCode').value = Array.from({ length: 10 }, () => abc[rnd(abc.length)]).join(''); };
+$('#gcCreate').onclick = async () => {
+  const code = $('#gcCode').value.trim().toUpperCase().replace(/\s+/g, '');
+  if (!CODE_RE.test(code)) { toast('Codes are 3–24 letters, numbers or dashes'); return; }
+  const pokemon = [];
+  for (const r of $('#gcMons').querySelectorAll('.giftrow')) {
+    const raw = r.querySelector('.gm-sp').value; if (!raw.trim()) continue;
+    const sp = parseSp(raw); if (!sp) { toast('Unknown species: ' + raw); return; }
+    pokemon.push({ sp, level: Math.max(1, Math.min(100, parseInt(r.querySelector('.gm-lv').value, 10) || 5)), shiny: r.querySelector('.gm-sh').checked });
+  }
+  const items = {};
+  $('#gcItems').querySelectorAll('.giftrow').forEach(r => { const k = r.querySelector('.gi-k').value, n = Math.max(1, Math.min(99, parseInt(r.querySelector('.gi-n').value, 10) || 1)); items[k] = (items[k] || 0) + n; });
+  if (!pokemon.length && !Object.keys(items).length) { toast('Add at least one Pokémon or item'); return; }
+  const exp = $('#gcExp').value ? new Date($('#gcExp').value + 'T23:59:59').getTime() : 0;
+  const doc = { label: $('#gcLabel').value.trim().slice(0, 40) || code, message: $('#gcMsg').value.trim().slice(0, 160), pokemon, items,
+    maxUses: Math.max(0, parseInt($('#gcMax').value, 10) || 0), expires: exp, active: $('#gcActive').checked, uses: 0,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: auth.currentUser.uid };
+  const ref = db.collection('giftCodes').doc(code);
+  try {
+    if ((await ref.get()).exists) { toast('That code already exists'); return; }
+    await ref.set(doc); toast(`Code ${code} created`);
+    $('#gcCode').value = $('#gcLabel').value = $('#gcMsg').value = ''; $('#gcMons').innerHTML = $('#gcItems').innerHTML = ''; monRow();
+    loadCodes();
+  } catch (e) { toast("Couldn't create the code: " + e.message, 5000); }
+};
+let codes = [];
+async function loadCodes() {
+  try {
+    const q = await db.collection('giftCodes').get();
+    codes = q.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => ((b.createdAt && b.createdAt.toMillis()) || 0) - ((a.createdAt && a.createdAt.toMillis()) || 0));
+    drawCodes();
+  } catch (e) { $('#gcList').innerHTML = `<p class="note">Couldn't load codes: ${esc(e.message)} (publish the latest firestore.rules)</p>`; }
+}
+function drawCodes() {
+  $('#gcList').innerHTML = codes.map(c => {
+    const gives = [...(c.pokemon || []).map(m => `${m.shiny ? '✨' : ''}${esc(spName(m.sp))} Lv ${m.level}`), ...Object.entries(c.items || {}).map(([k, n]) => `${esc(ITEMS[k] || k)} ×${n}`)].join(', ');
+    const expired = c.expires && Date.now() > c.expires, full = c.maxUses && (c.uses || 0) >= c.maxUses;
+    const state = c.active === false ? '<span class="tag lock">OFF</span>' : expired ? '<span class="tag lock">EXPIRED</span>' : full ? '<span class="tag lock">USED UP</span>' : '<span class="tag gold">LIVE</span>';
+    return `<div class="code"><div class="grow"><span class="c">${esc(c.id)}</span> ${state}<small>${esc(c.label || '')} · ${gives || 'nothing'}</small>
+      <small>Redeemed ${c.uses || 0}${c.maxUses ? ' / ' + c.maxUses : ''}${c.expires ? ' · expires ' + new Date(c.expires).toLocaleDateString() : ''}</small></div>
+      <button class="btn alt sm" data-copy="${esc(c.id)}">Copy</button>
+      <button class="btn ${c.active === false ? 'ok' : 'alt'} sm" data-toggle="${esc(c.id)}">${c.active === false ? 'Turn on' : 'Turn off'}</button>
+      <button class="btn red sm" data-del="${esc(c.id)}">Delete</button></div>`;
+  }).join('') || '<p class="note">No codes yet.</p>';
+  $('#gcList').querySelectorAll('[data-copy]').forEach(b => b.onclick = () => navigator.clipboard.writeText(b.dataset.copy).then(() => toast('Copied')));
+  $('#gcList').querySelectorAll('[data-toggle]').forEach(b => b.onclick = async () => {
+    const c = codes.find(x => x.id === b.dataset.toggle);
+    try { await db.collection('giftCodes').doc(c.id).update({ active: c.active === false }); loadCodes(); } catch (e) { toast(e.message); }
+  });
+  $('#gcList').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (!confirm(`Delete code ${b.dataset.del}? Players who already redeemed it keep their gifts.`)) return;
+    try { await db.collection('giftCodes').doc(b.dataset.del).delete(); loadCodes(); } catch (e) { toast(e.message); }
+  });
 }
 
 async function loadUsers() {

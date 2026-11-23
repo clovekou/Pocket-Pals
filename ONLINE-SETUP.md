@@ -60,3 +60,14 @@ for playing with friends. It takes about 10 minutes, and you only do it once.
   4. Declining or cancelling unlocks both.
 - Every Pokémon remembers its **Original Trainer**, shown in Summary → Info, along with who you
   received it from.
+
+## Admin: game settings and gift codes
+Open `admin.html` and sign in with an admin account (see the steps on that page). After you
+update `firestore.rules`, paste the whole file into **Firestore → Rules** again and **Publish**.
+- **Game settings**: turn Explore, Training and gift codes on or off, post an announcement
+  (every player sees it once), and tune explore floors, energy needed, treasure, egg, legendary
+  and shiny chances, and how many fragments a summon costs. Saved to `config/game`, and open
+  games update within seconds.
+- **Gift codes**: create a code that gives event Pokémon (species, level, shiny) and/or items,
+  with an optional redemption limit and expiry date. Players enter it in
+  **Options → Redeem a code** while signed in, and each account can use a code once.

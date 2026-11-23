@@ -189,7 +189,15 @@ function drawCreature(ctx, id, o) {
   const dirName = o.dir || (name === 'Walk' || name === 'Attack' ? (o.flip ? 'left' : 'right') : (o.flip ? 'downleft' : 'downright'));
   const row = Math.min(a.rows - 1, o.still && !o.dir ? 0 : DIR_ROW[dirName] || 0);
   let scale = o.size / 10;
-  if (o.fitH) {                       // same on-screen height for every species (party Pokémon)
+  if (o.pxScale) {                    // one shared pixel size (party Pokémon): sprite pixels match across species
+    scale = o.pxScale;
+    if (o.maxH) {                     // only true giants get shrunk, in whole device-pixel steps
+      const idle = spriteAnim(id, o.shiny, 'Idle') || a;
+      const h = idle.measured ? Math.max(8, idle.feet[0] - idle.top[0] + 1) : idle.fh * .7;
+      const d = o.dpr || 1;
+      while (h * scale > o.maxH && scale * d > 1) scale = (Math.round(scale * d) - 1) / d;
+    }
+  } else if (o.fitH) {                       // same on-screen height for every species (party Pokémon)
     const idle = spriteAnim(id, o.shiny, 'Idle') || a;
     if (!idle.measured) { const ii = _img(idle.src); if (ii.complete && ii.naturalWidth) _measure(idle, ii); }
     const h = idle.measured ? Math.max(8, idle.feet[0] - idle.top[0] + 1) : idle.fh * .7;

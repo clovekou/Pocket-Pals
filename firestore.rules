@@ -61,6 +61,42 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Game settings set on the Admin page (feature switches, tuning, announcement). Every game reads them.
+    match /config/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Gift codes for event Pokémon, made on the Admin page. Players can look up a code they know
+    // (nobody but admins can list them) and redeem it once: the use counter goes up by exactly one,
+    // in the same write as the player's claim document, and only while the code is active,
+    // unexpired and not used up.
+    match /giftCodes/{code} {
+      function codeOk() {
+        return resource.data.get('active', true) == true
+          && (resource.data.get('expires', 0) == 0 || request.time.toMillis() < resource.data.expires)
+          && (resource.data.get('maxUses', 0) == 0 || request.resource.data.uses <= resource.data.maxUses);
+      }
+      allow get: if signedIn();
+      allow list: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uses'])
+        && request.resource.data.uses == resource.data.get('uses', 0) + 1
+        && codeOk()
+        && !exists(/databases/$(database)/documents/giftCodes/$(code)/claims/$(request.auth.uid))
+        && existsAfter(/databases/$(database)/documents/giftCodes/$(code)/claims/$(request.auth.uid)));
+
+      match /claims/{uid} {
+        allow read: if isMe(uid) || isAdmin();
+        allow create: if isMe(uid)
+          && getAfter(/databases/$(database)/documents/giftCodes/$(code)).data.uses
+             == get(/databases/$(database)/documents/giftCodes/$(code)).data.get('uses', 0) + 1;
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
+    }
+
     // Friend requests: sender creates; only the receiver can accept/decline; either side can delete.
     match /friendRequests/{id} {
       allow read: if signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);

@@ -55,6 +55,48 @@ const Online = (() => {
   function loadScript(src) {
     return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load ' + src)); document.head.appendChild(s); });
   }
+  // ---------------- admin game settings (Firestore config/game) ----------------
+  // Applied from the last-known copy straight away (works offline), then refreshed live from Firestore.
+  const CFG_KEY = 'pocketpal.gameConfig';
+  try { const c = localStorage.getItem(CFG_KEY); if (c) Game.applyConfig(JSON.parse(c)); } catch (e) {}
+  function watchConfig() {
+    db.collection('config').doc('game').onSnapshot(d => {
+      const c = d.exists ? d.data() : {};
+      delete c.updatedAt; delete c.updatedBy;
+      Game.applyConfig(c);
+      try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch (e) {}
+      emit();
+    }, () => {});
+  }
+
+  // ---------------- gift codes (made by the admin, entered in Options) ----------------
+  // Each account can redeem a code once: the claim document and the use counter are written together,
+  // and the Firestore rules check the code is active, not expired and not used up.
+  async function redeemCode(raw) {
+    const code = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!/^[A-Z0-9-]{3,24}$/.test(code)) throw new Error("That doesn't look like a code.");
+    if (!db) throw new Error('Codes need online play, which isn\'t set up in this game.');
+    if (!me()) throw new Error('Sign in first (Options → Account & friends) to redeem codes.');
+    if (!Game.feature('codes')) throw new Error('Codes are switched off right now.');
+    if (Game.hasRedeemed(code)) throw new Error('You already redeemed this code.');
+    const ref = db.collection('giftCodes').doc(code), claim = ref.collection('claims').doc(me());
+    const gift = await db.runTransaction(async tx => {
+      const d = await tx.get(ref);
+      if (!d.exists) throw new Error('That code doesn\'t exist. Check the spelling.');
+      const g = d.data();
+      if (g.active === false) throw new Error('This code isn\'t active any more.');
+      if (g.expires && Date.now() > g.expires) throw new Error('This code has expired.');
+      if (g.maxUses && (g.uses || 0) >= g.maxUses) throw new Error('This code has been fully claimed.');
+      if ((await tx.get(claim)).exists) throw new Error('You already redeemed this code.');
+      tx.update(ref, { uses: (g.uses || 0) + 1 });
+      tx.set(claim, { at: now(), username: (st.profile && st.profile.username) || '' });
+      return g;
+    }).catch(e => { throw new Error(/permission/i.test(e.code || e.message) ? 'This code can\'t be redeemed right now.' : friendly(e)); });
+    const out = Game.redeemGift(code, gift);
+    uploadSave(true).catch(() => {});
+    return { ...out, label: gift.label || code, message: gift.message || '' };
+  }
+
   async function init() {
     if (!cfg) { emit(); return; }
     try {
@@ -65,6 +107,7 @@ const Online = (() => {
       auth = firebase.auth(); db = firebase.firestore();
       auth.getRedirectResult().catch(e => { st.error = friendly(e); emit(); });
       auth.onAuthStateChanged(onUser);
+      watchConfig();
       st.ready = true; emit();
     } catch (e) { st.error = friendly(e); emit(); }
   }
@@ -341,6 +384,6 @@ const Online = (() => {
   return {
     get state() { return st; }, on: f => subs.push(f), init, signIn, signOut, createProfile, usernameFree, NAME_RE,
     resolveConflict, uploadSave, syncWidget, findUser, addFriend, respond, cancelRequest, removeFriend,
-    offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending,
+    offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending, redeemCode,
   };
 })();
