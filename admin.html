@@ -59,6 +59,21 @@
   .code .grow { flex: 1; min-width: 180px; } .code small { color: var(--muted); display: block; }
   .giftrow { display: grid; grid-template-columns: 2fr 80px auto auto; gap: 8px; align-items: center; margin-bottom: 6px; }
   @media (max-width: 560px) { .giftrow { grid-template-columns: 1fr 70px; } }
+  .fams { display: grid; gap: 10px; margin-top: 12px; }
+  .fam { border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 10px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 4px; }
+  .fam .stage { display: flex; flex-direction: column; gap: 6px; }
+  .fam .branch { display: flex; align-items: center; gap: 4px; }
+  .mon2 { display: flex; align-items: center; gap: 8px; min-width: 150px; padding: 4px 8px 4px 4px; border-radius: 12px; }
+  .mon2.hit { background: #fff6cf; box-shadow: 0 0 0 2px var(--gold) inset; }
+  .mon2 img { width: 44px; height: 44px; border-radius: 10px; background: var(--chip); image-rendering: pixelated; flex: none; }
+  .mon2 b { display: block; font-size: 14px; } .mon2 small { color: var(--muted); font-size: 12px; }
+  .req { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 92px; color: var(--muted); font-size: 12px; font-weight: 700; text-align: center; }
+  .req .arrow { font-size: 18px; color: var(--ink); line-height: 1; }
+  .req .chip { display: inline-flex; align-items: center; gap: 4px; background: var(--chip); border-radius: 999px; padding: 2px 8px 2px 3px; color: var(--ink); }
+  .req .chip.lv { padding: 2px 9px; }
+  .req .chip.item { background: #efe8ff; }
+  .req .chip img { width: 22px; height: 22px; image-rendering: pixelated; }
+  .req .when { font-weight: 600; }
   .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 9; max-width: calc(100% - 32px); }
   @media (max-width: 560px) { .mons { grid-template-columns: 1fr; } }
 </style>
@@ -78,6 +93,7 @@
     <button data-tab="settings" class="on">Game settings</button>
     <button data-tab="codes">Gift codes</button>
     <button data-tab="players">Players</button>
+    <button data-tab="evos">Evolutions</button>
   </nav>
 
   <section class="card" id="settingsCard" hidden>
@@ -145,6 +161,19 @@
     <div class="codes" id="gcList"><p class="note">Loading…</p></div>
   </section>
 
+  <section class="card" id="evoCard" hidden>
+    <h2>Evolutions</h2>
+    <p class="sub">Every evolution family in the game and what each step needs: a level, or an evolution item.
+      Item evolutions come from <code>evoitems.js</code>; levels are set per Pokémon in the <a href="dashboard.html">sprite dashboard</a>.</p>
+    <div class="row">
+      <input type="search" id="evoQ" placeholder="Search Pokémon, number or item…" style="flex:2;min-width:200px">
+      <select id="evoItem" style="flex:1;min-width:170px"><option value="">Any requirement</option></select>
+      <label class="chk"><input type="checkbox" id="evoOnlyItems"> Item evolutions only</label>
+    </div>
+    <p class="note" id="evoCount" style="margin:10px 0 0"></p>
+    <div class="fams" id="evoList"></div>
+  </section>
+
   <section class="card" id="playersCard" hidden>
     <h2>Players</h2>
     <p class="sub">Pick a player to view and edit their Pokémon. Changes reach the player's game straight away if it's open, or the next time they open it.</p>
@@ -177,6 +206,7 @@
 <script src="online-config.js"></script>
 <script src="species.js"></script>
 <script src="items.js"></script>
+<script src="evoitems.js"></script>
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
@@ -219,7 +249,7 @@ async function signIn() {
 $('#signOut').onclick = () => auth.signOut();
 
 async function onUser(u) {
-  $('#playersCard').hidden = $('#editCard').hidden = $('#settingsCard').hidden = $('#codesCard').hidden = $('#tabs').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
+  $('#playersCard').hidden = $('#editCard').hidden = $('#settingsCard').hidden = $('#codesCard').hidden = $('#evoCard').hidden = $('#tabs').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
   cur = save = null; dirty();
   if (!u) { status('<h2>Admin sign-in</h2><p class="sub">Sign in with the Google account that has admin access.</p><button class="btn" id="signIn">Sign in with Google</button>'); $('#signIn').onclick = signIn; return; }
   $('#who').textContent = u.displayName || '';
@@ -247,7 +277,55 @@ function showTab(t) {
   $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   $('#settingsCard').hidden = t !== 'settings'; $('#codesCard').hidden = t !== 'codes';
   $('#playersCard').hidden = t !== 'players'; $('#editCard').hidden = t !== 'players' || !cur;
+  $('#evoCard').hidden = t !== 'evos';
+  if (t === 'evos') drawEvos();
 }
+
+// ---------------- evolutions (species.js + evoitems.js) ----------------
+const EVOS = typeof EVO_ITEMS !== 'undefined' ? EVO_ITEMS : {};
+const IDATA = typeof ITEM_DATA !== 'undefined' ? ITEM_DATA : {};
+// how species `id` evolves, using the same rules as the game: item targets don't evolve by level
+function evoSteps(id) {
+  const s = SP[id]; if (!s) return [];
+  const viaItem = [];
+  Object.entries(EVOS).forEach(([k, rows]) => rows.forEach(([f, to, time]) => { if (f === id && SP[to]) viaItem.push({ to, item: k, time }); }));
+  const itemTo = new Set(viaItem.map(m => m.to));
+  return (s.next || []).filter(n => SP[n] && !itemTo.has(n)).map(to => ({ to, lv: s.evo })).concat(viaItem);
+}
+const EVO_FROM = {};   // target -> first species that evolves into it
+Object.values(SP).forEach(s => evoSteps(s.id).forEach(m => { if (!EVO_FROM[m.to]) EVO_FROM[m.to] = s.id; }));
+// families: start from Pokémon nothing evolves into, and follow every branch
+const FAMILIES = Object.values(SP).filter(s => !EVO_FROM[s.id] && evoSteps(s.id).length).map(s => s.id).sort((a, b) => a - b);
+function famMembers(root) { const out = [], walk = id => { if (out.includes(id)) return; out.push(id); evoSteps(id).forEach(m => walk(m.to)); }; walk(root); return out; }
+$('#evoItem').innerHTML += Object.entries(IDATA).filter(([, it]) => it.kind === 'evo').map(([k, it]) => `<option value="${k}">${esc(it.name)}</option>`).join('');
+const itemImg = k => IDATA[k] && IDATA[k].pic ? `<img src="assets/items/${IDATA[k].icon}.png" alt="">` : '';
+const monBox = (id, hit) => `<div class="mon2 ${hit ? 'hit' : ''}"><img loading="lazy" src="${face(id)}" alt="" onerror="this.style.visibility='hidden'"><div><b>${esc(spName(id))}</b><small>#${pad(id)}${SP[id].tier === 'legend' ? ' · legendary' : ''}</small></div></div>`;
+const reqBox = m => `<div class="req"><span class="arrow">→</span>${m.item
+  ? `<span class="chip item">${itemImg(m.item)}${esc(IDATA[m.item] ? IDATA[m.item].name : m.item)}</span><span class="when">${IDATA[m.item] && IDATA[m.item].how === 'hold' ? 'hold + level up' : 'use item'}${m.time ? ' · ' + m.time : ''}</span>`
+  : `<span class="chip lv">Lv ${m.lv || '?'}</span><span class="when">level up</span>`}</div>`;
+// one stage: a Pokémon, then each way it evolves (branches stacked)
+function chain(id, hit) {
+  const steps = evoSteps(id);
+  if (!steps.length) return monBox(id, hit(id));
+  return `<div class="branch">${monBox(id, hit(id))}<div class="stage">${steps.map(m => `<div class="branch">${reqBox(m)}${chain(m.to, hit)}</div>`).join('')}</div></div>`;
+}
+let evoTimer = null;
+function drawEvos() {
+  const q = $('#evoQ').value.trim().toLowerCase(), item = $('#evoItem').value, onlyItems = $('#evoOnlyItems').checked;
+  const matchMon = id => q && (spName(id).toLowerCase().includes(q) || String(id) === q.replace(/^#?0*/, '') || pad(id).includes(q));
+  const list = FAMILIES.filter(root => {
+    const mem = famMembers(root), steps = mem.flatMap(evoSteps);
+    if (onlyItems && !steps.some(m => m.item)) return false;
+    if (item && !steps.some(m => m.item === item)) return false;
+    if (!q) return true;
+    return mem.some(matchMon) || steps.some(m => m.item && IDATA[m.item] && IDATA[m.item].name.toLowerCase().includes(q));
+  });
+  const itemFams = FAMILIES.filter(r => famMembers(r).flatMap(evoSteps).some(m => m.item)).length;
+  $('#evoCount').textContent = `${list.length} of ${FAMILIES.length} families shown · ${itemFams} use evolution items`;
+  $('#evoList').innerHTML = list.map(root => `<div class="fam">${chain(root, matchMon)}</div>`).join('') || '<p class="note">No evolution families match.</p>';
+}
+$('#evoQ').oninput = () => { clearTimeout(evoTimer); evoTimer = setTimeout(drawEvos, 150); };
+$('#evoItem').onchange = drawEvos; $('#evoOnlyItems').onchange = drawEvos;
 $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
 // ---------------- game settings (config/game) ----------------

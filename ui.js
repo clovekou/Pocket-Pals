@@ -231,6 +231,25 @@
   document.addEventListener('pointerdown', () => { Sound.unlock(); Music.start(); }, { capture: true });
 
   // ======================= helpers =======================
+  /** a pixel-art ground shadow: an oval built from square blocks the size of the sprite's pixels,
+   *  with a darker core, so it matches the Pokémon above it instead of being a smooth blur */
+  function pixelShadow(g, x, y, rx, ry, alpha, block) {
+    const b = Math.max(1, Math.round(block));
+    const cols = Math.max(3, Math.round(rx * 2 / b)), rows = Math.max(2, Math.round(ry * 2 / b));
+    const x0 = Math.round(x - cols * b / 2), y0 = Math.round(y - rows * b / 2);
+    // width of each row: a flattened oval that steps in at the ends, like classic handheld-game shadows
+    const span = j => { const v = (j + .5) / rows * 2 - 1, h = Math.sqrt(Math.max(0, 1 - v * v * .55)) * cols / 2; return [Math.round(cols / 2 - h), Math.round(cols / 2 + h)]; };
+    g.save();
+    g.fillStyle = `rgba(0,0,0,${alpha * .7})`;
+    for (let j = 0; j < rows; j++) { const [c0, c1] = span(j); if (c1 > c0) g.fillRect(x0 + c0 * b, y0 + j * b, (c1 - c0) * b, b); }
+    // darker inner band, inset one block from the edge (classic pixel-art shading)
+    g.fillStyle = `rgba(0,0,0,${alpha * .3})`;
+    for (let j = 1; j < rows - 1 || (rows === 2 && j < 2); j++) {
+      const [c0, c1] = span(j); if (c1 - c0 > 4) g.fillRect(x0 + (c0 + 2) * b, y0 + j * b, (c1 - c0 - 4) * b, rows === 2 ? b / 2 : b);
+      if (rows === 2) break;
+    }
+    g.restore();
+  }
   const rng = i => { const x = Math.sin(i * 12.9898) * 43758.5453; return x - Math.floor(x); };
   const fmtDur = m => {
     m = Math.max(0, Math.round(m));
@@ -522,7 +541,7 @@
     // pixels line up and each species keeps its natural PMD size relative to the others
     const pxScale = Math.max(1, Math.round(baseSize() * (far ? .68 : 1.15) / 28 * DPR)) / DPR;
     const maxH = baseSize() * (far ? 1.5 : 2.4);
-    cx.fillStyle = 'rgba(0,0,0,.14)'; cx.beginPath(); cx.ellipse(x, fy, size * .8, size * .16, 0, 0, Math.PI * 2); cx.fill();
+    pixelShadow(cx, x, fy, size * .8, size * .16, .14, pxScale);
     const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
     const pos = drawCreature(cx, p.sp, {
       x, y: fy, size, t: t + p.depth * 10, pxScale, maxH, dpr: DPR, shiny: p.shiny, sleep: sleeping, walking: p.moving, flip: p.flip,
@@ -547,7 +566,7 @@
     if (p.egg) {
       const s = SPECIES_BY_ID[p.sp];
       const sz = baseSize() * 1.1;
-      cx.fillStyle = 'rgba(0,0,0,.18)'; cx.beginPath(); cx.ellipse(W / 2, fy, sz * .7, sz * .16, 0, 0, Math.PI * 2); cx.fill();
+      pixelShadow(cx, W / 2, fy, sz * .7, sz * .16, .18, sz / 10);
       const eggPx = Math.round(sz * 2.2 / 32) * 32 || 64, wob = ms < V.eggWobbleUntil ? Math.sin(t * 22) * .18 : Math.sin(t * 1.5) * .04;
       cx.save(); cx.translate(W / 2, fy - eggPx * .08); cx.rotate(wob);
       PX.draw(cx, `egg_${s.tier || 'common'}_${Math.min(2, p.taps)}`, 0, -eggPx * .45, eggPx);
@@ -556,7 +575,7 @@
     }
     const size = petSize();
     const x = V.x * W;
-    cx.fillStyle = 'rgba(0,0,0,.18)'; cx.beginPath(); cx.ellipse(x, fy, size * .85, size * .18, 0, 0, Math.PI * 2); cx.fill();
+    pixelShadow(cx, x, fy, size * .85, size * .18, .18, size / 10);
     const hopT = (ms - V.hopAt) / 1000, hopping = hopT < animLength(p.sp, 'Hop') && !p.asleep;
     const mainPos = drawCreature(cx, p.sp, {
       x, y: fy, size, t, maxH: H * .42, shiny: p.shiny, sleep: p.asleep, blink: t < V.blinkUntil,
@@ -2309,14 +2328,14 @@ if (!code) {
         if (G.wild.boss && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,90,70,.4)'); gr.addColorStop(1, 'rgba(255,90,70,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
         if (G.wild.legend && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,220,120,.45)'); gr.addColorStop(1, 'rgba(255,220,120,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
         const fled = G.state === 'fled', runX = fled ? Math.pow((ms - G.at) / 900, 1.4) * AW * .4 : 0;   // dashes off to the right
-        ac.fillStyle = `rgba(0,0,0,${.22 * fade})`; ac.beginPath(); ac.ellipse(wx + runX, wy, size * .8, size * .18, 0, 0, Math.PI * 2); ac.fill();
+        pixelShadow(ac, wx + runX, wy, size * .8, size * .18, .22 * fade, size / 10);
         drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0) + runX, y: wy, size: size * (G.wild.boss ? 1.25 : .95), silhouette: throwing === 'flash' ? '#ffffff' : false, t, maxH: AH * .26, shiny: G.wild.shiny, dir: fled ? 'right' : 'downleft', walking: fled,
           anim: hurt ? 'Hurt' : att ? 'Attack' : undefined, animT: hurt ? (ms - G.hurtAt) / 1000 : att ? (ms - G.actAt) / 1000 : undefined, alpha: (hurt && Math.floor(ms / 80) % 2 ? .4 : 1) * fade });
         if (!['wheel', 'throw', 'fled'].includes(G.state)) hpBox(ac, 10, 10, Math.min(250, AW * .62), (G.wild.legend ? '★ ' : G.wild.boss ? 'BOSS ' : '') + G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
       }
       // your Pokémon
       const hurtMe = G.hurt === 'me' && ms - G.hurtAt < 450, attMe = G.act === 'me' && ms - G.actAt < 600;
-      ac.fillStyle = 'rgba(0,0,0,.22)'; ac.beginPath(); ac.ellipse(meX, meY, size * .9, size * .2, 0, 0, Math.PI * 2); ac.fill();
+      pixelShadow(ac, meX, meY, size * .9, size * .2, .22, size / 10);
       drawCreature(ac, P.sp, { x: meX + (attMe ? size * .4 : 0), y: meY, size, t, maxH: AH * .3, shiny: P.shiny, dir: walking ? 'right' : 'downright', walking,
         anim: G.state === 'lost' ? 'Hurt' : hurtMe ? 'Hurt' : attMe ? 'Attack' : (G.state === 'won' || (G.state === 'chest' && G.chest && G.chest.open)) ? 'Hop' : undefined,
         animT: hurtMe ? (ms - G.hurtAt) / 1000 : attMe ? (ms - G.actAt) / 1000 : (G.state === 'won' || G.state === 'chest') ? ((ms - G.at) / 1000) % Math.max(.4, animLength(P.sp, 'Hop') + .3) : undefined,
@@ -2562,7 +2581,7 @@ if (!code) {
       if (!drawExploreBg({ state: 'battle', at: 0 }, ms)) { const g2 = ac.createLinearGradient(0, 0, 0, AH); g2.addColorStop(0, '#5aa0e6'); g2.addColorStop(.55, '#bfe3ff'); g2.addColorStop(.56, '#7cc35a'); g2.addColorStop(1, '#4f9a3f'); ac.fillStyle = g2; ac.fillRect(0, 0, AW, AH); }
       const size = Math.min(AW, AH) * .11, wx = AW * .72, wy = AH * .56, mx = AW * .28, my = AH * .84;
       const oh = G.hurt === 'opp' && ms - G.hurtAt < 450, oa = G.act === 'opp' && ms - G.actAt < 600, mh = G.hurt === 'me' && ms - G.hurtAt < 450, ma = G.act === 'me' && ms - G.actAt < 600;
-      for (const [x, y, s2] of [[wx, wy, size * .8], [mx, my, size * .9]]) { ac.fillStyle = 'rgba(0,0,0,.22)'; ac.beginPath(); ac.ellipse(x, y, s2, s2 * .22, 0, 0, Math.PI * 2); ac.fill(); }
+      for (const [x, y, s2] of [[wx, wy, size * .8], [mx, my, size * .9]]) { pixelShadow(ac, x, y, s2, s2 * .22, .22, s2 / 8.5); }
       drawCreature(ac, opp.id, { x: wx + (oa ? -size * .4 : 0), y: wy, size: size * .95, t, maxH: AH * .26, shiny: opp.shiny, dir: 'downleft', anim: oh ? 'Hurt' : oa ? 'Attack' : undefined, animT: oh ? (ms - G.hurtAt) / 1000 : oa ? (ms - G.actAt) / 1000 : undefined, alpha: (oh && Math.floor(ms / 80) % 2 ? .4 : 1) * (G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : 1) });
       drawCreature(ac, p.sp, { x: mx + (ma ? size * .4 : 0), y: my, size, t, maxH: AH * .3, shiny: p.shiny, dir: 'downright', anim: mh ? 'Hurt' : ma ? 'Attack' : G.state === 'won' ? 'Hop' : undefined, animT: mh ? (ms - G.hurtAt) / 1000 : ma ? (ms - G.actAt) / 1000 : G.state === 'won' ? ((ms - G.at) / 1000) % Math.max(.4, animLength(p.sp, 'Hop') + .3) : undefined, alpha: mh && Math.floor(ms / 80) % 2 ? .4 : 1 });
       hpBox(ac, 10, 10, Math.min(250, AW * .62), `${friend.username}'s ${opp.name}`.slice(0, 22), opp.level, G.oppHp, opp.maxHp, false);
