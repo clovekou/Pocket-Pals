@@ -22,6 +22,8 @@ const Game = (() => {
   // registered species before legendaries appear (capped so small rosters can still get them)
   const LEGEND_UNLOCK = Math.max(1, Math.min(15, SPECIES.filter(s => s.tier !== 'legend').length));
   const BOND_DAILY_CAP = 20;
+  // a bond this strong (0-100; about 155 of 255 on the main games' friendship scale) lets it endure a knockout once per battle
+  const ENDURE_BOND = 60;
   const PARTY_MAX = 6;                  // main + up to 5 resting in the background
   const NEW_EGG_LEVEL = 5;              // main must reach this level before you can take another egg
 
@@ -775,6 +777,7 @@ const Game = (() => {
     if (k === 'oran') { p.food = clamp(p.food + 25); p.joy = clamp(p.joy + 25); p.ene = clamp(p.ene + 25); p.hyg = clamp(p.hyg + 25); }
     if (k === 'rareCandy') { p.ageMin += MIN_PER_LEVEL - (p.ageMin % MIN_PER_LEVEL); emit('level', level()); }
     if (k === 'sitrus') p.food = clamp(p.food + 35);
+    if (k === 'lemonade') p.ene = clamp(p.ene + 50);
     afterCare();
     return {};
   }
@@ -935,7 +938,7 @@ const Game = (() => {
     pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, sleepNow, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
-    ITEMS, EXPLORE_MAPS, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
+    ITEMS, EXPLORE_MAPS, ENDURE_BOND, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
     applyConfig, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem, ownsBackground, buyBackground, useBackground,
     useEvoItem, giveHeld, takeHeld, evoTarget, evoUsers, heldEvo, evoMethods,
     /** admin edits to evolutions (Firestore config/evolutions) */

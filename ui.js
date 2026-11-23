@@ -2160,6 +2160,7 @@ if (!code) {
       if (k === 'oran') { startEat('#4a86e8', 'oran'); addHearts(4); toast('{i:oran} Every need +25!'); Talk.say('fav', { vars: { berry: 'Oran Berry' } }); }
       if (k === 'rareCandy') { startEat('#4a7fe0', 'rareCandy'); addSparkles(V.x * W, feetY() - petSize(), 18); toast(`{i:rareCandy} ${petName()} grew to Lv ${Game.level()}!`); }
       if (k === 'sitrus') { startEat('#f2d23a', 'sitrus'); addHearts(2); toast('{i:sitrus} Food +35!'); }
+      if (k === 'lemonade') { startEat('#f7e36b', 'lemonade'); addSparkles(V.x * W, feetY() - petSize(), 10); toast('{i:lemonade} Refreshing! Energy +50!'); }
       if (r.egg) { V.x = .5; V.loaded = null; Talk.clear(); Sound.play('hatch'); toast(`{i:egg_legend_0} The Mystery Egg is your new main${r.boxed ? ` (${esc(r.prevName)} went to the PC Box)` : ''} — tap it 3 times!`, 4500); Talk.say('newEgg', { prio: 2 }); }
     };
     sheet.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', () => {
@@ -2254,6 +2255,19 @@ if (!code) {
   const WALK_MS = 1700;   // how long the walk to each new floor takes
   // where the Pokémon stand in a battle (share of the arena height): both on the floor of the picture
   const WILD_Y = .7, ME_Y = .86;
+  /** a strong bond (Game.ENDURE_BOND) lets your Pokémon hold on with 1% HP instead of fainting, once per battle */
+  function bondEndure(G, maxHp) {
+    const p = Game.pet();
+    if (G.meHp > 0 || G.endured || !p || p.egg || (p.bond || 0) < Game.ENDURE_BOND) return false;
+    G.endured = true; G.meHp = Math.max(1, Math.round(maxHp * .01)); G.endureAt = now();
+    setTimeout(() => Sound.play('pet'), 250);
+    return true;
+  }
+  /** the heart that pops over your Pokémon when it endures */
+  function drawEndure(G, ms, x, top) {
+    const e = ms - (G.endureAt || -1e9); if (e > 1600) return;
+    const k = e / 1600; PX.draw(ac, 'heart', x, top - 10 - k * 26, 32, { alpha: Math.min(1, (1 - k) * 2) });
+  }
   function drawExploreBg(G, ms) {
     const file = typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.explore;
     const src = G.bgSrc || (file ? 'backgrounds/' + encodeURIComponent(file) : null);   // the chosen map's picture, or the dashboard's
@@ -2382,6 +2396,7 @@ if (!code) {
       afterFloor();
     }
     function encounter(preset) {
+      G.endured = false;   // the bond endure works once per battle
       const w = preset || Game.rollWild(G.map), ws = SPECIES_BY_ID[w.sp];
       G.wild = Object.assign(Game.battler(w.sp, w.level, false), { shiny: w.shiny, name: ws.name, legend: !!w.legend, boss: !!w.boss, raw: w });
       if (w.legend && !w.boss) G.wild.maxHp = Math.round(G.wild.maxHp * 1.2);   // legendaries are a little tougher
@@ -2426,8 +2441,9 @@ if (!code) {
         setTimeout(() => {
           if (arenaGame !== G) return;
           if (turn === 'me') G.wildHp -= dmg; else G.meHp -= dmg;
+          const endured = turn !== 'me' && bondEndure(G, G.me.maxHp);
           G.hurt = turn === 'me' ? 'wild' : 'me'; G.hurtAt = now(); Sound.damage(crit);
-          say(`${an} attacks!${crit ? ' A critical hit!' : ''}`, `${dmg} damage`);
+          say(`${an} attacks!${crit ? ' A critical hit!' : ''}${endured ? ` {i:heart} ${esc(name())} endured the hit for you!` : ''}`, endured ? `${dmg} damage · its bond with you kept it standing at 1% HP` : `${dmg} damage`);
           if (G.wildHp <= 0) return setTimeout(win, 700);
           if (G.meHp <= 0) return setTimeout(lose, 700);
           turn = turn === 'me' ? 'wild' : 'me';
@@ -2627,6 +2643,7 @@ if (!code) {
         list.push({ label: `{i:${it.icon}} ${it.name.replace(' Berry', '')} ×${Game.itemCount(k)}`, cls: 'gold', fn: () => useInDungeon('heal', k) });
       });
       if (Game.itemCount('oran')) list.push({ label: `{i:oran} Oran ×${Game.itemCount('oran')}`, cls: 'gold', fn: () => useInDungeon('oran') });
+      if (Game.itemCount('lemonade')) list.push({ label: `{i:lemonade} Lemonade ×${Game.itemCount('lemonade')}`, cls: 'gold', fn: () => useInDungeon('lemonade') });
       if (Game.itemCount('rareCandy')) list.push({ label: `{i:rareCandy} Candy ×${Game.itemCount('rareCandy')}`, cls: 'alt', fn: () => useInDungeon('rareCandy') });
       FLAVORS.forEach((f, i) => list.push({ label: `{i:${f.icon}} ${f.label.replace(' Berry', '')}`, cls: 'alt', fn: () => useInDungeon('berry', i) }));
       list.push({ label: '{i:poffin} Poffin', cls: 'alt', fn: () => useInDungeon('poffin') });
@@ -2653,6 +2670,9 @@ if (!code) {
         if (r.error) { toast(r.error); return showItems(G.itemsInBattle); }
         healHp(r.heal); Sound.play('level');
         msg = `${nm} used ${/^[AEIOU]/.test(it.name) ? 'an' : 'a'} {i:${it.icon}} ${it.name}! <small>+${Math.round(G.meHp - before)} HP${i === 'sitrus' ? ' · +35 food' : ''}</small>`;
+      } else if (kind === 'lemonade') {
+        const r = Game.useItem('lemonade'); if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return showItems(); }
+        Sound.play('level'); msg = `${nm} drank a {i:lemonade} Lemonade! <small>+50 energy</small>`;
       } else if (kind === 'rareCandy') {
         const ratio = Math.max(0, G.meHp) / G.me.maxHp, r = Game.useItem('rareCandy');
         if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return showItems(); }
@@ -2716,6 +2736,7 @@ if (!code) {
         anim: G.state === 'lost' ? 'Hurt' : hurtMe ? 'Hurt' : attMe ? 'Attack' : (G.state === 'won' || (G.state === 'chest' && G.chest && G.chest.open)) ? 'Hop' : undefined,
         animT: hurtMe ? (ms - G.hurtAt) / 1000 : attMe ? (ms - G.actAt) / 1000 : (G.state === 'won' || G.state === 'chest') ? ((ms - G.at) / 1000) % Math.max(.4, animLength(P.sp, 'Hop') + .3) : undefined,
         alpha: hurtMe && Math.floor(ms / 80) % 2 ? .4 : 1 });
+      drawEndure(G, ms, meX, meY - size * 2.2);
       if (G.wild || G.state === 'won' || G.state === 'lost') hpBox(ac, AW - Math.min(250, AW * .62) - 10, AH - 70, Math.min(250, AW * .62), petName(), G.me.level, G.meHp, G.me.maxHp, true);
       if (G.legendAt && ms - G.legendAt < 1200) { ac.fillStyle = `rgba(255,240,190,${.75 * (1 - (ms - G.legendAt) / 1200)})`; ac.fillRect(0, 0, AW, AH); }
       if (G.state === 'wheel') drawWheel(ms);
@@ -2944,8 +2965,9 @@ if (!code) {
         setTimeout(() => {
           if (arenaGame !== G) return;
           if (turn === 'me') G.oppHp -= dmg; else G.meHp -= dmg;
+          const endured = turn !== 'me' && bondEndure(G, me.maxHp);
           G.hurt = turn === 'me' ? 'opp' : 'me'; G.hurtAt = now(); Sound.damage(crit);
-          say(`${turn === 'me' ? esc(petName()) : `${esc(friend.username)}'s ${esc(opp.name)}`} attacks!${crit ? ' A critical hit!' : ''}`, `${dmg} damage`);
+          say(`${turn === 'me' ? esc(petName()) : `${esc(friend.username)}'s ${esc(opp.name)}`} attacks!${crit ? ' A critical hit!' : ''}${endured ? ` {i:heart} ${esc(petName())} endured the hit for you!` : ''}`, endured ? `${dmg} damage · its bond with you kept it standing at 1% HP` : `${dmg} damage`);
           if (G.oppHp <= 0 || G.meHp <= 0) return setTimeout(() => end(G.oppHp <= 0), 700);
           turn = turn === 'me' ? 'opp' : 'me'; setTimeout(step, 750);
         }, 380);
@@ -2970,6 +2992,7 @@ if (!code) {
       for (const [x, y, s2] of [[wx, wy, size * .8], [mx, my, size * .9]]) { pixelShadow(ac, x, y, s2, s2 * .22, .22, s2 / 8.5); }
       drawCreature(ac, opp.id, { x: wx + (oa ? -size * .4 : 0), y: wy, size: size * .95, t, maxH: AH * .26, shiny: opp.shiny, dir: 'downleft', anim: oh ? 'Hurt' : oa ? 'Attack' : undefined, animT: oh ? (ms - G.hurtAt) / 1000 : oa ? (ms - G.actAt) / 1000 : undefined, alpha: (oh && Math.floor(ms / 80) % 2 ? .4 : 1) * (G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : 1) });
       drawCreature(ac, p.sp, { x: mx + (ma ? size * .4 : 0), y: my, size, t, maxH: AH * .3, shiny: p.shiny, dir: 'downright', anim: mh ? 'Hurt' : ma ? 'Attack' : G.state === 'won' ? 'Hop' : undefined, animT: mh ? (ms - G.hurtAt) / 1000 : ma ? (ms - G.actAt) / 1000 : G.state === 'won' ? ((ms - G.at) / 1000) % Math.max(.4, animLength(p.sp, 'Hop') + .3) : undefined, alpha: mh && Math.floor(ms / 80) % 2 ? .4 : 1 });
+      drawEndure(G, ms, mx, my - size * 2.2);
       hpBox(ac, 10, 10, Math.min(250, AW * .62), `${friend.username}'s ${opp.name}`.slice(0, 22), opp.level, G.oppHp, opp.maxHp, false);
       hpBox(ac, AW - Math.min(250, AW * .62) - 10, AH - 70, Math.min(250, AW * .62), petName(), me.level, G.meHp, me.maxHp, true);
     };

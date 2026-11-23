@@ -14,6 +14,7 @@ const ITEM_DATA = {
   rareCandy:  { name: 'Rare Candy',  icon: 'rareCandy',    kind: 'basic', use: true, buy: 800,  sell: 0,   find: 6,  desc: 'Your main grows 1 level.' },
   mysteryEgg: { name: 'Mystery Egg', icon: 'egg_legend_0', kind: 'basic', use: true, buy: 2500, sell: 0,   find: .15, desc: 'A new egg that hatches into a random Pokémon (needs a free party slot). Very rare in dungeons.' },
   // ---- healing (heal = share of HP restored in Explore; use them from the Items button in a dungeon)
+  lemonade:    { name: 'Lemonade',     icon: 'lemonade',    pic: true, kind: 'basic', use: true, buy: 300, sell: 75, find: 8, desc: 'A fizzy, sweet drink. Restores 50 energy — handy for exploring further.' },
   sitrus:      { name: 'Sitrus Berry', icon: 'sitrus',      pic: true, kind: 'basic', use: true, heal: .3, buy: 150, sell: 40,  find: 16, desc: 'Food +35. In Explore it also restores 30% HP.' },
   potion:      { name: 'Potion',       icon: 'potion',      pic: true, kind: 'basic', heal: .35, buy: 120, sell: 30,  find: 20, desc: 'Restores 35% HP while exploring.' },
   superPotion: { name: 'Super Potion', icon: 'superPotion', pic: true, kind: 'basic', heal: .65, buy: 350, sell: 90,  find: 7,  desc: 'Restores 65% HP while exploring.' },
