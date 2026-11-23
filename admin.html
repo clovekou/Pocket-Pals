@@ -74,6 +74,17 @@
   .req .chip.item { background: #efe8ff; }
   .req .chip img { width: 22px; height: 22px; image-rendering: pixelated; }
   .req .when { font-weight: 600; }
+  .editbox { border: 2px solid var(--accent); background: #faf8ff; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .erow { display: grid; grid-template-columns: 2fr 1.6fr 80px 1.4fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .erow input:disabled { opacity: .35; }
+  @media (max-width: 640px) { .erow { grid-template-columns: 1fr 1fr; } }
+  .mon2 .edit { margin-left: auto; border: 0; background: var(--chip); border-radius: 8px; width: 28px; height: 28px; cursor: pointer; font-size: 14px; flex: none; }
+  .mon2 .edit:hover { background: var(--accent); color: #fff; }
+  .tag.ed { background: #e7defd; color: #5a3fc4; }
+  .bgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .bgi { border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 10px; display: grid; gap: 8px; }
+  .bgi .th { width: 100%; aspect-ratio: 3 / 4; border-radius: 10px; background: var(--chip) center / cover no-repeat; }
+  .bgi label { font-size: 12px; color: var(--muted); font-weight: 700; display: grid; gap: 3px; }
   .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 9; max-width: calc(100% - 32px); }
   @media (max-width: 560px) { .mons { grid-template-columns: 1fr; } }
 </style>
@@ -94,6 +105,7 @@
     <button data-tab="codes">Gift codes</button>
     <button data-tab="players">Players</button>
     <button data-tab="evos">Evolutions</button>
+    <button data-tab="bgs">Backgrounds</button>
   </nav>
 
   <section class="card" id="settingsCard" hidden>
@@ -163,8 +175,24 @@
 
   <section class="card" id="evoCard" hidden>
     <h2>Evolutions</h2>
-    <p class="sub">Every evolution family in the game and what each step needs: a level, or an evolution item.
-      Item evolutions come from <code>evoitems.js</code>; levels are set per Pokémon in the <a href="dashboard.html">sprite dashboard</a>.</p>
+    <p class="sub">Every evolution family in the game and what each step needs: a level or an evolution item, and optionally a time of day.
+      Press <b>✎</b> on any Pokémon (or pick one below) to change how it evolves. Changes reach every player's game straight away.</p>
+    <div class="row" style="margin-bottom:10px">
+      <input type="text" id="eePick" list="spList" placeholder="Edit any Pokémon (name or number)…" style="flex:1;min-width:200px">
+      <button class="btn alt" id="eeGo">Edit</button>
+    </div>
+    <div class="editbox" id="evoEdit" hidden>
+      <h3 id="eeTitle" style="margin-top:0"></h3>
+      <p class="note" id="eeSub" style="margin:0 0 10px"></p>
+      <div id="eeRows"></div>
+      <button class="btn alt sm" id="eeAdd">+ Add an evolution</button>
+      <p class="note" style="margin:10px 0 0">Times use each player's own clock: morning 5:00–11:59, afternoon 12:00–17:59, night 18:00–4:59. "Hold" items are given to the Pokémon and work at its next level-up; other items are used on it straight away. No rows = it doesn't evolve.</p>
+      <div class="row" style="margin-top:12px">
+        <button class="btn ok" id="eeSave">Save for everyone</button>
+        <button class="btn alt" id="eeReset">Reset to default</button>
+        <button class="btn alt" id="eeClose">Close</button>
+      </div>
+    </div>
     <div class="row">
       <input type="search" id="evoQ" placeholder="Search Pokémon, number or item…" style="flex:2;min-width:200px">
       <select id="evoItem" style="flex:1;min-width:170px"><option value="">Any requirement</option></select>
@@ -172,6 +200,28 @@
     </div>
     <p class="note" id="evoCount" style="margin:10px 0 0"></p>
     <div class="fams" id="evoList"></div>
+  </section>
+
+  <section class="card" id="bgCard" hidden>
+    <h2>Backgrounds</h2>
+    <p class="sub">Add backgrounds players can buy once with Pokécoins in <b>Options → Backgrounds</b>, then switch to any time.
+      Tall pictures work best (phones are about 9 × 19). Pictures are shrunk to fit and saved in Firestore.</p>
+    <div class="g2">
+      <label>Picture<input type="file" id="bgFile" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+      <label>Name<input type="text" id="bgName" maxlength="30" placeholder="e.g. Sakura Park"></label>
+    </div>
+    <div class="g3" style="margin-top:8px">
+      <label>Price (Pokécoins, 0 = free)<input type="number" id="bgPrice" min="0" max="999999" value="1500"></label>
+      <label>Order (lower shows first)<input type="number" id="bgOrder" value="10"></label>
+      <label class="chk" style="align-self:end"><input type="checkbox" id="bgActive" checked> In the shop</label>
+    </div>
+    <div class="row" style="margin-top:10px;align-items:flex-start">
+      <img id="bgPreview" alt="" style="display:none;width:120px;border-radius:10px;border:1px solid var(--line);image-rendering:pixelated">
+      <p class="note" id="bgInfo" style="flex:1;margin:0"></p>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="bgAdd">Add background</button></div>
+    <h3 style="margin-top:22px">In the shop</h3>
+    <div class="bgs" id="bgList"><p class="note">Loading…</p></div>
   </section>
 
   <section class="card" id="playersCard" hidden>
@@ -207,6 +257,7 @@
 <script src="species.js"></script>
 <script src="items.js"></script>
 <script src="evoitems.js"></script>
+<script src="evolution.js"></script>
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
@@ -249,7 +300,7 @@ async function signIn() {
 $('#signOut').onclick = () => auth.signOut();
 
 async function onUser(u) {
-  $('#playersCard').hidden = $('#editCard').hidden = $('#settingsCard').hidden = $('#codesCard').hidden = $('#evoCard').hidden = $('#tabs').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
+  $('#playersCard').hidden = $('#editCard').hidden = $('#settingsCard').hidden = $('#codesCard').hidden = $('#evoCard').hidden = $('#bgCard').hidden = $('#tabs').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
   cur = save = null; dirty();
   if (!u) { status('<h2>Admin sign-in</h2><p class="sub">Sign in with the Google account that has admin access.</p><button class="btn" id="signIn">Sign in with Google</button>'); $('#signIn').onclick = signIn; return; }
   $('#who').textContent = u.displayName || '';
@@ -267,7 +318,7 @@ async function onUser(u) {
     $('#copyUid').onclick = () => navigator.clipboard.writeText(u.uid).then(() => toast('UID copied'));
     return;
   }
-  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadConfig(); loadCodes();
+  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadConfig(); loadCodes(); loadEvos();
 }
 
 // ---------------- tabs ----------------
@@ -277,38 +328,102 @@ function showTab(t) {
   $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   $('#settingsCard').hidden = t !== 'settings'; $('#codesCard').hidden = t !== 'codes';
   $('#playersCard').hidden = t !== 'players'; $('#editCard').hidden = t !== 'players' || !cur;
-  $('#evoCard').hidden = t !== 'evos';
+  $('#evoCard').hidden = t !== 'evos'; $('#bgCard').hidden = t !== 'bgs';
+  if (t === 'bgs') loadBgs();
   if (t === 'evos') drawEvos();
 }
 
-// ---------------- evolutions (species.js + evoitems.js) ----------------
-const EVOS = typeof EVO_ITEMS !== 'undefined' ? EVO_ITEMS : {};
+// ---------------- evolutions (rules in evolution.js, shared with the game; edits in Firestore config/evolutions) ----------------
 const IDATA = typeof ITEM_DATA !== 'undefined' ? ITEM_DATA : {};
-// how species `id` evolves, using the same rules as the game: item targets don't evolve by level
-function evoSteps(id) {
-  const s = SP[id]; if (!s) return [];
-  const viaItem = [];
-  Object.entries(EVOS).forEach(([k, rows]) => rows.forEach(([f, to, time]) => { if (f === id && SP[to]) viaItem.push({ to, item: k, time }); }));
-  const itemTo = new Set(viaItem.map(m => m.to));
-  return (s.next || []).filter(n => SP[n] && !itemTo.has(n)).map(to => ({ to, lv: s.evo })).concat(viaItem);
-}
-const EVO_FROM = {};   // target -> first species that evolves into it
-Object.values(SP).forEach(s => evoSteps(s.id).forEach(m => { if (!EVO_FROM[m.to]) EVO_FROM[m.to] = s.id; }));
+const evoSteps = id => Evolution.steps(id).filter(m => SP[m.to]);
+let FAMILIES = [];
 // families: start from Pokémon nothing evolves into, and follow every branch
-const FAMILIES = Object.values(SP).filter(s => !EVO_FROM[s.id] && evoSteps(s.id).length).map(s => s.id).sort((a, b) => a - b);
+function buildFamilies() {
+  const from = {};
+  Object.values(SP).forEach(s => evoSteps(s.id).forEach(m => { if (!from[m.to]) from[m.to] = s.id; }));
+  FAMILIES = Object.values(SP).filter(s => !from[s.id] && evoSteps(s.id).length).map(s => s.id).sort((a, b) => a - b);
+}
+buildFamilies();
 function famMembers(root) { const out = [], walk = id => { if (out.includes(id)) return; out.push(id); evoSteps(id).forEach(m => walk(m.to)); }; walk(root); return out; }
 $('#evoItem').innerHTML += Object.entries(IDATA).filter(([, it]) => it.kind === 'evo').map(([k, it]) => `<option value="${k}">${esc(it.name)}</option>`).join('');
 const itemImg = k => IDATA[k] && IDATA[k].pic ? `<img src="assets/items/${IDATA[k].icon}.png" alt="">` : '';
-const monBox = (id, hit) => `<div class="mon2 ${hit ? 'hit' : ''}"><img loading="lazy" src="${face(id)}" alt="" onerror="this.style.visibility='hidden'"><div><b>${esc(spName(id))}</b><small>#${pad(id)}${SP[id].tier === 'legend' ? ' · legendary' : ''}</small></div></div>`;
+const monBox = (id, hit) => `<div class="mon2 ${hit ? 'hit' : ''}"><img loading="lazy" src="${face(id)}" alt="" onerror="this.style.visibility='hidden'"><div><b>${esc(spName(id))}</b><small>#${pad(id)}${SP[id].tier === 'legend' ? ' · legendary' : ''}${Evolution.edited(id) ? ' <span class="tag ed">EDITED</span>' : ''}</small></div><button class="edit" data-edit="${id}" title="Edit how ${esc(spName(id))} evolves">✎</button></div>`;
+const whenTxt = t => t ? ' · ' + Evolution.SHORT[t] : '';
 const reqBox = m => `<div class="req"><span class="arrow">→</span>${m.item
-  ? `<span class="chip item">${itemImg(m.item)}${esc(IDATA[m.item] ? IDATA[m.item].name : m.item)}</span><span class="when">${IDATA[m.item] && IDATA[m.item].how === 'hold' ? 'hold + level up' : 'use item'}${m.time ? ' · ' + m.time : ''}</span>`
-  : `<span class="chip lv">Lv ${m.lv || '?'}</span><span class="when">level up</span>`}</div>`;
+  ? `<span class="chip item">${itemImg(m.item)}${esc(IDATA[m.item] ? IDATA[m.item].name : m.item)}</span><span class="when">${IDATA[m.item] && IDATA[m.item].how === 'hold' ? 'hold + level up' : 'use item'}${whenTxt(m.time)}</span>`
+  : `<span class="chip lv">Lv ${m.lv || '?'}</span><span class="when">level up${whenTxt(m.time)}</span>`}</div>`;
 // one stage: a Pokémon, then each way it evolves (branches stacked)
-function chain(id, hit) {
+function chain(id, hit, seen) {
+  seen = seen || [];
+  if (seen.includes(id)) return monBox(id, hit(id));       // guard against a loop made by an edit
   const steps = evoSteps(id);
   if (!steps.length) return monBox(id, hit(id));
-  return `<div class="branch">${monBox(id, hit(id))}<div class="stage">${steps.map(m => `<div class="branch">${reqBox(m)}${chain(m.to, hit)}</div>`).join('')}</div></div>`;
+  return `<div class="branch">${monBox(id, hit(id))}<div class="stage">${steps.map(m => `<div class="branch">${reqBox(m)}${chain(m.to, hit, seen.concat(id))}</div>`).join('')}</div></div>`;
 }
+async function loadEvos() {
+  try {
+    const d = await db.collection('config').doc('evolutions').get();
+    Evolution.setOverrides((d.exists && d.data().steps) || {});
+  } catch (e) { toast("Couldn't load evolution edits: " + e.message, 5000); }
+  buildFamilies(); if (tab === 'evos') drawEvos();
+}
+
+// ---- editor
+let eeId = null;
+const EVO_ITEM_OPTS = ['use', 'hold'].map(how => `<optgroup label="${how === 'use' ? 'Use an item' : 'Hold an item + level up'}">` +
+  Object.entries(IDATA).filter(([, it]) => it.kind === 'evo' && it.how === how).map(([k, it]) => `<option value="${k}">${esc(it.name)}</option>`).join('') + '</optgroup>').join('');
+const PERIOD_OPTS = Object.entries(Evolution.PERIODS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+function eeRow(m) {
+  const d = document.createElement('div'); d.className = 'erow';
+  d.innerHTML = `<input type="text" list="spList" class="ee-to" placeholder="Evolves into…" value="${m && m.to ? `${pad(m.to)} ${esc(spName(m.to))}` : ''}">
+    <select class="ee-how"><option value="">Level up</option>${EVO_ITEM_OPTS}</select>
+    <input type="number" class="ee-lv" min="1" max="100" title="Level" value="${m && m.lv ? m.lv : 30}">
+    <select class="ee-time">${PERIOD_OPTS}</select>
+    <button class="btn red sm" type="button" title="Remove">✕</button>`;
+  const how = d.querySelector('.ee-how'), lv = d.querySelector('.ee-lv');
+  how.value = (m && m.item) || ''; d.querySelector('.ee-time').value = (m && m.time) || '';
+  const sync = () => { lv.disabled = !!how.value; }; how.onchange = sync; sync();
+  d.querySelector('button').onclick = () => d.remove();
+  $('#eeRows').appendChild(d);
+}
+function openEditor(id) {
+  if (!SP[id]) { toast('Pick a Pokémon from the list'); return; }
+  eeId = id; $('#evoEdit').hidden = false; $('#eeRows').innerHTML = '';
+  $('#eeTitle').textContent = `How ${spName(id)} (#${pad(id)}) evolves`;
+  $('#eeSub').textContent = Evolution.edited(id) ? 'Edited by an admin. "Reset to default" brings back the built-in evolutions.' : 'These are the built-in evolutions.';
+  evoSteps(id).forEach(eeRow);
+  $('#evoEdit').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+$('#eeAdd').onclick = () => eeRow(null);
+$('#eeClose').onclick = () => { $('#evoEdit').hidden = true; eeId = null; };
+$('#eeGo').onclick = () => openEditor(parseSp($('#eePick').value));
+$('#eePick').onkeydown = e => { if (e.key === 'Enter') $('#eeGo').click(); };
+$('#evoList').addEventListener('click', e => { const b = e.target.closest('[data-edit]'); if (b) openEditor(+b.dataset.edit); });
+$('#eeSave').onclick = async () => {
+  if (!eeId) return;
+  const rows = [];
+  for (const r of $('#eeRows').querySelectorAll('.erow')) {
+    const raw = r.querySelector('.ee-to').value; if (!raw.trim()) continue;
+    const to = parseSp(raw); if (!to) { toast('Unknown Pokémon: ' + raw); return; }
+    if (to === eeId) { toast(`${spName(eeId)} can't evolve into itself`); return; }
+    const item = r.querySelector('.ee-how').value, time = r.querySelector('.ee-time').value;
+    rows.push(item ? { to, item, time } : { to, lv: Math.max(1, Math.min(100, parseInt(r.querySelector('.ee-lv').value, 10) || 1)), time });
+  }
+  try {
+    await db.collection('config').doc('evolutions').set({ steps: { [eeId]: rows }, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: auth.currentUser.uid }, { merge: true });
+    toast(`Saved — ${spName(eeId)}'s evolutions are live for every player`);
+    await loadEvos(); openEditor(eeId);
+  } catch (e) { toast("Couldn't save: " + e.message, 5000); }
+};
+$('#eeReset').onclick = async () => {
+  if (!eeId || !Evolution.edited(eeId)) { toast('This Pokémon already uses the built-in evolutions'); return; }
+  if (!confirm(`Reset ${spName(eeId)} to its built-in evolutions?`)) return;
+  try {
+    await db.collection('config').doc('evolutions').update({ ['steps.' + eeId]: firebase.firestore.FieldValue.delete() });
+    toast(`${spName(eeId)} is back to the built-in evolutions`);
+    await loadEvos(); openEditor(eeId);
+  } catch (e) { toast("Couldn't reset: " + e.message, 5000); }
+};
 let evoTimer = null;
 function drawEvos() {
   const q = $('#evoQ').value.trim().toLowerCase(), item = $('#evoItem').value, onlyItems = $('#evoOnlyItems').checked;
@@ -321,7 +436,8 @@ function drawEvos() {
     return mem.some(matchMon) || steps.some(m => m.item && IDATA[m.item] && IDATA[m.item].name.toLowerCase().includes(q));
   });
   const itemFams = FAMILIES.filter(r => famMembers(r).flatMap(evoSteps).some(m => m.item)).length;
-  $('#evoCount').textContent = `${list.length} of ${FAMILIES.length} families shown · ${itemFams} use evolution items`;
+  const edits = Object.keys(Evolution.overrides).length;
+  $('#evoCount').textContent = `${list.length} of ${FAMILIES.length} families shown · ${itemFams} use evolution items` + (edits ? ` · ${edits} Pokémon edited by an admin` : '');
   $('#evoList').innerHTML = list.map(root => `<div class="fam">${chain(root, matchMon)}</div>`).join('') || '<p class="note">No evolution families match.</p>';
 }
 $('#evoQ').oninput = () => { clearTimeout(evoTimer); evoTimer = setTimeout(drawEvos, 150); };
@@ -378,6 +494,77 @@ $('#cfgSave').onclick = async () => {
   } catch (e) { toast("Couldn't save: " + e.message, 5000); }
 };
 $('#cfgReset').onclick = () => { fillConfig(null); toast('Defaults filled in — press Save to apply'); };
+
+// ---------------- shop backgrounds (shopBackgrounds = list + preview, shopBackgroundImages = full picture) ----------------
+let bgPicked = null;   // { image, thumb, w, h, kb }
+function loadImageFile(file) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('That file isn\'t a picture we can read.')); im.src = r.result; }; r.readAsDataURL(file); });
+}
+// shrink to fit, keep pixel art sharp, and stay under Firestore's 1 MB document limit
+function encodeImage(im, maxSide, limit) {
+  const k = Math.min(1, maxSide / Math.max(im.naturalWidth, im.naturalHeight));
+  const c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = k < 1; g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, c.width, c.height);
+  let url = c.toDataURL('image/png');
+  for (let q = .9; url.length > limit && q >= .35; q -= .08) url = c.toDataURL('image/jpeg', q);
+  if (url.length > limit) return encodeImage(im, maxSide * .8, limit);
+  return { url, w: c.width, h: c.height };
+}
+$('#bgFile').onchange = async () => {
+  const f = $('#bgFile').files[0]; bgPicked = null; $('#bgPreview').style.display = 'none'; $('#bgInfo').textContent = '';
+  if (!f) return;
+  try {
+    $('#bgInfo').textContent = 'Preparing…';
+    const im = await loadImageFile(f);
+    const full = encodeImage(im, 1600, 900000), thumb = encodeImage(im, 320, 60000);
+    bgPicked = { image: full.url, thumb: thumb.url };
+    $('#bgPreview').src = thumb.url; $('#bgPreview').style.display = '';
+    $('#bgInfo').textContent = `${im.naturalWidth} × ${im.naturalHeight} → saved at ${full.w} × ${full.h} (${Math.round(full.url.length * .75 / 1024)} KB).` + (full.h < full.w ? ' Tip: this picture is wide; tall pictures fill phone screens better.' : '');
+    if (!$('#bgName').value) $('#bgName').value = f.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 30);
+  } catch (e) { $('#bgInfo').textContent = e.message; }
+};
+$('#bgAdd').onclick = async () => {
+  if (!bgPicked) { toast('Choose a picture first'); return; }
+  const name = $('#bgName').value.trim().slice(0, 30); if (!name) { toast('Give it a name'); return; }
+  const b = $('#bgAdd'); b.disabled = true;
+  try {
+    const ref = db.collection('shopBackgrounds').doc();
+    await db.collection('shopBackgroundImages').doc(ref.id).set({ image: bgPicked.image });
+    await ref.set({ name, price: Math.max(0, Math.min(999999, parseInt($('#bgPrice').value, 10) || 0)), order: parseInt($('#bgOrder').value, 10) || 0,
+      active: $('#bgActive').checked, thumb: bgPicked.thumb, createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: auth.currentUser.uid });
+    toast(`${name} is in the shop`);
+    bgPicked = null; $('#bgFile').value = ''; $('#bgName').value = ''; $('#bgPreview').style.display = 'none'; $('#bgInfo').textContent = '';
+    loadBgs();
+  } catch (e) { toast("Couldn't add it: " + e.message + ' (publish the latest firestore.rules)', 6000); }
+  b.disabled = false;
+};
+async function loadBgs() {
+  try {
+    const q = await db.collection('shopBackgrounds').get();
+    const list = q.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
+    $('#bgList').innerHTML = list.map(b => `<div class="bgi" data-id="${esc(b.id)}">
+      <div class="th" style="background-image:url('${b.thumb || ''}')"></div>
+      <label>Name<input type="text" class="bn" maxlength="30" value="${esc(b.name || '')}"></label>
+      <div class="g2"><label>Price<input type="number" class="bp" min="0" value="${b.price || 0}"></label><label>Order<input type="number" class="bo" value="${b.order || 0}"></label></div>
+      <label class="chk"><input type="checkbox" class="ba" ${b.active !== false ? 'checked' : ''}> In the shop</label>
+      <div class="row"><button class="btn ok sm" data-save="1">Save</button><button class="btn red sm" data-del="1">Delete</button></div>
+    </div>`).join('') || '<p class="note">No backgrounds yet. Add one above.</p>';
+    $('#bgList').querySelectorAll('.bgi').forEach(el => {
+      const id = el.dataset.id;
+      el.querySelector('[data-save]').onclick = async () => {
+        try {
+          await db.collection('shopBackgrounds').doc(id).update({ name: el.querySelector('.bn').value.trim().slice(0, 30) || 'Background',
+            price: Math.max(0, parseInt(el.querySelector('.bp').value, 10) || 0), order: parseInt(el.querySelector('.bo').value, 10) || 0, active: el.querySelector('.ba').checked });
+          toast('Saved');
+        } catch (e) { toast(e.message); }
+      };
+      el.querySelector('[data-del]').onclick = async () => {
+        if (!confirm('Delete this background? Players who bought it will go back to the classic scenery.')) return;
+        try { await db.collection('shopBackgroundImages').doc(id).delete(); await db.collection('shopBackgrounds').doc(id).delete(); loadBgs(); } catch (e) { toast(e.message); }
+      };
+    });
+  } catch (e) { $('#bgList').innerHTML = `<p class="note">Couldn't load backgrounds: ${esc(e.message)} (publish the latest firestore.rules)</p>`; }
+}
 
 // ---------------- gift codes (giftCodes/{CODE}) ----------------
 const ITEMS = ITEM_NAMES;

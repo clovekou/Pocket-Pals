@@ -427,18 +427,30 @@
 
   // ---------- uploaded backgrounds (set in the dashboard) ----------
   const bgImgs = {};
+  // a background bought in Options → Backgrounds (made on the Admin page), as an Image once it has loaded
+  const shopBgImgs = {};
+  function shopBgImage(id) {
+    let im = shopBgImgs[id];
+    if (!im) {
+      im = shopBgImgs[id] = new Image();
+      Online.backgroundImage(id).then(url => { if (url) im.src = url; });   // one try per session (a deleted background just shows the classic one)
+    }
+    return im;
+  }
   function drawCustomBg(scene, phase) {
     const cfg = typeof BACKGROUNDS !== 'undefined' ? BACKGROUNDS : null;
-    const file = cfg && cfg.assign && (cfg.assign[scene] || cfg.assign.default);
-    if (!file) return false;
-    let im = bgImgs[file];
-    if (!im) { im = bgImgs[file] = new Image(); im.src = 'backgrounds/' + encodeURIComponent(file); }
+    const pick = ST().settings.bg;
+    let im = null;
+    if (pick && Game.ownsBackground(pick)) { im = shopBgImage(pick); if (!im.complete || !im.naturalWidth) im = null; }   // classic picture until it loads
+    const file = !im && cfg && cfg.assign && (cfg.assign[scene] || cfg.assign.default);
+    if (!im && !file) return false;
+    if (!im) { im = bgImgs[file]; if (!im) { im = bgImgs[file] = new Image(); im.src = 'backgrounds/' + encodeURIComponent(file); } }
     if (!im.complete || !im.naturalWidth) return false;          // built-in scenery until it loads
     const s = Math.max(W / im.naturalWidth, H / im.naturalHeight); // cover the whole stage
     const w = im.naturalWidth * s, h = im.naturalHeight * s;
     cx.drawImage(im, (W - w) / 2, (H - h) * .5, w, h);            // centred, so the top of the scene isn't cut off
     V.bg = { x: (W - w) / 2, y: (H - h) * .5, w, h };              // where the picture landed (party stands on its back lawn)
-    if (cfg.night !== false) {
+    if (!cfg || cfg.night !== false) {
       if (phase === 'night') { cx.fillStyle = 'rgba(10,14,45,.5)'; cx.fillRect(0, 0, W, H); }
       else if (phase === 'dusk') { cx.fillStyle = 'rgba(90,40,100,.18)'; cx.fillRect(0, 0, W, H); }
       else if (phase === 'dawn') { cx.fillStyle = 'rgba(255,150,110,.12)'; cx.fillRect(0, 0, W, H); }
@@ -496,7 +508,8 @@
       return old || { sp: m.sp, shiny: m.shiny, x: .12 + Math.random() * .76, tx: .5, flip: Math.random() < .5, act: 'wander', until: 0, t0: t,
         depth: .62 + (i % 3) * .04 + Math.random() * .02 };
     });
-    party.forEach(m => preloadSpecies(m.sp, m.shiny));
+    // background Pokémon only walk, idle, sleep and hop: load just those, after the main has had a head start
+    setTimeout(() => party.forEach(m => preloadSpecies(m.sp, m.shiny, ['Idle', 'Walk', 'Sleep', 'Hop'])), 1200);
   }
   function stepPals(t, dt) {
     const pals = V.pals;
@@ -1020,7 +1033,7 @@ if (!code) {
     setTimeout(() => Talk.say('backHappy', { prio: 2 }), 400);
   }
   function openParty() {
-    const p = Game.pet(), party = Game.party(), chk = Game.eggCheck();
+    const p = Game.pet(), party = Game.party();
     const needBar = m => {
       if (m.egg) return '';
       const v = Math.min(m.food, m.joy, m.ene, m.hyg), col = v > 50 ? 'var(--hp-hi)' : v > 20 ? 'var(--hp-mid)' : 'var(--hp-lo)';
@@ -1044,9 +1057,7 @@ if (!code) {
     const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
     openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.</p>
       <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="pslot empty">Empty slot</div>'.repeat(empties)}</div>
-      <div class="btns"><button class="btn ${chk.ok ? 'gold' : 'alt'}" id="takeEgg" ${chk.ok ? '' : 'disabled'}>{i:egg_rare_0} Get a new egg</button></div>
-      ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 8px">PC Box (${Game.box().length})</h4><div class="partylist">${Game.box().map((m, i) => boxSlot(m, i)).join('')}</div>` : ''}
-      <p class="muted" style="text-align:center">${chk.ok ? 'Your main joins the party and the egg becomes your new main.' : esc(chk.why)}</p>`);
+      ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 8px">PC Box (${Game.box().length})</h4><div class="partylist">${Game.box().map((m, i) => boxSlot(m, i)).join('')}</div>` : ''}`);
     sheet.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', () => { closeSheet(); doSwitch(+b.dataset.sw); }));
     sheet.querySelectorAll('[data-tobox]').forEach(b => b.addEventListener('click', () => { Game.partyToBox(+b.dataset.tobox); openParty(); }));
     sheet.querySelectorAll('[data-frombox]').forEach(b => b.addEventListener('click', () => { if (Game.boxToParty(+b.dataset.frombox)) openParty(); else toast('Your party is full.'); }));
@@ -1064,13 +1075,6 @@ if (!code) {
         { label: 'Release', cls: 'red', fn: () => { Game.releaseMember(+b.dataset.rel); toast(`${memberName(m)} was released. Bye!`); openParty(); } },
       ]);
     }));
-    const te = $('#takeEgg');
-    if (te) te.addEventListener('click', () => {
-      if (!Game.takeEgg()) return;
-      closeSheet(); V.x = .5; V.loaded = null; Talk.clear(); Sound.play('hatch');
-      toast('A new egg! Tap it 3 times to hatch.', 3500);
-      Talk.say('newEgg', { prio: 2 });
-    });
   }
 
   // ---------- stat card ----------
@@ -1129,8 +1133,8 @@ if (!code) {
         <div class="row"><span>Shinies</span><b>${Game.shinyCount()} / ${SPECIES.length}</b></div>
         <div class="row"><span>Streak</span><b>{i:flame} ${S.player.streak} days (best ${S.player.bestStreak})</b></div>
         <div class="row"><span>Next milestone</span><b>${nextMs ? nextMs + ' days' : 'All reached!'}</b></div>
-        <div class="row"><span>Evolution</span><b>${need == null ? (Game.evoMethods(p.sp).length ? 'With an item' : 'Final form') : `At Lv ${need}${p.mistakes ? ` (${s.evo} + ${p.mistakes} slip-ups)` : ''}`}</b></div>
-        ${Game.evoMethods(p.sp).some(m => m.item) ? `<div class="row"><span>Items</span><b>${Game.evoMethods(p.sp).filter(m => m.item).map(m => `${ic(Game.ITEMS[m.item].icon)} ${Game.ITEMS[m.item].name}${m.time ? ` (${m.time})` : ''}`).join(', ')}</b></div>` : ''}
+        <div class="row"><span>Evolution</span><b>${need == null ? (Game.evoMethods(p.sp).length ? 'With an item' : 'Final form') : `At Lv ${need}${p.mistakes ? ` (+${p.mistakes} for slip-ups)` : ''}${Game.evoMethods(p.sp).filter(m => !m.item && m.time).length ? ' · ' + [...new Set(Game.evoMethods(p.sp).filter(m => !m.item && m.time).map(m => Evolution.SHORT[m.time]))].join(' / ') + ' only' : ''}`}</b></div>
+        ${Game.evoMethods(p.sp).some(m => m.item) ? `<div class="row"><span>Items</span><b>${Game.evoMethods(p.sp).filter(m => m.item).map(m => `${ic(Game.ITEMS[m.item].icon)} ${Game.ITEMS[m.item].name}${m.time ? ` (${Evolution.SHORT[m.time]})` : ''}`).join(', ')}</b></div>` : ''}
         ${need == null ? '' : '<div class="row"><span>Also needs</span><b>Awake, every need ≥ 40</b></div>'}
         <div class="row"><span>Farewell</span><b>${fin == null ? 'After its final form' : fin === 0 ? 'Ready' : 'In ' + fmtDur(fin)}</b></div>
         <div class="row"><span>Egg luck bonus</span><b>+${Game.careBonus()} (streak + bond)</b></div>
@@ -1229,7 +1233,7 @@ if (!code) {
       <label class="toggle"><span><b>Music volume</b><small id="musicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Fast time (testing)</b><small>1 second = 1 game minute. Normally 1 real minute = 1 game minute.</small></span><span class="sw"><input type="checkbox" id="setFast" ${S.settings.fast ? 'checked' : ''}><i></i></span></label>
-      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:card} Home-screen widget</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
+      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:card} Home-screen widget</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
     $('#setMusic').addEventListener('change', e => { S.settings.music = e.target.checked; Game.save(); });
@@ -1240,12 +1244,43 @@ if (!code) {
     if ($('#openCode')) $('#openCode').addEventListener('click', openRedeem);
     $('#openOnline').addEventListener('click', () => openOnline());
     $('#openWidget').addEventListener('click', openWidget);
+    $('#openBgs').addEventListener('click', openBackgrounds);
     $('#openCard').addEventListener('click', () => openCard());
     $('#resetBtn').addEventListener('click', () => dialog('Reset everything?', 'Your creature, Dex, streak and medals will be erased.', [
       { label: 'Cancel', cls: 'alt' },
       { label: 'Erase', cls: 'red', fn: () => { Game.reset(); V.anim = null; V.x = .5; startNewGame(); } },
     ]));
   }
+  // ---------- backgrounds: buy once with Pokécoins, then switch any time ----------
+  function openBackgrounds() {
+    const S = ST(), list = Online.state.backgrounds || [], cur = S.settings.bg || '';
+    const classic = typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.default ? 'backgrounds/' + encodeURIComponent(BACKGROUNDS.assign.default) : '';
+    const card = (id, name, price, thumb) => {
+      const owned = Game.ownsBackground(id), using = cur === id || (!id && !cur);
+      return `<button class="bgcard ${using ? 'using' : ''}" data-bg="${esc(id)}" data-price="${price}">
+        <span class="bgthumb" style="${thumb ? `background-image:url('${thumb}')` : ''}"></span>
+        <b>${esc(name)}</b><span class="bgstate">${using ? '✓ Using' : owned ? 'Owned · tap to use' : `{i:coin}${price.toLocaleString()}`}</span></button>`;
+    };
+    openSheet(head('Backgrounds') + `
+      <div class="shophead">{i:image}<div><b>Backgrounds</b><small>Buy a background once and it's yours to keep. Switch any time.</small></div>${coinsHtml()}</div>
+      <div class="bggrid">${card('', 'Classic', 0, classic)}${list.map(b => card(b.id, b.name, b.price, b.thumb)).join('')}</div>
+      ${list.length ? '' : `<p class="muted" style="text-align:center">${Online.state.enabled ? 'New backgrounds will appear here soon!' : 'New backgrounds need online play.'}</p>`}
+      <div class="btns"><button class="btn alt" id="bgBack">← Back to Options</button></div>`);
+    $('#bgBack').addEventListener('click', openSettings);
+    sheet.querySelectorAll('[data-bg]').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.bg, price = +b.dataset.price, bg = list.find(x => x.id === id);
+      if (Game.ownsBackground(id)) { Game.useBackground(id); Sound.play('tap'); toast(id ? `Now using ${bg ? bg.name : 'this background'}.` : 'Back to the classic scenery.'); return openBackgrounds(); }
+      dialog(`Buy ${esc(bg ? bg.name : 'this background')}?`, `It costs ${price.toLocaleString()} Pokécoins, one time. You have ${Game.coins().toLocaleString()}.`, [
+        { label: 'Not now', cls: 'alt', fn: openBackgrounds },
+        { label: `{i:coin} Buy`, cls: 'gold', fn: () => {
+          const r = Game.buyBackground(id, price);
+          if (r.error) { toast(r.error); Sound.play('no'); return openBackgrounds(); }
+          Sound.play('medal'); toast(`{i:image} ${bg ? bg.name : 'Background'} is yours! It's on now.`, 3500); openBackgrounds();
+        } },
+      ]);
+    }));
+  }
+
   // ---------- gift codes (event Pokémon set by the admin) ----------
   function openRedeem() {
     const signedIn = !!(Online.state.user && Online.state.profile);
@@ -1661,55 +1696,76 @@ if (!code) {
     return `<div class="tabs"><button data-bag="items" class="${bagTab === 'items' ? 'on' : ''}">{i:bag} Items</button><button data-bag="shop" class="${bagTab === 'shop' ? 'on' : ''}">{i:coin} Shop</button></div>`;
   }
   const coinsHtml = () => `<span class="coins">{i:coin}<b>${Game.coins().toLocaleString()}</b></span>`;
-  // ---------- Poké Mart: buy with Pokécoins, sell treasure found while exploring ----------
-  const shopQty = {};
-  let shopOpenAll = false;
-  function openShop() {
-    if (!Game.feature('shop')) { bagTab = 'items'; return openItems(); }
-    const IT = Game.ITEMS, C = Game.config;
+  // ---------- Poké Mart: a 3-column grid; tap an item to see it and choose how many ----------
+  let martMode = 'buy', martCat = 'all';
+  function martLists() {
+    const IT = Game.ITEMS, C = Game.config, P = Game.pet();
+    const forMain = k => P && !P.egg && IT[k].kind === 'evo' && Game.evoUsers(k).includes(P.sp);
     const buy = Object.keys(C.shopBuy).filter(k => IT[k] && C.shopBuy[k] > 0);
     const sell = Object.keys(C.shopSell).filter(k => IT[k] && C.shopSell[k] > 0 && Game.itemCount(k) > 0);
-    const row = (k, price, acts, extra = '') => `<div class="itemrow">${ic(IT[k].icon).replace('class="ic"', 'class="px"')}
-      <div class="ii"><b>${IT[k].name}</b><small>${IT[k].desc}</small>${IT[k].kind === 'evo' ? evoNote(k) : ''}<small class="price">{i:coin} ${price.toLocaleString()}${extra}</small></div>${acts}</div>`;
-    const buyRow = k => {
-      const q = shopQty[k] || 1, cost = C.shopBuy[k] * q, can = Game.coins() >= cost;
-      return row(k, C.shopBuy[k], `<div class="qty"><button class="alt" data-qm="${k}" ${q <= 1 ? 'disabled' : ''}>−</button><span>${q}</span><button class="alt" data-qp="${k}" ${q >= 99 ? 'disabled' : ''}>+</button></div>
-        <button data-buy="${k}" ${can ? '' : 'disabled'}>Buy</button>`, Game.itemCount(k) ? ` · have ×${Game.itemCount(k)}` : '');
+    return { IT, C, P, forMain, buy, sell };
+  }
+  function openShop() {
+    if (!Game.feature('shop')) { bagTab = 'items'; return openItems(); }
+    const { IT, C, P, forMain, buy, sell } = martLists();
+    const cats = martMode === 'buy'
+      ? [['all', 'All'], ...(buy.some(forMain) ? [['mine', `For ${esc(petName())}`]] : []), ['supplies', 'Supplies'], ['evo', 'Evolution']]
+      : [['all', 'All'], ['treasure', 'Treasure'], ['other', 'Other']];
+    if (!cats.some(([k]) => k === martCat)) martCat = 'all';
+    const inCat = k => martCat === 'all' || (martCat === 'mine' && forMain(k)) || (martCat === 'supplies' && IT[k].kind !== 'evo')
+      || (martCat === 'evo' && IT[k].kind === 'evo') || (martCat === 'treasure' && IT[k].kind === 'value') || (martCat === 'other' && IT[k].kind !== 'value');
+    let list = (martMode === 'buy' ? buy : sell).filter(inCat);
+    if (martMode === 'buy') list.sort((a, b) => (forMain(b) - forMain(a)) || ((IT[a].kind === 'evo') - (IT[b].kind === 'evo')));
+    const prices = martMode === 'buy' ? C.shopBuy : C.shopSell;
+    const card = k => {
+      const it = IT[k], price = prices[k], have = Game.itemCount(k), poor = martMode === 'buy' && Game.coins() < price;
+      return `<button class="mcard ${poor ? 'poor' : ''} ${forMain(k) && martMode === 'buy' ? 'mine' : ''}" data-mk="${k}">
+        ${have ? `<span class="have">×${have}</span>` : ''}${forMain(k) && martMode === 'buy' ? '<span class="fits">✓</span>' : ''}
+        ${ic(it.icon).replace('class="ic"', 'class="px"')}<b>${it.name}</b><span class="mprice">{i:coin}${price.toLocaleString()}</span></button>`;
     };
-    // supplies first, then evolution items: the ones your main can use on top, the rest folded away
-    const P = Game.pet(), forMain = k => P && !P.egg && Game.evoUsers(k).includes(P.sp);
-    const supplies = buy.filter(k => IT[k].kind !== 'evo'), evo = buy.filter(k => IT[k].kind === 'evo');
-    const evoMine = evo.filter(forMain), evoRest = evo.filter(k => !forMain(k));
-    const buyRows = supplies.map(buyRow).join('')
-      + (evo.length ? `<h4 class="shoph">{i:sparkle} Evolution items</h4>`
-        + (evoMine.length ? evoMine.map(buyRow).join('') : `<p class="muted" style="margin:0 0 8px">None of these evolve ${P && !P.egg ? esc(petName()) : 'an egg'}.</p>`)
-        + (evoRest.length ? `<details class="more"${shopOpenAll ? ' open' : ''}><summary>All evolution items (${evoRest.length})</summary>${evoRest.map(buyRow).join('')}</details>` : '') : '');
-    const sellRows = sell.map(k => row(k, C.shopSell[k], `<span class="cnt">×${Game.itemCount(k)}</span><button class="gold" data-sell="${k}">Sell</button>${Game.itemCount(k) > 1 ? `<button class="gold" data-sellall="${k}">All</button>` : ''}`)).join('');
+    const empty = martMode === 'buy' ? 'Nothing here right now.'
+      : 'Nothing to sell yet. Explore dungeons to find treasure like <b>Pearls</b>, <b>Stardust</b>, <b>Nuggets</b> and ancient <b>Relics</b>!';
     openSheet(head('Bag') + bagTabs() + `
-      <div class="shophead">{i:shop}<div><b>Poké Mart</b><small>Trade your treasure for Pokécoins, then stock up.</small></div>${coinsHtml()}</div>
-      <h4 class="shoph">{i:cart} Buy</h4>${buyRows || '<p class="muted">Nothing on the shelves right now.</p>'}
-      <h4 class="shoph">{i:coin} Sell</h4>${sellRows || '<p class="muted">Nothing to sell yet. Explore dungeons to find treasure like <b>Pearls</b>, <b>Stardust</b>, <b>Nuggets</b> and ancient <b>Relics</b>!</p>'}`);
+      <div class="shophead">{i:shop}<div><b>Poké Mart</b><small>${martMode === 'buy' ? 'Tap an item to see it and buy.' : 'Tap an item to sell it for Pokécoins.'}</small></div>${coinsHtml()}</div>
+      <div class="seg"><button data-mm="buy" class="${martMode === 'buy' ? 'on' : ''}">{i:cart} Buy</button><button data-mm="sell" class="${martMode === 'sell' ? 'on' : ''}">{i:coin} Sell${sell.length ? ` (${sell.length})` : ''}</button></div>
+      <div class="mchips">${cats.map(([k, l]) => `<button data-mc="${k}" class="${martCat === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      ${list.length ? `<div class="mart">${list.map(card).join('')}</div>` : `<p class="muted" style="text-align:center;margin:18px 0">${empty}</p>`}`);
     wireBagTabs();
-    const more = sheet.querySelector('details.more'); if (more) more.addEventListener('toggle', () => { shopOpenAll = more.open; });
-    const q = (k, d) => { shopQty[k] = Math.max(1, Math.min(99, (shopQty[k] || 1) + d)); openShop(); };
-    sheet.querySelectorAll('[data-qm]').forEach(b => b.addEventListener('click', () => q(b.dataset.qm, -1)));
-    sheet.querySelectorAll('[data-qp]').forEach(b => b.addEventListener('click', () => q(b.dataset.qp, 1)));
-    sheet.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
-      const k = b.dataset.buy, n = shopQty[k] || 1, r = Game.buyItem(k, n);
+    sheet.querySelectorAll('[data-mm]').forEach(b => b.addEventListener('click', () => { martMode = b.dataset.mm; martCat = 'all'; openShop(); }));
+    sheet.querySelectorAll('[data-mc]').forEach(b => b.addEventListener('click', () => { martCat = b.dataset.mc; openShop(); }));
+    sheet.querySelectorAll('[data-mk]').forEach(b => b.addEventListener('click', () => openMartItem(b.dataset.mk, 1)));
+  }
+  /** one item: picture, what it does, how many, total, Buy / Sell */
+  function openMartItem(k, n) {
+    const { IT, C } = martLists(), it = IT[k], buying = martMode === 'buy';
+    const price = buying ? C.shopBuy[k] : C.shopSell[k];
+    if (!it || !price) return openShop();
+    const have = Game.itemCount(k), max = buying ? Math.max(1, Math.min(99, Math.floor(Game.coins() / price))) : Math.max(1, have);
+    n = Math.max(1, Math.min(buying ? 99 : have, n || 1));
+    const total = price * n, can = buying ? Game.coins() >= total : have >= n;
+    openSheet(head(buying ? 'Buy' : 'Sell') + `
+      <div class="mdetail">${ic(it.icon).replace('class="ic"', 'class="px"')}
+        <div><b>${it.name}</b><small>${it.desc}</small>${it.kind === 'evo' ? evoNote(k) : ''}
+        <small class="price">{i:coin} ${price.toLocaleString()} each · you have ×${have}</small></div></div>
+      <div class="mqty">
+        <button class="alt" data-n="${n - 1}" ${n <= 1 ? 'disabled' : ''}>−</button><span>${n}</span>
+        <button class="alt" data-n="${n + 1}" ${n >= (buying ? 99 : have) ? 'disabled' : ''}>+</button>
+        <button class="alt max" data-n="${max}" ${n === max ? 'disabled' : ''}>Max</button>
+      </div>
+      <div class="mtotal"><span>${buying ? 'Total' : 'You get'}</span><b>{i:coin} ${total.toLocaleString()}</b></div>
+      ${buying && !can ? `<p class="muted" style="text-align:center;margin:0 0 8px">You need {i:coin}${(total - Game.coins()).toLocaleString()} more. Sell some treasure first!</p>` : ''}
+      <div class="btns two"><button class="btn alt" id="mBack">← Back</button><button class="btn ${buying ? 'red' : 'gold'}" id="mGo" ${can ? '' : 'disabled'}>${buying ? `Buy ×${n}` : `Sell ×${n}`}</button></div>
+      <p class="muted" style="text-align:center;margin-top:10px">${coinsHtml()}</p>`);
+    sheet.querySelectorAll('[data-n]').forEach(b => b.addEventListener('click', () => openMartItem(k, +b.dataset.n)));
+    $('#mBack').addEventListener('click', openShop);
+    $('#mGo').addEventListener('click', () => {
+      const r = buying ? Game.buyItem(k, n) : Game.sellItem(k, n);
       if (r.error) { toast(r.error); Sound.play('no'); return; }
-      Sound.play('catch'); toast(`Bought {i:${IT[k].icon}} ${IT[k].name} ×${n} for {i:coin}${r.spent.toLocaleString()}`); shopQty[k] = 1; openShop();
-    }));
-    const doSell = (k, n) => {
-      const r = Game.sellItem(k, n);
-      if (r.error) { toast(r.error); Sound.play('no'); return; }
-      Sound.play('medal'); toast(`Sold {i:${IT[k].icon}} ${IT[k].name} ×${n} for {i:coin}${r.earned.toLocaleString()}`); openShop();
-    };
-    sheet.querySelectorAll('[data-sell]').forEach(b => b.addEventListener('click', () => doSell(b.dataset.sell, 1)));
-    sheet.querySelectorAll('[data-sellall]').forEach(b => b.addEventListener('click', () => {
-      const k = b.dataset.sellall, n = Game.itemCount(k);
-      dialog(`Sell all ${IT[k].name}s?`, `Sell ${n} for ${C.shopSell[k] * n} Pokécoins?`, [
-        { label: 'Cancel', cls: 'alt', fn: openShop }, { label: 'Sell all', cls: 'gold', fn: () => doSell(k, n) }]);
-    }));
+      Sound.play(buying ? 'catch' : 'medal');
+      toast(buying ? `Bought {i:${it.icon}} ${it.name} ×${n} for {i:coin}${r.spent.toLocaleString()}` : `Sold {i:${it.icon}} ${it.name} ×${n} for {i:coin}${r.earned.toLocaleString()}`);
+      if (!buying && Game.itemCount(k) === 0) return openShop();
+      openMartItem(k, 1);
+    });
   }
   function wireBagTabs() { sheet.querySelectorAll('[data-bag]').forEach(b => b.addEventListener('click', () => openFeed(b.dataset.bag))); }
   function fragmentsHtml() {
@@ -1725,7 +1781,7 @@ if (!code) {
   }
   // "Gardevoir (Lv 30) / Gallade ({i:dawnStone} Dawn Stone)"
   function evoText(id) {
-    return Game.evoMethods(id).map(m => `${Game.registered(m.to) ? SPECIES_BY_ID[m.to].name : '???'} (${m.item ? `${ic(Game.ITEMS[m.item].icon)} ${Game.ITEMS[m.item].name}${m.time ? ', ' + m.time : ''}` : 'Lv ' + m.lv})`).join(' / ');
+    return Game.evoMethods(id).map(m => `${Game.registered(m.to) ? SPECIES_BY_ID[m.to].name : '???'} (${m.item ? `${ic(Game.ITEMS[m.item].icon)} ${Game.ITEMS[m.item].name}` : 'Lv ' + m.lv}${m.time ? ', ' + Evolution.SHORT[m.time] : ''})`).join(' / ');
   }
   // who an evolution item works on, for its Bag / shop row
   function evoNote(k) {
@@ -1743,7 +1799,7 @@ if (!code) {
     const group = (title, list) => list.length ? `<h4 class="shoph">${title}</h4>` + list.map(row).join('') : '';
     const kindOf = k => IT[k].kind || 'basic';
     const heldRow = p && !p.egg && p.held && IT[p.held] ? `<div class="itemrow held">${ic(IT[p.held].icon).replace('class="ic"', 'class="px"')}
-        <div class="ii"><b>${esc(petName())} is holding a ${IT[p.held].name}</b><small>${Game.heldEvo() ? 'It can evolve now — keep its needs at 40+!' : 'It evolves at its next level-up' + (Game.evoTarget(p.held, p.sp).error === 'night' ? ' at night' : Game.evoTarget(p.held, p.sp).error === 'day' ? ' during the day' : '') + '.'}</small></div>
+        <div class="ii"><b>${esc(petName())} is holding a ${IT[p.held].name}</b><small>${Game.heldEvo() ? 'It can evolve now — keep its needs at 40+!' : 'It evolves at its next level-up' + (Evolution.WHEN[Game.evoMethods(p.sp).filter(m => m.item === p.held).map(m => m.time)[0]] ? ' ' + Evolution.WHEN[Game.evoMethods(p.sp).filter(m => m.item === p.held).map(m => m.time)[0]] : '') + '.'}</small></div>
         <button class="alt" data-take="1">Take</button></div>` : '';
     openSheet(head('Bag') + bagTabs() + heldRow + (have.length || Object.keys(ST().player.fragments || {}).length
       ? group('{i:bag} Items', have.filter(k => kindOf(k) === 'basic' || kindOf(k) === 'ball'))
@@ -1781,7 +1837,7 @@ if (!code) {
       const k = b.dataset.hold, r = Game.giveHeld(k);
       if (r.error) { toast(r.error); Sound.play('no'); return; }
       Sound.play('catch');
-      toast(`{i:${IT[k].icon}} ${petName()} is holding the ${IT[k].name}. It evolves at its next level-up${r.when ? (r.when === 'night' ? ' at night' : ' during the day') : ''}!`, 4500);
+      toast(`{i:${IT[k].icon}} ${petName()} is holding the ${IT[k].name}. It evolves at its next level-up${r.when ? ' ' + Evolution.WHEN[r.when] : ''}!`, 4500);
       openFeed('items');
     }));
     sheet.querySelectorAll('[data-take]').forEach(b => b.addEventListener('click', () => { Game.takeHeld(); toast('Put back in the Bag.'); openFeed('items'); }));
@@ -2649,7 +2705,10 @@ if (!code) {
     const ms = now(), dt = Math.min(.05, (ms - last) / 1000); last = ms; const t = ms / 1000;
     Game.update(Date.now());
     const cp = Game.pet();
-    if (cp && !cp.egg && V.loaded !== cp.sp + ':' + cp.shiny) { V.loaded = cp.sp + ':' + cp.shiny; preloadSpecies(cp.sp, cp.shiny); SPECIES_BY_ID[cp.sp].next.forEach(n => preloadSpecies(n, cp.shiny)); }
+    if (cp && !cp.egg && V.loaded !== cp.sp + ':' + cp.shiny) { V.loaded = cp.sp + ':' + cp.shiny; preloadSpecies(cp.sp, cp.shiny);
+      // what it could evolve into: just the idle pose (for the evolution animation), a little later
+      const evoTo = [...new Set(Game.evoMethods(cp.sp).map(m => m.to))];
+      setTimeout(() => evoTo.forEach(n => preloadSpecies(n, cp.shiny, ['Idle'])), 4000); }
     if (!arenaGame) { stepView(t, dt); draw(t, ms); }
     if (ms - hudAt > 250) { hudAt = ms; hud(); chatter(ms); }
   }

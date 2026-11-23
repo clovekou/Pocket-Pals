@@ -144,8 +144,8 @@ function whenSprite(id, shiny, name, cb) {
   _img(a.src, () => { const im = _imgs[a.src]; if (im && im.naturalWidth) _measure(a, im); cb && cb(); });
 }
 /** start loading the animations a Pokémon uses on the main screen */
-function preloadSpecies(id, shiny) {
-  for (const n of ['Idle', 'Walk', 'Sleep', 'Hop', 'Eat', 'Attack', 'Hurt']) whenSprite(id, shiny, n);
+function preloadSpecies(id, shiny, names) {
+  for (const n of names || ['Idle', 'Walk', 'Sleep', 'Hop', 'Eat', 'Attack', 'Hurt']) whenSprite(id, shiny, n);
 }
 /** URL of a portrait for an emotion (falls back to Normal, then any), or null */
 function portraitUrl(id, shiny, emo) {

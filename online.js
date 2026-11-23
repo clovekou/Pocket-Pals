@@ -59,6 +59,44 @@ const Online = (() => {
   // Applied from the last-known copy straight away (works offline), then refreshed live from Firestore.
   const CFG_KEY = 'pocketpal.gameConfig';
   try { const c = localStorage.getItem(CFG_KEY); if (c) Game.applyConfig(JSON.parse(c)); } catch (e) {}
+  // admin edits to evolutions (Admin → Evolutions), same caching as the game settings
+  const EVO_KEY = 'pocketpal.evolutions';
+  try { const c = localStorage.getItem(EVO_KEY); if (c) Game.applyEvolutions(JSON.parse(c)); } catch (e) {}
+  function watchEvolutions() {
+    db.collection('config').doc('evolutions').onSnapshot(d => {
+      const steps = (d.exists && d.data().steps) || {};
+      Game.applyEvolutions(steps);
+      try { localStorage.setItem(EVO_KEY, JSON.stringify(steps)); } catch (e) {}
+      emit();
+    }, () => {});
+  }
+  // ---------------- shop backgrounds (Admin → Backgrounds) ----------------
+  // The list comes live from Firestore; a full picture is fetched only when it's needed, and the one
+  // in use is kept on the device so it shows straight away (and offline) next time.
+  st.backgrounds = [];
+  try { st.backgrounds = JSON.parse(localStorage.getItem('pocketpal.bgList') || '[]'); } catch (e) {}
+  function watchBackgrounds() {
+    db.collection('shopBackgrounds').onSnapshot(q => {
+      st.backgrounds = q.docs.map(d => ({ id: d.id, ...d.data() })).filter(b => b.active !== false)
+        .sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.name).localeCompare(String(b.name)))
+        .map(b => ({ id: b.id, name: b.name || 'Background', price: Math.max(0, b.price | 0), thumb: b.thumb || '' }));
+      try { localStorage.setItem('pocketpal.bgList', JSON.stringify(st.backgrounds)); } catch (e) {}
+      emit();
+    }, () => {});
+  }
+  const bgImages = {};
+  function backgroundImage(id) {
+    if (bgImages[id]) return bgImages[id];
+    const key = 'pocketpal.bgImage.' + id;
+    let cached = null; try { cached = localStorage.getItem(key); } catch (e) {}
+    if (cached) return (bgImages[id] = Promise.resolve(cached));
+    if (!db) return Promise.resolve(null);
+    return (bgImages[id] = db.collection('shopBackgroundImages').doc(id).get().then(d => {
+      const url = d.exists ? d.data().image : null;
+      if (url) { try { Object.keys(localStorage).filter(k => k.startsWith('pocketpal.bgImage.') && k !== key).forEach(k => localStorage.removeItem(k)); localStorage.setItem(key, url); } catch (e) {} }
+      return url;
+    }).catch(() => { delete bgImages[id]; return null; }));
+  }
   function watchConfig() {
     db.collection('config').doc('game').onSnapshot(d => {
       const c = d.exists ? d.data() : {};
@@ -107,7 +145,7 @@ const Online = (() => {
       auth = firebase.auth(); db = firebase.firestore();
       auth.getRedirectResult().catch(e => { st.error = friendly(e); emit(); });
       auth.onAuthStateChanged(onUser);
-      watchConfig();
+      watchConfig(); watchEvolutions(); watchBackgrounds();
       st.ready = true; emit();
     } catch (e) { st.error = friendly(e); emit(); }
   }
@@ -384,6 +422,6 @@ const Online = (() => {
   return {
     get state() { return st; }, on: f => subs.push(f), init, signIn, signOut, createProfile, usernameFree, NAME_RE,
     resolveConflict, uploadSave, syncWidget, findUser, addFriend, respond, cancelRequest, removeFriend,
-    offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending, redeemCode,
+    offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending, redeemCode, backgroundImage,
   };
 })();

@@ -67,6 +67,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Shop backgrounds made on the Admin page: everyone can see them, only admins can add or change them.
+    // The list (name, price, small preview) and the full pictures are kept apart so the list loads quickly.
+    match /shopBackgrounds/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /shopBackgroundImages/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Gift codes for event Pokémon, made on the Admin page. Players can look up a code they know
     // (nobody but admins can list them) and redeem it once: the use counter goes up by exactly one,
     // in the same write as the player's claim document, and only while the code is active,

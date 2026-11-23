@@ -54,7 +54,7 @@ Trainer. Needs a free Firebase project: see **[ONLINE-SETUP.md](ONLINE-SETUP.md)
 Keep up to 6 Pokémon. Your main (marked with a ▼) is the one you care for; the others
 wander, nap, play and chat with each other in the background, and their needs pause while
 they rest. Open **Party** to switch your main (or tap one on the home screen), release one,
-or take a new egg once your main is Lv 5.
+or send one to the PC Box. New eggs come from Mystery Eggs (very rare in dungeons, or bought in the shop).
 
 ## Explore
 Send your main into a pixel-art crystal cave (Crystal Cavern, Emerald Grotto, Ember Hollow),
@@ -81,6 +81,11 @@ party, or the **PC Box** (in the Party menu) when the party is full.
 - All items are defined in `items.js` (names, prices, how rare they are). Which Pokémon each evolution item
   works on comes from PokéAPI data: `python3 tools/build_evo_items.py` regenerates `evoitems.js`.
   Item icons are drawn by `python3 tools/make_ui_icons.py` into `assets/items/`.
+
+## Shop backgrounds
+In **Admin → Backgrounds** you can upload a picture, name it and set a price. Players buy it once in
+**Options → Backgrounds** and can switch between the backgrounds they own any time (the classic scenery is
+always free). Pictures are shrunk and stored in Firestore (`shopBackgrounds` + `shopBackgroundImages`).
 
 ## Backgrounds
 In the dashboard's **Backgrounds** section you can upload your own scene pictures
