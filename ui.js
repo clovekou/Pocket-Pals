@@ -1107,6 +1107,20 @@ if (!code) {
     toast(`${petName()} is now your main!`);
     setTimeout(() => Talk.say('backHappy', { prio: 2 }), 400);
   }
+  // PC Box sort order (remembered on this device)
+  const BOX_SORTS = [['recent', 'Recent catch'], ['older', 'Older catch'], ['az', 'A–Z'], ['level', 'High Lv → Low']];
+  let boxSort = (() => { try { return localStorage.getItem('pocketpal.boxSort') || 'recent'; } catch (e) { return 'recent'; } })();
+  function sortedBox() {
+    const when = m => m.receivedAt || m.hatchedAt || 0;   // when it joined you (hatched, caught or traded)
+    const list = Game.box().map((m, i) => ({ m, i }));
+    const by = {
+      recent: (a, b) => (when(b.m) - when(a.m)) || (b.i - a.i),
+      older: (a, b) => (when(a.m) - when(b.m)) || (a.i - b.i),
+      az: (a, b) => memberName(a.m).localeCompare(memberName(b.m)) || (a.i - b.i),
+      level: (a, b) => (Game.memberLevel(b.m) - Game.memberLevel(a.m)) || memberName(a.m).localeCompare(memberName(b.m)),
+    }[boxSort] || (() => 0);
+    return list.sort(by);
+  }
   function openParty() {
     const p = Game.pet(), party = Game.party();
     const needBar = m => {
@@ -1134,7 +1148,12 @@ if (!code) {
     openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.</p>
       <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="pslot empty">Empty slot</div>'.repeat(empties)}</div>
       ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 4px">PC Box (${Game.box().length})</h4><p class="muted" style="margin:0 0 8px">Tap a Pokémon to move it to your party or release it.</p>
-        <div class="boxgrid">${Game.box().map((m, i) => boxSlot(m, i)).join('')}</div>` : ''}`);
+        <div class="mchips boxsort">${BOX_SORTS.map(([k, l]) => `<button data-bsort="${k}" class="${boxSort === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <div class="boxgrid">${sortedBox().map(({ m, i }) => boxSlot(m, i)).join('')}</div>` : ''}`);
+    sheet.querySelectorAll('[data-bsort]').forEach(b => b.addEventListener('click', () => {
+      boxSort = b.dataset.bsort; try { localStorage.setItem('pocketpal.boxSort', boxSort); } catch (e) {}
+      const y = sheet.scrollTop; openParty(); sheet.scrollTop = y;   // keep your place in the list
+    }));
     sheet.querySelectorAll('[data-box]').forEach(b => b.addEventListener('click', () => {
       const i = +b.dataset.box, m = Game.box()[i]; if (!m) return;
       const s = SPECIES_BY_ID[m.sp];
