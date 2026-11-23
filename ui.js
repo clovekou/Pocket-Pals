@@ -1108,7 +1108,7 @@ if (!code) {
     setTimeout(() => Talk.say('backHappy', { prio: 2 }), 400);
   }
   // PC Box sort order (remembered on this device)
-  const BOX_SORTS = [['recent', 'Recent catch'], ['older', 'Older catch'], ['az', 'A–Z'], ['level', 'High Lv → Low']];
+  const BOX_SORTS = [['fav', '★ Favorites first'], ['recent', 'Recent catch'], ['older', 'Older catch'], ['az', 'A–Z'], ['level', 'High Lv → Low']];
   let boxSort = (() => { try { return localStorage.getItem('pocketpal.boxSort') || 'recent'; } catch (e) { return 'recent'; } })();
   function sortedBox() {
     const when = m => m.receivedAt || m.hatchedAt || 0;   // when it joined you (hatched, caught or traded)
@@ -1118,6 +1118,7 @@ if (!code) {
       older: (a, b) => (when(a.m) - when(b.m)) || (a.i - b.i),
       az: (a, b) => memberName(a.m).localeCompare(memberName(b.m)) || (a.i - b.i),
       level: (a, b) => (Game.memberLevel(b.m) - Game.memberLevel(a.m)) || memberName(a.m).localeCompare(memberName(b.m)),
+      fav: (a, b) => (!!b.m.fav - !!a.m.fav) || (when(b.m) - when(a.m)) || (b.i - a.i),   // starred ones first, then newest
     }[boxSort] || (() => 0);
     return list.sort(by);
   }
@@ -1142,29 +1143,34 @@ if (!code) {
       const s = SPECIES_BY_ID[m.sp], face = portraitUrl(m.sp, m.shiny, 'Normal');
       return `<button class="boxtile ${m.locked ? 'locked' : ''}" data-box="${i}">${face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny })}
         <b>${esc(memberName(m))}</b><small>Lv ${Game.memberLevel(m)} · ${ELEMENTS[s.el].label}</small>
-        ${m.shiny ? '<span class="boxshiny">{i:sparkle}</span>' : ''}${m.locked ? '<span class="boxlock">{i:lock}</span>' : ''}</button>`;
+        ${m.shiny ? '<span class="boxshiny">{i:sparkle}</span>' : ''}${m.fav ? '<span class="boxfav">{i:star}</span>' : ''}${m.locked ? '<span class="boxlock">{i:lock}</span>' : ''}</button>`;
     };
     const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
     openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.</p>
       <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="pslot empty">Empty slot</div>'.repeat(empties)}</div>
       ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 4px">PC Box (${Game.box().length})</h4><p class="muted" style="margin:0 0 8px">Tap a Pokémon to move it to your party or release it.</p>
-        <div class="mchips boxsort">${BOX_SORTS.map(([k, l]) => `<button data-bsort="${k}" class="${boxSort === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <label class="boxsortsel"><span>Sort by</span><select id="boxSortSel">${BOX_SORTS.map(([k, l]) => `<option value="${k}" ${boxSort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
         <div class="boxgrid">${sortedBox().map(({ m, i }) => boxSlot(m, i)).join('')}</div>` : ''}`);
-    sheet.querySelectorAll('[data-bsort]').forEach(b => b.addEventListener('click', () => {
-      boxSort = b.dataset.bsort; try { localStorage.setItem('pocketpal.boxSort', boxSort); } catch (e) {}
+    const sortSel = sheet.querySelector('#boxSortSel');
+    if (sortSel) sortSel.addEventListener('change', () => {
+      boxSort = sortSel.value; try { localStorage.setItem('pocketpal.boxSort', boxSort); } catch (e) {}
       const y = sheet.scrollTop; openParty(); sheet.scrollTop = y;   // keep your place in the list
-    }));
+    });
     sheet.querySelectorAll('[data-box]').forEach(b => b.addEventListener('click', () => {
       const i = +b.dataset.box, m = Game.box()[i]; if (!m) return;
       const s = SPECIES_BY_ID[m.sp];
       if (m.locked) { toast(`${memberName(m)} is in a trade right now.`); return; }
-      dialog(`${m.shiny ? '{i:sparkle} ' : ''}${esc(memberName(m))}`, `Lv ${Game.memberLevel(m)} · ${ELEMENTS[s.el].label}. It's resting in your PC Box.`, [
-        { label: 'Close', cls: 'alt', fn: () => openParty() },
-        { label: '{i:pokeball} To party', cls: 'red', fn: () => { if (!roomInParty) { toast('Your party is full.'); return openParty(); } Game.boxToParty(i); openParty(); } },
-        { label: 'Release', cls: 'alt', fn: () => dialog(`Release ${esc(memberName(m))}?`, 'It goes back to the wild. This can\'t be undone.', [
+      const nm = esc(memberName(m));
+      dialog(`${m.fav ? '{i:star} ' : ''}${m.shiny ? '{i:sparkle} ' : ''}${nm}`, `Lv ${Game.memberLevel(m)} · ${ELEMENTS[s.el].label}. It's resting in your PC Box.`, [
+        { label: '{i:pokeball} Add to party', cls: 'green', fn: () => { if (!roomInParty) { toast('Your party is full.'); return openParty(); } Game.boxToParty(i); openParty(); } },
+        { label: m.fav ? '{i:star} Remove from favorites' : '{i:star} Add to favorites', cls: 'gold', fn: () => {
+          m.fav = !m.fav; Game.save(); Sound.play(m.fav ? 'medal' : 'tap'); toast(m.fav ? `{i:star} ${nm} is a favorite!` : `${nm} is no longer a favorite.`); openParty();
+        } },
+        { label: 'Release', cls: 'red', fn: () => dialog(`Release ${nm}?`, `Are you sure you want to release ${nm}?${m.fav ? ' It\'s one of your favorites!' : ''} It goes back to the wild and can't be undone.`, [
           { label: 'Cancel', cls: 'alt', fn: () => openParty() },
-          { label: 'Release', cls: 'red', fn: () => { Game.releaseBox(i); openParty(); } },
+          { label: 'Yes, release', cls: 'red', fn: () => { Game.releaseBox(i); toast(`${nm} went back to the wild.`); openParty(); } },
         ]) },
+        { label: 'Close', cls: 'alt', fn: () => openParty() },
       ]);
     }));
     sheet.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', () => {   // stays on the Party tab
