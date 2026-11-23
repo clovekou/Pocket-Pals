@@ -211,11 +211,12 @@ p { line-height: 1.55; margin: 6px 0; }
 .medal .ic { display: block; width: 40px; height: 40px; margin: 0 auto 4px; }
 .medal.off { opacity: .35; filter: grayscale(1) brightness(.7); }
 
-.dexgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.dexcell { border: 3px solid var(--line); background: #fff; border-radius: 14px; padding: 4px 3px 6px; position: relative; color: var(--ink); box-shadow: 0 3px 0 rgba(0, 0, 0, .18); }
+.dexgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }   /* equal columns, whatever the names */
+.dexcell { min-width: 0; border: 3px solid var(--line); background: #fff; border-radius: 14px; padding: 4px 3px 6px; position: relative; color: var(--ink); box-shadow: 0 3px 0 rgba(0, 0, 0, .18); }
 .dexcell:active { transform: translateY(2px); }
 .dexcell canvas { width: 100% !important; height: auto !important; display: block; margin-top: 12px; }
-.dexcell small { display: block; font-family: var(--pixel); font-size: 11px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; }
+.dexcell small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; font-family: var(--pixel); font-size: 11px; font-weight: 700; color: var(--ink);
+  overflow: hidden; overflow-wrap: anywhere; line-height: 1.15; min-height: 2.3em; margin-top: 4px; }   /* long names wrap to 2 lines; every cell the same height */
 .dexcell .st { position: absolute; top: 3px; right: 4px; width: 16px; height: 16px; margin: 0; }
 .dexcell .no { position: absolute; top: 3px; left: 6px; font-family: var(--pixel); font-size: 10px; color: var(--muted); font-weight: 700; }
 .dexcell img.face { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 9px; margin-top: 15px; border: 2px solid var(--line); }
