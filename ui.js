@@ -1595,8 +1595,23 @@ if (!code) {
       </div><p class="muted" style="margin-top:12px">${ex || tr ? 'These use some energy.' : 'Exploring and training are closed right now. Check back soon!'}</p>`);
     sheet.querySelectorAll('[data-adv]').forEach(b => b.addEventListener('click', () => {
       if (b.dataset.adv === 'training') return openGames();
-      closeSheet(); startExplore();
+      openMaps();
     }));
+  }
+  // ---------- Explore: pick a map (which Pokémon live on each is in game.js EXPLORE_MAPS) ----------
+  const EXPLORE_MAP_UI = [
+    { id: 'cave', name: 'Crystal Cave', desc: 'Every kind of Pokémon lives here.', thumb: 'backgrounds/explore/thumb/cave.jpg' },
+    { id: 'thunder', name: 'Thunder Plains', desc: 'Electric, Flying and Rock Pokémon. Rare boss: Raikou!', src: 'backgrounds/explore/thunder.jpg', thumb: 'backgrounds/explore/thumb/thunder.jpg' },
+    { id: 'sea', name: 'Undersea Cave', desc: 'Water Pokémon. Rare boss: Suicune!', src: 'backgrounds/explore/sea.jpg', thumb: 'backgrounds/explore/thumb/sea.jpg' },
+    { id: 'volcano', name: 'Volcano Cave', desc: 'Fire, Rock and Ground Pokémon. Rare boss: Entei!', src: 'backgrounds/explore/volcano.jpg', thumb: 'backgrounds/explore/thumb/volcano.jpg' },
+  ];
+  function openMaps() {
+    EXPLORE_MAP_UI.forEach(m => { if (m.src) new Image().src = m.src; });   // start loading the big pictures now
+    openSheet(head('Choose a map') + `<div class="bggrid one">${EXPLORE_MAP_UI.map(m => `<button class="bgcard" data-map="${m.id}">
+        <span class="bgthumb wide" style="background-image:url('${m.thumb}')"></span><b>${m.name}</b><small class="mapdesc">${m.desc}</small></button>`).join('')}</div>
+      <div class="btns"><button class="btn alt" id="mapBack">← Back</button></div>`);
+    $('#mapBack').addEventListener('click', openAdventure);
+    sheet.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { closeSheet(); startExplore({ map: b.dataset.map }); }));
   }
   $('#nameBtn').addEventListener('click', () => openCard());
   $('#settingsBtn').addEventListener('click', openSettings);
@@ -2226,8 +2241,9 @@ if (!code) {
   const WALK_MS = 1700;   // how long the walk to each new floor takes
   function drawExploreBg(G, ms) {
     const file = typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.explore;
-    if (!file) return false;
-    if (!exploreImg || exploreImg._file !== file) { exploreImg = new Image(); exploreImg._file = file; exploreImg.src = 'backgrounds/' + encodeURIComponent(file); }
+    const src = G.bgSrc || (file ? 'backgrounds/' + encodeURIComponent(file) : null);   // the chosen map's picture, or the dashboard's
+    if (!src) return false;
+    if (!exploreImg || exploreImg._src !== src) { exploreImg = new Image(); exploreImg._src = src; exploreImg.src = src; }
     if (!exploreImg.complete || !exploreImg.naturalWidth) return false;
     ac.imageSmoothingEnabled = false;
     const iw = exploreImg.naturalWidth, ih = exploreImg.naturalHeight;
@@ -2295,12 +2311,14 @@ if (!code) {
     const p = Game.pet();
     panel.classList.remove('hidden');
     const D = DUNGEONS[Math.floor(Math.random() * DUNGEONS.length)];
-    const caveName = typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.explore ? 'Crystal Cave' : D.name;
+    const map = EXPLORE_MAP_UI.find(m => m.id === opts.map) || EXPLORE_MAP_UI[0];
+    const caveName = map.id !== 'cave' ? map.name : typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.explore ? 'Crystal Cave' : D.name;
     openArena(`{i:map} ${caveName}`);
     const me = Game.battler(p.sp, Game.level(), true);
     const G = {
       D, caveName, floor: 0, state: 'walk', at: now(), me, meHp: me.maxHp, wins: 0, finds: {}, wild: null, wildHp: 0,
       act: null, actAt: 0, hurt: null, hurtAt: 0, chest: null, over: false, seedInt: 1 + Math.floor(Math.random() * 100000), scroll: 0,
+      map: map.id, bgSrc: map.src || null,
     };
     preloadSpecies(p.sp, p.shiny);
     Sound.play('wake'); Talk.say('exploreGo');
@@ -2315,7 +2333,7 @@ if (!code) {
       setTimeout(() => { if (arenaGame === G) resolveFloor(); }, WALK_MS);
     }
     function resolveFloor() {
-      if (G.floor >= Game.EXPLORE_MAX_FLOOR) return encounter(Game.rollBoss());   // the end of the map: floor boss
+      if (G.floor >= Game.EXPLORE_MAX_FLOOR) return encounter(Game.rollBoss(G.map));   // the end of the map: floor boss
       const ev = Game.rollFloor(G.floor);
       if (ev === 'wild') return encounter();
       if (ev === 'legend') return encounter(Game.rollLegend());
@@ -2342,7 +2360,7 @@ if (!code) {
       afterFloor();
     }
     function encounter(preset) {
-      const w = preset || Game.rollWild(), ws = SPECIES_BY_ID[w.sp];
+      const w = preset || Game.rollWild(G.map), ws = SPECIES_BY_ID[w.sp];
       G.wild = Object.assign(Game.battler(w.sp, w.level, false), { shiny: w.shiny, name: ws.name, legend: !!w.legend, boss: !!w.boss, raw: w });
       if (w.legend && !w.boss) G.wild.maxHp = Math.round(G.wild.maxHp * 1.2);   // legendaries are a little tougher
       if (w.boss) {                                                    // floor boss: lots of HP and hits hard
@@ -2731,7 +2749,7 @@ if (!code) {
     };
     arenaGame = G; requestAnimationFrame(G.loop);
     if (opts.demo) {
-      G.floor = Game.EXPLORE_MAX_FLOOR; info(); encounter(Game.rollBoss());
+      G.floor = Game.EXPLORE_MAX_FLOOR; info(); encounter(Game.rollBoss(G.map));
       if (/^wheel/.test(opts.demo)) { G.wildHp = 1; G.wins++; if (opts.demo === 'wheel') ['greatBall', 'ultraBall', 'masterBall'].forEach(k => { if (!Game.itemCount(k)) Game.addItem(k); }); startWheel(); const k = { wheelgreat: 'greatBall', wheelultra: 'ultraBall', wheelmaster: 'masterBall' }[opts.demo]; if (k) { Game.addItem(k); boostWheel(k); G.wheel.boostAt = 0; } }
       if (opts.demo === 'throw') { G.wildHp = 1; G.wins++; startWheel(); G.wheel.result = 'great'; throwBall(); }
       return;
@@ -3077,9 +3095,9 @@ if (!code) {
   }
   pixelizeIcons();
   PX.hydrate();
-  if (window.PP_PREVIEW) {                                  // ?preview&demo=boss|wheel|wheelgreat|wheelmaster: jump straight to the end-of-map boss
-    const demo = new URLSearchParams(location.search).get('demo');
-    if (demo) setTimeout(() => { const p = Game.pet(); if (p && p.asleep) Game.toggleSleep(); if (p) { p.ene = Math.max(p.ene, 80); p.food = Math.max(p.food, 80); } startExplore({ demo }); }, 1500);
+  if (window.PP_PREVIEW) {                                  // ?preview&demo=boss|wheel|wheelgreat|wheelmaster[&map=thunder|sea|volcano]: jump straight to the end-of-map boss
+    const qs = new URLSearchParams(location.search), demo = qs.get('demo');
+    if (demo) setTimeout(() => { const p = Game.pet(); if (p && p.asleep) Game.toggleSleep(); if (p) { p.ene = Math.max(p.ene, 80); p.food = Math.max(p.food, 80); } startExplore({ demo, map: qs.get('map') }); }, 1500);
   }
   PX.onUpdate(() => { PX.hydrate(); if (els && els.name) els.name.dataset.sig = ''; }); // egg picture loaded
   // phones: stop double-tap zoom / pinch zoom from shifting the layout (text fields still work normally)

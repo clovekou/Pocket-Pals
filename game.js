@@ -665,10 +665,28 @@ const Game = (() => {
     }
     return pick;
   }
-  /** a wild Pokémon 3–5 levels below your main (never legendary) */
-  function rollWild() {
+  // Explore maps. The plain Crystal Cave has every kind of Pokémon; the others favour types that fit the place
+  // (weights pick a type first), and their floor boss has a small chance (beastChance %) to be that map's legendary beast.
+  const EXPLORE_MAPS = {
+    cave:    { types: null },
+    thunder: { types: { electric: 6, flying: 2, rock: 2 }, beast: 243, beastChance: 2 },   // Raikou
+    sea:     { types: { water: 1 }, beast: 245, beastChance: 2 },                         // Suicune
+    volcano: { types: { fire: 6, rock: 2, ground: 2 }, beast: 244, beastChance: 2 },       // Entei
+  };
+  /** the species a map can show: every one for the plain cave, else one of its types (picked by weight) */
+  function mapPool(map, list) {
+    const m = EXPLORE_MAPS[map] || EXPLORE_MAPS.cave;
+    if (!m.types) return list;
+    const entries = Object.entries(m.types);
+    let r = Math.random() * entries.reduce((a, [, w]) => a + w, 0), el = entries[0][0];
+    for (const [k, w] of entries) { if ((r -= w) < 0) { el = k; break; } }
+    const mine = list.filter(s => s.el === el);
+    return mine.length ? mine : list;
+  }
+  /** a wild Pokémon 3–5 levels below your main (never legendary), suited to the map */
+  function rollWild(map) {
     const lv = Math.max(1, level() - (3 + rnd(3)));
-    const pool = SPECIES.filter(s => !isSpecial(s.id));
+    const pool = mapPool(map, SPECIES.filter(s => !isSpecial(s.id)));
     // fit the stage to the level: low levels meet first stages, higher levels can meet evolved ones
     const fit = pool.filter(s => (s.stage === 1) || (s.stage === 2 && lv >= 18) || (s.stage >= 3 && lv >= 34));
     const list = fit.length ? fit : pool;
@@ -676,12 +694,17 @@ const Game = (() => {
     return { sp: s.id, level: lv, shiny: oneIn(200, CFG.shinyMult) };
   }
   /** the boss waiting on the deepest floor. Usually a first-stage Pokémon;
-   *  rare: a middle stage (12%) · very rare: a final stage (3%) · extremely rare: a legendary (0.5%) */
-  function rollBoss() {
+   *  rare: a middle stage (12%) · very rare: a final stage (3%) · extremely rare: a legendary (0.5%).
+   *  On a themed map it's one of that map's types, and its legendary beast turns up beastChance % of the time. */
+  function rollBoss(map) {
+    const m = EXPLORE_MAPS[map] || EXPLORE_MAPS.cave;
+    if (m.beast && SPECIES_BY_ID[m.beast] && Math.random() * 100 < m.beastChance) {
+      return { sp: m.beast, level: Math.max(5, level() + 3), shiny: oneIn(150, CFG.bossShinyMult), boss: true, bossTier: 'legend', legend: true };
+    }
     const r = Math.random() * 100;
-    const normal = SPECIES.filter(s => !isSpecial(s.id));
+    const normal = mapPool(map, SPECIES.filter(s => !isSpecial(s.id)));
     const pools = [
-      ['legend', .5, SPECIES.filter(s => isSpecial(s.id))],
+      ['legend', m.beast ? 0 : .5, SPECIES.filter(s => isSpecial(s.id))],   // themed maps: only their own beast
       ['final', 3.5, normal.filter(s => s.stage >= 2 && !s.next.length)],
       ['stage2', 15.5, normal.filter(s => s.stage === 2 && s.next.length)],
     ];
@@ -911,7 +934,7 @@ const Game = (() => {
     pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, sleepNow, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
-    ITEMS, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
+    ITEMS, EXPLORE_MAPS, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
     applyConfig, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem, ownsBackground, buyBackground, useBackground,
     useEvoItem, giveHeld, takeHeld, evoTarget, evoUsers, heldEvo, evoMethods,
     /** admin edits to evolutions (Firestore config/evolutions) */

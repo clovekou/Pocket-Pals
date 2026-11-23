@@ -499,6 +499,9 @@ details.more[open] > summary::before { content: '▾ '; }
 .bgcard b { font-family: var(--pixel); font-size: 15px; padding: 0 2px; }
 .bgcard .bgstate { font-family: var(--pixel); font-weight: 700; font-size: 13px; color: #9a6b00; padding: 0 2px 2px; display: inline-flex; align-items: center; gap: 3px; }
 .bgcard.using .bgstate { color: #2f8a3a; }
+.bggrid.one { grid-template-columns: minmax(0, 1fr); }
+.bgthumb.wide { aspect-ratio: 3 / 1; }
+.bgcard .mapdesc { font-size: 13px; line-height: 1.35; opacity: .8; padding: 0 2px 2px; text-align: left; }
 .bgwrap { position: relative; display: block; }
 .bgcard.locked .bgthumb { filter: saturate(.45) brightness(.72); }
 .bglock { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
