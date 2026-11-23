@@ -1,7 +1,8 @@
 // Offline cache for Pocket Pal
-const CACHE = 'pocketpal-v79';
+const CACHE = 'pocketpal-v80';
 const FILES = ['./', './index.html', './style.css', './assets/fonts/Jersey15-Regular.ttf', './items.js', './evodata.js', './evolution.js', './pixelart.js', './backgrounds.js', './sprites.js', './species.js', './creatures.js', './game.js', './online-config.js', './online.js', './talk.js', './ui.js', './icon.svg', './assets/egg.png', ...['oran','rareCandy','pearl','starPiece','nugget','pokeball','greatball','ultraball','masterball','pecha','aspear','cheri','chest','map','coin','shop','cart'].map(n => './assets/ui/' + n + '.png'), './manifest.webmanifest'];
-self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
+// install: fetch every file fresh (skipping the browser's HTTP cache), so a new version never mixes in old files
+self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== MEDIA).map(k => caches.delete(k)))));
   self.clients.claim();
@@ -15,15 +16,14 @@ const isMedia = url => /\.(png|jpe?g|webp|gif|svg|ttf|woff2?)$/i.test(url.pathna
   || url.hostname === 'raw.githubusercontent.com' || url.hostname === 'www.gstatic.com'
   || url.hostname === 'fonts.gstatic.com';
 
-// The game's own code (HTML, JS, CSS) is checked with the server so updates show up straight away,
-// but if the network is slow we don't wait more than 2.5 s: the cached copy is used and refreshed in the background.
-function networkFirst(e, req) {
-  const net = fetch(req).then(r => {
-    if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
+// The game's own code (HTML, JS, CSS) comes straight from this version's cache, so the game opens instantly
+// even on a slow connection. Updates still arrive: every release changes CACHE above, the browser notices the new
+// sw.js, installs the new files in the background, and the game reloads once onto them (ui.js, controllerchange).
+function codeFirst(e, req) {
+  return caches.open(CACHE).then(c => c.match(e.request, { ignoreSearch: e.request.mode === 'navigate' }).then(hit => hit || fetch(req).then(r => {
+    if (r.ok) c.put(e.request, r.clone());
     return r;
-  });
-  const slow = new Promise(res => setTimeout(res, 2500)).then(() => caches.match(e.request));
-  return Promise.race([net.catch(() => caches.match(e.request)), slow.then(c => c || net)]).then(r => r || net);
+  })));
 }
 function cacheFirst(e) {
   return caches.open(MEDIA).then(c => caches.match(e.request).then(hit => hit || fetch(e.request).then(r => {
@@ -38,5 +38,5 @@ self.addEventListener('fetch', e => {
   if (isMedia(url)) { e.respondWith(cacheFirst(e).catch(() => caches.match(e.request))); return; }
   const sameOrigin = url.origin === self.location.origin;
   const req = sameOrigin ? new Request(e.request, { cache: 'no-cache' }) : e.request;
-  e.respondWith(networkFirst(e, req));
+  e.respondWith(codeFirst(e, req).catch(() => fetch(e.request)));
 });

@@ -1609,8 +1609,19 @@ if (!code) {
   ];
   function openMaps() {
     EXPLORE_MAP_UI.forEach(m => { if (m.src) new Image().src = m.src; });   // start loading the big pictures now
-    openSheet(head('Choose a map') + `<div class="bggrid one">${EXPLORE_MAP_UI.map(m => `<button class="bgcard" data-map="${m.id}">
-        <span class="bgthumb wide" style="background-image:url('${m.thumb}')"></span><b>${m.name}</b><small class="mapdesc">${m.desc}</small></button>`).join('')}</div>
+    const MAPS = Game.EXPLORE_MAPS || {}, floors = Game.EXPLORE_MAX_FLOOR;
+    const card = m => {
+      const def = MAPS[m.id] || {}, types = def.types ? Object.keys(def.types) : null;
+      const chips = types ? types.map(el => `<i style="background:${(ELEMENTS[el] || {}).color || '#777'}">${(ELEMENTS[el] || {}).label || el}</i>`).join('') : '<i class="all">All types</i>';
+      const beast = def.beast && SPECIES_BY_ID[def.beast];
+      return `<button class="mapcard" data-map="${m.id}">
+        <span class="mapimg" style="background-image:url('${m.thumb}')"></span><span class="mapshade"></span>
+        <span class="mapboss">{i:sparkle} ${beast ? `Rare boss: ${beast.name}` : 'Any legendary'}</span>
+        <span class="mapinfo"><b class="mapname">${m.name}</b><span class="mapchips">${chips}</span></span></button>`;
+    };
+    openSheet(head('Choose a map') + `
+      <p class="mapsub">{i:map} ${floors} floors deep · battles, treasure and a boss at the bottom</p>
+      <div class="maplist">${EXPLORE_MAP_UI.map(card).join('')}</div>
       <div class="btns"><button class="btn alt" id="mapBack">← Back</button></div>`);
     $('#mapBack').addEventListener('click', openAdventure);
     sheet.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { closeSheet(); startExplore({ map: b.dataset.map }); }));
@@ -2252,11 +2263,15 @@ if (!code) {
     if (iw / ih > 1.3) {
       // wide panorama: one journey through the picture, from the entrance on the left to the far end on the right,
       // reached on the last floor. Each floor's walk carries the view one step further; it holds still for battles.
-      const s2 = AH / ih, w = iw * s2, span = Math.max(0, w - AW), maxF = Math.max(1, Game.EXPLORE_MAX_FLOOR);
+      // Zoomed in and anchored to the bottom, so the ground fills the screen under your Pokémon's feet
+      // (it stands about 85% of the way down the picture); a light camera bob while walking.
+      const ZOOM = 1.45;
+      const h = AH * ZOOM, s2 = h / ih, w = iw * s2, span = Math.max(0, w - AW), maxF = Math.max(1, Game.EXPLORE_MAX_FLOOR);
       const at = f => span * Math.max(0, Math.min(1, f / maxF));
       const k = G.state === 'walk' ? Math.min(1, (ms - G.at) / WALK_MS) : 1;   // steady walking pace
       const pan = at(G.floor - 1) + (at(G.floor) - at(G.floor - 1)) * k;
-      ac.drawImage(exploreImg, -Math.round(pan), 0, w, AH);
+      const bob = G.state === 'walk' && k < 1 ? Math.round(Math.abs(Math.sin(ms / 160)) * 3) : 0;
+      ac.drawImage(exploreImg, -Math.round(pan), Math.round(AH - h * .96) + bob, w, h);
     } else {
       // tall picture: walking deeper slowly zooms in; each new floor starts a fresh walk
       const walkK = G.state === 'walk' ? Math.min(1, (ms - G.at) / 1700) : 1;
