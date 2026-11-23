@@ -386,9 +386,9 @@
   }
   function drawPal(p, t) {
     const tall = H > W * 1.1;                        // phone / portrait: party sits further back (up by the rocks) and smaller
-    const fy = H * (tall ? p.depth - .21 : p.depth) - V.lift * .5;
-    const size = baseSize() * (tall ? .42 : .55), x = p.x * W;
-    const fitH = baseSize() * (tall ? .85 : 1.15);   // every party Pokémon is drawn this tall, whatever its species
+    const fy = H * (tall ? p.depth - .27 : p.depth) - V.lift * .5;
+    const size = baseSize() * (tall ? .38 : .55), x = p.x * W;
+    const fitH = baseSize() * (tall ? .75 : 1.15);   // every party Pokémon is drawn this tall, whatever its species
     cx.fillStyle = 'rgba(0,0,0,.14)'; cx.beginPath(); cx.ellipse(x, fy, size * .8, size * .16, 0, 0, Math.PI * 2); cx.fill();
     const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
     const pos = drawCreature(cx, p.sp, {

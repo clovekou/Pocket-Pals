@@ -5,7 +5,7 @@
 
 const Online = (() => {
   const SDK = '10.12.2';
-  const cfg = typeof FIREBASE_CONFIG !== 'undefined' && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey ? FIREBASE_CONFIG : null;
+  const cfg = typeof FIREBASE_CONFIG !== 'undefined' && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && !window.PP_PREVIEW ? FIREBASE_CONFIG : null;
   const st = {
     enabled: !!cfg, ready: false, error: null,
     user: null, profile: null, needsUsername: false,

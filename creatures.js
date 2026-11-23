@@ -191,6 +191,7 @@ function drawCreature(ctx, id, o) {
   let scale = o.size / 10;
   if (o.fitH) {                       // same on-screen height for every species (party Pokémon)
     const idle = spriteAnim(id, o.shiny, 'Idle') || a;
+    if (!idle.measured) { const ii = _img(idle.src); if (ii.complete && ii.naturalWidth) _measure(idle, ii); }
     const h = idle.measured ? Math.max(8, idle.feet[0] - idle.top[0] + 1) : idle.fh * .7;
     scale = o.fitH / h;
   } else if (o.maxH) {

@@ -13,7 +13,7 @@ const MEDALS = [
 ];
 
 const Game = (() => {
-  const SAVE_KEY = 'pocketpal.save.v1';
+  const SAVE_KEY = typeof window !== 'undefined' && window.PP_PREVIEW ? 'pocketpal.preview.v1' : 'pocketpal.save.v1';
   const MIN_PER_LEVEL = 60;
   const FAREWELL_AGE = 3 * 24 * 60;     // final form + 3 days
   const RUNAWAY_TICKS = 60;             // all four stats at 0 for 1 h
@@ -61,6 +61,15 @@ const Game = (() => {
       }
     } catch (e) { S = null; }
     if (!S) S = fresh();
+    if (typeof window !== 'undefined' && window.PP_PREVIEW && !S.player.starterPicked) {   // ?preview: a sample team to look at
+      const mon = sp => ({ egg: false, sp, shiny: false, name: '', ageMin: 600, food: 85, joy: 90, ene: 80, hyg: 90, poops: 0, weight: 0,
+        genes: { atk: 100, def: 100, spd: 100 }, tr: { atk: 0, def: 0, spd: 0 }, berryKnown: false, bond: 20, bondToday: 0, bondDay: dayNum(), medals: [],
+        mistakes: 0, mistakeCd: 0, goodTicks: 0, neglect: 0, asleep: false, declinedLevel: 0, farewellAt: FAREWELL_AGE, hatchedAt: Date.now() });
+      S.player.starterPicked = true; S.player.starterGift = true;
+      S.pet = mon(155);
+      S.player.party = [1, 25, 143, 95, 133].map(mon);
+      [155, 1, 25, 143, 95, 133].forEach(id => { S.player.dex[id] = 1; });
+    }
     // drop anything that refers to species no longer in the roster
     const known = id => !!SPECIES_BY_ID[id];
     for (const k of ['dex', 'shiny', 'favKnown']) for (const id of Object.keys(S.player[k])) if (!known(id)) delete S.player[k][id];
