@@ -385,10 +385,10 @@
     });
   }
   function drawPal(p, t) {
-    const tall = H > W * 1.1;                        // phone / portrait: party sits further back (up by the rocks) and smaller
-    const fy = H * (tall ? p.depth - .27 : p.depth) - V.lift * .5;
-    const size = baseSize() * (tall ? .38 : .55), x = p.x * W;
-    const fitH = baseSize() * (tall ? .75 : 1.15);   // every party Pokémon is drawn this tall, whatever its species
+    const tall = H > W * 1.1;                        // phone / portrait: party sits at the top, along the tree line, and smaller
+    const fy = (tall ? H * (.3 + (p.depth - .62) * .5) : H * p.depth) - V.lift * .5;
+    const size = baseSize() * (tall ? .34 : .55), x = p.x * W;
+    const fitH = baseSize() * (tall ? .68 : 1.15);   // every party Pokémon is drawn this tall, whatever its species
     cx.fillStyle = 'rgba(0,0,0,.14)'; cx.beginPath(); cx.ellipse(x, fy, size * .8, size * .16, 0, 0, Math.PI * 2); cx.fill();
     const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
     const pos = drawCreature(cx, p.sp, {
@@ -2239,8 +2239,9 @@ if (!code) {
     try { toast('Something went wrong (' + msg.slice(0, 80) + ') — the game kept running.', 6000); } catch (_) {}
   }
   window.__pocketPalError = reportError;
-  document.addEventListener('visibilitychange', () => { if (document.hidden) Game.save(); });
-  window.addEventListener('pagehide', () => Game.save());
+  // away from the phone or app closed -> the Pokémon goes to sleep right away (and the game is saved)
+  document.addEventListener('visibilitychange', () => { if (document.hidden) Game.sleepNow(); });
+  window.addEventListener('pagehide', () => Game.sleepNow());
 
   PX.hydrate();
   PX.onUpdate(() => { PX.hydrate(); if (els && els.name) els.name.dataset.sig = ''; }); // egg picture loaded

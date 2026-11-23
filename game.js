@@ -83,6 +83,8 @@ const Game = (() => {
     ensureKeys();
     // a broken streak shows as 0 straight away
     if (S.player.lastCareDay && dayNum() > S.player.lastCareDay + 1) { S.player.streak = 0; S.player.lastMilestone = 0; }
+    // the app was closed without saying goodbye (killed / crashed): it fell asleep the moment you left
+    if (S.pet && !S.pet.egg && !S.pet.asleep && Date.now() - S.lastTick > 2 * 60000) S.pet.asleep = true;
     return S;
   }
   function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage blocked */ } }
@@ -332,6 +334,12 @@ const Game = (() => {
     const b = blocked(false); if (b) return { error: b };
     S.pet.asleep = !S.pet.asleep; save(); emit('change');
     return { asleep: S.pet.asleep };
+  }
+  /** player left (phone locked, app switched or closed): settle the time so far, then it dozes off straight away */
+  function sleepNow() {
+    const p = S.pet;
+    if (p && !p.egg && !p.asleep && !S.ceremony) { update(); if (S.pet === p && !S.ceremony) { p.asleep = true; emit('change'); } }
+    save();
   }
   function clean() {
     const b = blocked(false); if (b) return { error: b };
@@ -704,7 +712,7 @@ const Game = (() => {
   return {
     load, save, reset, update, setFast, widgetToken, on: f => listeners.push(f),
     get state() { return S; }, pet, sp, level, lowest, msPerMin,
-    pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, clean, caress, rename,
+    pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, sleepNow, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
     ITEMS, EXPLORE_MAX_FLOOR, FRAGMENTS_TO_SUMMON, isSpecial, pickMysterySpecies, rollLegend, catchLegend, addFragment, summonLegend,
