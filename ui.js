@@ -2223,6 +2223,7 @@ if (!code) {
   }
   // an uploaded "Explore & battles" picture replaces the built-in cave
   let exploreImg = null;
+  const WALK_MS = 1700;   // how long the walk to each new floor takes
   function drawExploreBg(G, ms) {
     const file = typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.explore;
     if (!file) return false;
@@ -2231,24 +2232,13 @@ if (!code) {
     ac.imageSmoothingEnabled = false;
     const iw = exploreImg.naturalWidth, ih = exploreImg.naturalHeight;
     if (iw / ih > 1.3) {
-      // wide panorama: fill the height and slide sideways in step with the walk.
-      // Copies alternate normal / mirrored, so the scroll never shows a seam.
-      const s2 = AH / ih, w = iw * s2;
-      const last = G.panAt || ms; G.panAt = ms;
-      if (G.state === 'walk') {
-        const p = Game.pet(), walk = p && spriteAnim(p.sp, p.shiny, 'Walk');
-        const cycle = walk ? walk.dur.reduce((x, y) => x + y, 0) / 60 : .6;   // seconds per step cycle
-        const scale = Math.min(AW, AH) * .11 / 10;                              // sprite pixels -> screen pixels
-        const speed = (16 * scale) / Math.max(.25, cycle);                      // one stride per walk cycle
-        G.pan = (G.pan || 0) + speed * Math.min(.05, (ms - last) / 1000);
-      }
-      const off = ((G.pan || 0) % (w * 2) + w * 2) % (w * 2);
-      for (let k = -1; k <= Math.ceil(AW / w) + 1; k++) {
-        const x = Math.floor(k * w - off), flip = ((k % 2) + 2) % 2 === 1;
-        if (x > AW || x + w < 0) continue;
-        if (flip) { ac.save(); ac.translate(x + w, 0); ac.scale(-1, 1); ac.drawImage(exploreImg, 0, 0, w + 1, AH); ac.restore(); }
-        else ac.drawImage(exploreImg, x, 0, w + 1, AH);
-      }
+      // wide panorama: one journey through the picture, from the entrance on the left to the far end on the right,
+      // reached on the last floor. Each floor's walk carries the view one step further; it holds still for battles.
+      const s2 = AH / ih, w = iw * s2, span = Math.max(0, w - AW), maxF = Math.max(1, Game.EXPLORE_MAX_FLOOR);
+      const at = f => span * Math.max(0, Math.min(1, f / maxF));
+      const k = G.state === 'walk' ? Math.min(1, (ms - G.at) / WALK_MS) : 1;   // steady walking pace
+      const pan = at(G.floor - 1) + (at(G.floor) - at(G.floor - 1)) * k;
+      ac.drawImage(exploreImg, -Math.round(pan), 0, w, AH);
     } else {
       // tall picture: walking deeper slowly zooms in; each new floor starts a fresh walk
       const walkK = G.state === 'walk' ? Math.min(1, (ms - G.at) / 1700) : 1;
@@ -2322,7 +2312,7 @@ if (!code) {
       G.meHp = Math.min(G.me.maxHp, G.meHp + Math.round(G.me.maxHp * .15));  // catches its breath between floors
       G.tired = !Game.exploreStep();
       info(); say(`B${G.floor}F — ${esc(name())} explores…`); buttons([]);
-      setTimeout(() => { if (arenaGame === G) resolveFloor(); }, 1700);
+      setTimeout(() => { if (arenaGame === G) resolveFloor(); }, WALK_MS);
     }
     function resolveFloor() {
       if (G.floor >= Game.EXPLORE_MAX_FLOOR) return encounter(Game.rollBoss());   // the end of the map: floor boss
