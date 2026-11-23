@@ -6,11 +6,13 @@ service cloud.firestore {
     function isMe(uid) { return signedIn() && request.auth.uid == uid; }
     function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
     function unchanged(fields) { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields); }
+    // an admin deleted this account (see /removed below): its own device can't write it back
+    function removed(uid) { return exists(/databases/$(database)/documents/removed/$(uid)); }
 
     // Public trainer profile: username, UID code, showcase of their team. Anyone signed in can view.
     match /users/{uid} {
       allow read: if signedIn();
-      allow create: if isMe(uid)
+      allow create: if isMe(uid) && !removed(uid)
         && request.resource.data.username is string
         && request.resource.data.usernameLower == request.resource.data.username.lower()
         // the username claim is written in the same transaction, so check the state *after* it
@@ -19,16 +21,25 @@ service cloud.firestore {
         && existsAfter(/databases/$(database)/documents/codes/$(request.resource.data.code))
         && getAfter(/databases/$(database)/documents/codes/$(request.resource.data.code)).data.uid == uid;
       // username and code can never change once chosen
-      allow update: if (isMe(uid) && unchanged(['username', 'usernameLower', 'code', 'createdAt'])) || isAdmin();
-      allow delete: if false;
+      allow update: if (isMe(uid) && !removed(uid) && unchanged(['username', 'usernameLower', 'code', 'createdAt'])) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Private game save — only the owner (and admins) can read or write it.
     // The owner can't overwrite an admin edit it hasn't loaded yet: adminRev has to stay the same.
     match /saves/{uid} {
       allow read: if isMe(uid) || isAdmin();
-      allow write: if isAdmin() || (isMe(uid) && (resource == null
+      allow write: if isAdmin() || (isMe(uid) && !removed(uid) && (resource == null
         || request.resource.data.get('adminRev', 0) == resource.data.get('adminRev', 0)));
+    }
+
+    // Players an admin deleted (Admin → Players → Delete player). The note tells the player's game to wipe its copy
+    // of the save. ban: false → the game removes the note once it has seen it, and they can start over as a new player.
+    // ban: true → it stays, and the account can't create a profile or save until an admin lifts the ban (deletes it).
+    match /removed/{uid} {
+      allow read: if isMe(uid) || isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin() || (isMe(uid) && resource.data.get('ban', false) != true);
     }
 
     // Admins: add a document here in the Firebase console (ID = the admin's UID). Nobody can write it from the game.
@@ -41,9 +52,10 @@ service cloud.firestore {
     // nobody can list them, and only the owner can write theirs.
     match /widgets/{token} {
       allow get: if true;
-      allow list: if false;
+      allow list: if isAdmin();
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid && token.size() >= 20;
-      allow update, delete: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
     }
 
     // Unique usernames: one document per lower-cased name, can only be claimed once.
@@ -51,14 +63,16 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid
         && name == name.lower() && name.matches('^[a-z0-9_]{3,16}$');
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isAdmin();   // deleting a player frees their username
     }
 
     // Unique player IDs (like PP-7KX2M9QF): claimed once, never reused.
     match /codes/{code} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid && code.matches('^PP-[A-Z0-9]{8}$');
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     // Game settings set on the Admin page (feature switches, tuning, announcement). Every game reads them.
@@ -110,29 +124,29 @@ service cloud.firestore {
 
     // Friend requests: sender creates; only the receiver can accept/decline; either side can delete.
     match /friendRequests/{id} {
-      allow read: if signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow read: if isAdmin() || (signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid));
       allow create: if signedIn() && request.resource.data.from == request.auth.uid
         && request.resource.data.to != request.auth.uid && request.resource.data.status == 'pending';
       allow update: if signedIn() && resource.data.to == request.auth.uid
         && request.resource.data.status in ['accepted', 'declined'] && unchanged(['from', 'to', 'fromName', 'fromCode']);
-      allow delete: if signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow delete: if isAdmin() || (signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid));
     }
 
     // Friendships: created by the person who accepted a request addressed to them.
     match /friendships/{id} {
-      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      allow read: if isAdmin() || (signedIn() && request.auth.uid in resource.data.members);
       allow create: if signedIn() && request.auth.uid in request.resource.data.members
         && request.resource.data.members.size() == 2
         && exists(/databases/$(database)/documents/friendRequests/$(request.resource.data.requestId))
         && get(/databases/$(database)/documents/friendRequests/$(request.resource.data.requestId)).data.to == request.auth.uid
         && get(/databases/$(database)/documents/friendRequests/$(request.resource.data.requestId)).data.from in request.resource.data.members;
-      allow delete: if signedIn() && request.auth.uid in resource.data.members;
+      allow delete: if isAdmin() || (signedIn() && request.auth.uid in resource.data.members);
       allow update: if false;
     }
 
     // Trades between two friends: only the two players can see or change it.
     match /trades/{id} {
-      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      allow read: if isAdmin() || (signedIn() && request.auth.uid in resource.data.members);
       allow create: if signedIn() && request.resource.data.from == request.auth.uid
         && request.auth.uid in request.resource.data.members && request.resource.data.members.size() == 2
         && request.resource.data.status == 'offered'
@@ -141,15 +155,15 @@ service cloud.firestore {
              : request.resource.data.members[1] + '_' + request.resource.data.members[0]));
       allow update: if signedIn() && request.auth.uid in resource.data.members
         && unchanged(['members', 'from', 'to', 'offer', 'offerKey', 'fromName', 'toName']);
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // Battle results, so the other player gets notified.
     match /battles/{id} {
-      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      allow read: if isAdmin() || (signedIn() && request.auth.uid in resource.data.members);
       allow create: if signedIn() && request.resource.data.from == request.auth.uid && request.auth.uid in request.resource.data.members;
       allow update: if signedIn() && resource.data.to == request.auth.uid && unchanged(['members', 'from', 'to', 'winner']);
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
   }
 }

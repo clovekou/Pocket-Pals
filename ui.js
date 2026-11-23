@@ -935,7 +935,11 @@
         <div class="searchrow"><input id="unIn" maxlength="16" placeholder="e.g. AshKetchum" autocapitalize="off" autocomplete="off"><button id="unGo">Create</button></div>
         <p class="muted" id="unMsg">3–16 letters, numbers or _. You'll also get a unique player ID.</p>`;
     else body = '<p class="muted">Loading your trainer save…</p>';
-    openSheet(`<div class="gate"><img class="gate-egg" src="${PX.url('egg_common_0')}" alt=""><h2>Welcome to Pocket Pals!</h2>${body}</div>`, { dialog: true, locked: true });
+    // removed by an admin: say so once, above the sign-in / new-username step
+    const removed = o.removedMsg && (ph.startsWith('signin') || ph === 'username')
+      ? `<p class="note-bad">${o.removedMsg === 'banned' ? 'This account was removed by an admin and can\'t play right now.' : 'Your account was deleted by an admin. You can start again as a new trainer.'}</p>` : '';
+    if (removed && ph === 'username') Online.clearRemovedMsg();
+    openSheet(`<div class="gate"><img class="gate-egg" src="${PX.url('egg_common_0')}" alt=""><h2>Welcome to Pocket Pals!</h2>${removed}${body}</div>`, { dialog: true, locked: true });
     wireOnline();
   }
   Online.on(o => { if (gateOpen && phaseOf(o) !== gatePhase) openGate(); });

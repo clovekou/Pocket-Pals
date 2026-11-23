@@ -9,6 +9,7 @@ const Online = (() => {
   const st = {
     enabled: !!cfg, ready: false, error: null,
     user: null, profile: null, needsUsername: false,
+    removedMsg: (() => { try { return sessionStorage.getItem('pocketpal.removedMsg') || ''; } catch (e) { return ''; } })(),
     incoming: [], outgoing: [], friends: [], trades: [], battles: [],
   };
   const subs = [];
@@ -172,11 +173,32 @@ const Online = (() => {
     cloudChecked = false; st.cloudChecked = false;
     if (!user) { Game.setTrainer(null); emit(); return; }
     try {
+      const gone = await db.collection('removed').doc(user.uid).get().catch(() => null);
+      if (gone && gone.exists) return accountRemoved(user, gone.data());
       const doc = await db.collection('users').doc(user.uid).get();
       if (!doc.exists) { st.needsUsername = true; emit(); return; }
       startSession(doc.data());
     } catch (e) { st.error = friendly(e); emit(); }
   }
+  // ---------------- removed by an admin (Admin → Players → Delete player) ----------------
+  // The admin deletes the account's cloud data and leaves a note at removed/{uid}. This device then wipes its own
+  // copy of the save too, so the deleted progress can't be uploaded again. Deleted: the player can start over as new.
+  // Banned: they're signed out, and every later sign-in ends the same way until an admin lifts the ban.
+  let removing = false;
+  async function accountRemoved(user, note) {
+    if (removing) return; removing = true;
+    unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer);
+    st.profile = null; cloudChecked = false; st.cloudChecked = false; lastSynced = '';
+    try { ['pocketpal.syncRev.', 'pocketpal.adminRev.'].forEach(k => localStorage.removeItem(k + user.uid)); } catch (e) {}
+    Game.reset();
+    const banned = !!(note && note.ban);
+    try { sessionStorage.setItem('pocketpal.removedMsg', banned ? 'banned' : 'deleted'); } catch (e) {}
+    if (banned) await auth.signOut().catch(() => {});
+    else await db.collection('removed').doc(user.uid).delete().catch(() => {});   // seen: it can start again as a new player
+    location.reload();
+  }
+  /** the welcome screen has shown the "removed" message */
+  function clearRemovedMsg() { st.removedMsg = ''; try { sessionStorage.removeItem('pocketpal.removedMsg'); } catch (e) {} }
   function startSession(profile) {
     st.profile = profile; st.needsUsername = false;
     Game.setTrainer({ name: profile.username, code: profile.code });
@@ -302,6 +324,8 @@ const Online = (() => {
   function listen() {
     const uid = me();
     const map = q => q.docs.map(d => ({ id: d.id, ...d.data() }));
+    // removed by an admin while playing: act on it straight away
+    unsub.push(db.collection('removed').doc(uid).onSnapshot(d => { if (d.exists && st.user) accountRemoved(st.user, d.data()); }, () => {}));
     unsub.push(db.collection('friendRequests').where('to', '==', uid).onSnapshot(q => { st.incoming = map(q).filter(r => r.status === 'pending'); emit(); }, err));
     unsub.push(db.collection('friendRequests').where('from', '==', uid).onSnapshot(q => { st.outgoing = map(q).filter(r => r.status === 'pending'); emit(); }, err));
     unsub.push(db.collection('friendships').where('members', 'array-contains', uid).onSnapshot(async q => {
@@ -423,6 +447,6 @@ const Online = (() => {
   return {
     get state() { return st; }, on: f => subs.push(f), init, signIn, signOut, createProfile, usernameFree, NAME_RE,
     resolveConflict, uploadSave, syncWidget, findUser, addFriend, respond, cancelRequest, removeFriend,
-    offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending, redeemCode, backgroundImage,
+    offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending, redeemCode, backgroundImage, clearRemovedMsg,
   };
 })();

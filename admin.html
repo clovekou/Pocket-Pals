@@ -229,6 +229,9 @@
     <p class="sub">Pick a player to view and edit their Pokécoins and Pokémon. Changes reach the player's game straight away if it's open, or the next time they open it.</p>
     <div class="row"><input type="search" id="q" placeholder="Search username or player ID…" style="flex:1"><button class="btn alt" id="reload">Refresh</button></div>
     <div class="players" id="players"></div>
+    <h3 style="margin-top:22px">Banned accounts</h3>
+    <p class="sub" style="margin-bottom:8px">Players you deleted with “ban” ticked. They can't play until you unban them; then they start over as new players.</p>
+    <div id="banned"><p class="note">Loading…</p></div>
   </section>
 
   <section class="card" id="editCard" hidden>
@@ -243,6 +246,11 @@
       <button class="btn" id="addGo">Add</button>
     </div>
     <p class="note">It goes into their party if there's room (6 including the main), otherwise the PC Box.</p>
+    <h3 style="margin-top:28px;color:var(--red)">Delete player</h3>
+    <p class="note">Removes their profile, save, username, player ID, widget, friends, friend requests, trades and battle records, and frees their username.
+      Their game also wipes its own copy of the save the next time it's online. <b>This can't be undone.</b></p>
+    <div class="row"><label class="chk"><input type="checkbox" id="delBan"> Also ban this Google account (it can't play again until you unban it)</label></div>
+    <div class="row"><button class="btn red" id="delGo">Delete player…</button></div>
   </section>
 </div>
 
@@ -321,7 +329,7 @@ async function onUser(u) {
     $('#copyUid').onclick = () => navigator.clipboard.writeText(u.uid).then(() => toast('UID copied'));
     return;
   }
-  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadConfig(); loadCodes(); loadEvos();
+  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadBanned(); loadConfig(); loadCodes(); loadEvos();
 }
 
 // ---------------- tabs ----------------
@@ -661,7 +669,53 @@ function drawUsers() {
   }).join('') || '<p class="note">No players found.</p>';
   $('#players').querySelectorAll('[data-uid]').forEach(b => b.onclick = () => openPlayer(b.dataset.uid));
 }
-$('#q').oninput = drawUsers; $('#reload').onclick = loadUsers;
+$('#q').oninput = drawUsers; $('#reload').onclick = () => { loadUsers(); loadBanned(); };
+
+// ---- delete a player: their cloud data goes, and a note at removed/{uid} makes their game wipe its copy too ----
+async function deletePlayer() {
+  if (!cur) return;
+  const ban = $('#delBan').checked, who = cur;
+  const typed = prompt(`Type ${who.username} to delete this player${ban ? ' and ban their account' : ''}. This can't be undone.`);
+  if (typed == null) return;
+  if (typed.trim() !== who.username) { toast("The name didn't match, so nothing was deleted"); return; }
+  const b = $('#delGo'); b.disabled = true;
+  try {
+    const uid = who.uid, refs = [];
+    const found = await Promise.all([
+      db.collection('friendRequests').where('from', '==', uid).get(),
+      db.collection('friendRequests').where('to', '==', uid).get(),
+      db.collection('friendships').where('members', 'array-contains', uid).get(),
+      db.collection('trades').where('members', 'array-contains', uid).get(),
+      db.collection('battles').where('members', 'array-contains', uid).get(),
+      db.collection('widgets').where('uid', '==', uid).get(),
+    ]);
+    found.forEach(q => q.docs.forEach(d => refs.push(d.ref)));
+    refs.push(db.collection('saves').doc(uid), db.collection('users').doc(uid));
+    const lower = String(who.usernameLower || who.username || '').toLowerCase();
+    if (lower) refs.push(db.collection('usernames').doc(lower));
+    if (who.code) refs.push(db.collection('codes').doc(who.code));
+    // the note goes first, so their game stops saving before the data is removed
+    await db.collection('removed').doc(uid).set({ ban, username: who.username || '', code: who.code || '', at: firebase.firestore.FieldValue.serverTimestamp(), by: auth.currentUser.uid });
+    for (let i = 0; i < refs.length; i += 400) { const batch = db.batch(); refs.slice(i, i + 400).forEach(r => batch.delete(r)); await batch.commit(); }
+    toast(`${who.username} was deleted${ban ? ' and banned' : ''}`, 4000);
+    cur = save = null; orig = ''; dirty(); $('#editCard').hidden = true; $('#delBan').checked = false;
+    loadUsers(); loadBanned();
+  } catch (e) { toast("Couldn't delete: " + e.message, 6000); }
+  b.disabled = false;
+}
+$('#delGo').onclick = deletePlayer;
+async function loadBanned() {
+  try {
+    const q = await db.collection('removed').where('ban', '==', true).get();
+    $('#banned').innerHTML = q.docs.map(d => { const r = d.data();
+      return `<div class="row" style="margin-bottom:6px"><span style="flex:1"><b>${esc(r.username || d.id)}</b> <span class="note">${esc(r.code || '')}</span></span><button class="btn alt sm" data-unban="${esc(d.id)}">Unban</button></div>`; }).join('')
+      || '<p class="note">No banned accounts.</p>';
+    $('#banned').querySelectorAll('[data-unban]').forEach(b => b.onclick = async () => {
+      if (!confirm('Let this Google account play again? It starts over as a new player.')) return;
+      try { await db.collection('removed').doc(b.dataset.unban).delete(); toast('Unbanned'); loadBanned(); } catch (e) { toast("Couldn't unban: " + e.message, 5000); }
+    });
+  } catch (e) { $('#banned').innerHTML = `<p class="note">Couldn't load: ${esc(e.message)}</p>`; }
+}
 
 async function openPlayer(uid) {
   if (isDirty() && !confirm('Discard unsaved changes to this player?')) return;
