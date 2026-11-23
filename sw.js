@@ -1,6 +1,6 @@
 // Offline cache for Pocket Pal
-const CACHE = 'pocketpal-v64';
-const FILES = ['./', './index.html', './style.css', './assets/fonts/Jersey15-Regular.ttf', './items.js', './evodata.js', './evolution.js', './pixelart.js', './backgrounds.js', './sprites.js', './species.js', './creatures.js', './game.js', './online-config.js', './online.js', './talk.js', './ui.js', './icon.svg', './assets/egg.png', ...['oran','rareCandy','pearl','starPiece','nugget','pokeball','greatball','pecha','aspear','chest','map','coin','shop','gift','cart','trophy'].map(n => './assets/ui/' + n + '.png'), './manifest.webmanifest'];
+const CACHE = 'pocketpal-v66';
+const FILES = ['./', './index.html', './style.css', './assets/fonts/Jersey15-Regular.ttf', './items.js', './evodata.js', './evolution.js', './pixelart.js', './backgrounds.js', './sprites.js', './species.js', './creatures.js', './game.js', './online-config.js', './online.js', './talk.js', './ui.js', './icon.svg', './assets/egg.png', ...['oran','rareCandy','pearl','starPiece','nugget','pokeball','greatball','ultraball','masterball','pecha','aspear','cheri','chest','map','coin','shop','cart'].map(n => './assets/ui/' + n + '.png'), './manifest.webmanifest'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== MEDIA).map(k => caches.delete(k)))));

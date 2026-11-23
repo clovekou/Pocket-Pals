@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 *.tmp
 tools/.cache/
+
+# Icon source library (the game uses the copies in assets/)
+Pokemon_Item_Icons/

@@ -626,13 +626,13 @@ const PX = (() => {
     };
     im.src = 'assets/egg.png';
   })();
-  // ---------- picture icons (assets/ui/*.png, from the Pokémon-style UI icon pack) ----------
-  // Each 128×128 PNG is cropped to its art and padded to a square, so every icon fills its slot the same way. Until a picture has
+  // ---------- picture icons (assets/ui/*.png, copied from Pokemon_Item_Icons/) ----------
+  // Each PNG is cropped to its art and padded to a square, so every icon fills its slot the same way. Until a picture has
   // loaded (or if it can't be read), the drawn icon is used.
-  const PICTURES = ['oran', 'rareCandy', 'pearl', 'starPiece', 'nugget', 'pokeball', 'greatball', 'pecha', 'aspear',
-    'chest', 'map', 'coin', 'shop', 'gift', 'cart', 'trophy'];
+  const PICTURES = ['oran', 'rareCandy', 'pearl', 'starPiece', 'nugget', 'pokeball', 'greatball', 'ultraball', 'masterball',
+    'pecha', 'aspear', 'cheri', 'chest', 'map', 'coin', 'shop', 'cart'];
   D.coin = D.coin || (g => { g.ell(16, 16, 12, 12, '#f2b51d'); g.ell(16, 16, 8, 8, '#ffd75a'); });
-  ['shop', 'gift', 'cart', 'trophy'].forEach(n => { D[n] = D[n] || D.star; });
+  ['shop', 'cart'].forEach(n => { D[n] = D[n] || D.star; });
   function nativePixels(im) {
     const W = im.naturalWidth, H = im.naturalHeight;
     const big = document.createElement('canvas'); big.width = W; big.height = H;

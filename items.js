@@ -5,7 +5,7 @@
 //                          'hold' = give it to your main to hold; it evolves at its next level-up
 //   buy / sell: default Poké Mart prices in Pokécoins (0 = not sold / not bought). The admin can change them.
 //   find: how likely a dungeon treasure chest holds it (weight; bigger = more common). Evolution items are rare.
-//   pic: true = its icon is a picture in assets/items/<key>.png (drawn by tools/make_ui_icons.py)
+//   pic: true = its icon is a picture in assets/items/<key>.png (copied from Pokemon_Item_Icons/)
 // Which Pokémon each evolution item works on is in evodata.js (tools/build_evolutions.py).
 
 const ITEM_DATA = {

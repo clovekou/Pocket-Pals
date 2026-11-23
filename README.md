@@ -91,7 +91,7 @@ party, or the **PC Box** (in the Party menu) when the party is full.
   (then run `build_evolutions.py` and `build_sprites.py`).
 - **Admin → Evolutions** can change any of this for every player; those edits win over `evodata.js`.
   (Evolution levels in the sprite dashboard no longer change the game; use the Admin page.)
-  Item icons are drawn by `python3 tools/make_ui_icons.py` into `assets/items/`.
+  Item icons in `assets/items/` and `assets/ui/` are copied from the `Pokemon_Item_Icons/` library.
 
 ## Shop backgrounds
 In **Admin → Backgrounds** you can upload a picture, name it and set a price. Players buy it once in
