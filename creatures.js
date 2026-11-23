@@ -189,7 +189,11 @@ function drawCreature(ctx, id, o) {
   const dirName = o.dir || (name === 'Walk' || name === 'Attack' ? (o.flip ? 'left' : 'right') : (o.flip ? 'downleft' : 'downright'));
   const row = Math.min(a.rows - 1, o.still && !o.dir ? 0 : DIR_ROW[dirName] || 0);
   let scale = o.size / 10;
-  if (o.maxH) {
+  if (o.fitH) {                       // same on-screen height for every species (party Pokémon)
+    const idle = spriteAnim(id, o.shiny, 'Idle') || a;
+    const h = idle.measured ? Math.max(8, idle.feet[0] - idle.top[0] + 1) : idle.fh * .7;
+    scale = o.fitH / h;
+  } else if (o.maxH) {
     const idle = spriteAnim(id, o.shiny, 'Idle') || a;
     const h = idle.measured ? Math.max(8, idle.feet[0] - idle.top[0] + 1) : idle.fh * .7;
     if (h * scale > o.maxH) scale = o.maxH / h;

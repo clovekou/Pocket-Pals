@@ -385,13 +385,14 @@
     });
   }
   function drawPal(p, t) {
-    const tall = H > W * 1.1;                        // phone / portrait: party sits higher and a bit smaller
-    const fy = H * (tall ? p.depth - .1 : p.depth) - V.lift * .5;
-    const size = baseSize() * (tall ? .44 : .55) * stageScale(p.sp), x = p.x * W;
+    const tall = H > W * 1.1;                        // phone / portrait: party sits further back (up by the rocks) and smaller
+    const fy = H * (tall ? p.depth - .21 : p.depth) - V.lift * .5;
+    const size = baseSize() * (tall ? .42 : .55), x = p.x * W;
+    const fitH = baseSize() * (tall ? .85 : 1.15);   // every party Pokémon is drawn this tall, whatever its species
     cx.fillStyle = 'rgba(0,0,0,.14)'; cx.beginPath(); cx.ellipse(x, fy, size * .8, size * .16, 0, 0, Math.PI * 2); cx.fill();
     const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
     const pos = drawCreature(cx, p.sp, {
-      x, y: fy, size, t: t + p.depth * 10, maxH: H * .22, shiny: p.shiny, sleep: sleeping, walking: p.moving, flip: p.flip,
+      x, y: fy, size, t: t + p.depth * 10, fitH, shiny: p.shiny, sleep: sleeping, walking: p.moving, flip: p.flip,
       anim: playing ? 'Hop' : undefined, animT: playing ? ((t - p.t0) % Math.max(.4, animLength(p.sp, 'Hop') + .5)) : undefined,
     });
     const top = pos ? pos.top : fy - size * 2;
