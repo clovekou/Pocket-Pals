@@ -2252,6 +2252,8 @@ if (!code) {
   // an uploaded "Explore & battles" picture replaces the built-in cave
   let exploreImg = null;
   const WALK_MS = 1700;   // how long the walk to each new floor takes
+  // where the Pokémon stand in a battle (share of the arena height): both on the floor of the picture
+  const WILD_Y = .7, ME_Y = .86;
   function drawExploreBg(G, ms) {
     const file = typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.explore;
     const src = G.bgSrc || (file ? 'backgrounds/' + encodeURIComponent(file) : null);   // the chosen map's picture, or the dashboard's
@@ -2265,7 +2267,7 @@ if (!code) {
       // reached on the last floor. Each floor's walk carries the view one step further; it holds still for battles.
       // Zoomed in and anchored to the bottom, so the ground fills the screen under your Pokémon's feet
       // (it stands about 85% of the way down the picture); a light camera bob while walking.
-      const ZOOM = 1.45;
+      const ZOOM = 1.25;
       const h = AH * ZOOM, s2 = h / ih, w = iw * s2, span = Math.max(0, w - AW), maxF = Math.max(1, Game.EXPLORE_MAX_FLOOR);
       const at = f => span * Math.max(0, Math.min(1, f / maxF));
       const k = G.state === 'walk' ? Math.min(1, (ms - G.at) / WALK_MS) : 1;   // steady walking pace
@@ -2525,50 +2527,15 @@ if (!code) {
         afterFloor();
       }, total);
     }
-    /** the reel's balls in a light pixel style: each kind is drawn once at low resolution, then scaled up crisply */
-    const ballPx = {}, SHAKE_MS = 1000;            // each wobble of the thrown ball lasts one second
+    /** a Poké Ball for the catch reel and throws: the ball pictures (assets/ui/*ball.png, the same icons as the Bag) */
+    const SHAKE_MS = 1000;            // each wobble of the thrown ball lasts one second
+    const BALL_PIC = { poke: 'pokeball', great: 'greatball', ultra: 'ultraball', master: 'masterball' };
     function drawBall(g, kind, x, y, r, rot = 0) {
-      let c = ballPx[kind];
-      if (!c) {
-        const N = 22; c = ballPx[kind] = document.createElement('canvas'); c.width = c.height = N;
-        const bg = c.getContext('2d'); drawBallVec(bg, kind, N / 2, N / 2, N / 2 - .5);
-        const d = bg.getImageData(0, 0, N, N), a = d.data;
-        for (let i = 3; i < a.length; i += 4) a[i] = a[i] < 110 ? 0 : 255;       // hard pixel edges
-        bg.putImageData(d, 0, 0);
-      }
+      const c = PX.get(BALL_PIC[kind] || 'pokeball'), d = Math.round(r * 2.3);   // the picture has a little padding round the ball
       const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
-      if (rot) { g.save(); g.translate(Math.round(x), Math.round(y)); g.rotate(rot); g.drawImage(c, -Math.round(r), -Math.round(r), Math.round(r * 2), Math.round(r * 2)); g.restore(); }
-      else g.drawImage(c, Math.round(x - r), Math.round(y - r), Math.round(r * 2), Math.round(r * 2));
+      if (rot) { g.save(); g.translate(Math.round(x), Math.round(y)); g.rotate(rot); g.drawImage(c, -d / 2, -d / 2, d, d); g.restore(); }
+      else g.drawImage(c, Math.round(x - d / 2), Math.round(y - d / 2), d, d);
       g.imageSmoothingEnabled = sm;
-    }
-    /** a smooth Poké Ball (poke / great / ultra / master), drawn like the classic artwork */
-    function drawBallVec(g, kind, x, y, r) {
-      const C = { poke: '#e8413a', great: '#3b78d4', ultra: '#2b2d42', master: '#7a4cc4' }[kind];
-      const line = Math.max(2, r * .13);
-      g.save(); g.translate(x, y);
-      g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fillStyle = '#f3f3f7'; g.fill();          // white bottom
-      g.save(); g.beginPath(); g.rect(-r, -r, r * 2, r); g.clip(); g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.clip();   // coloured top half (inside the ball)
-      g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fillStyle = C; g.fill();
-      if (kind === 'great') {                                                                     // red side flaps
-        g.fillStyle = '#e8413a';
-        [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * r * .62, -r * .42, r * .3, r * .6, sd * .55, 0, Math.PI * 2); g.fill(); });
-      } else if (kind === 'ultra') {                                                              // yellow sides, black centre
-        g.fillStyle = '#f6c83a'; g.fillRect(-r, -r, r * .62, r); g.fillRect(r * .38, -r, r * .62, r);
-      } else if (kind === 'master') {                                                             // pink bumps + M
-        g.fillStyle = '#e4579d';
-        [-1, 1].forEach(sd => { g.beginPath(); g.arc(sd * r * .56, -r * .52, r * .27, 0, Math.PI * 2); g.fill(); });
-        g.strokeStyle = '#fff'; g.lineWidth = r * .14; g.lineJoin = 'round'; g.lineCap = 'round';
-        g.beginPath(); g.moveTo(-r * .26, -r * .3); g.lineTo(-r * .22, -r * .68); g.lineTo(0, -r * .48); g.lineTo(r * .22, -r * .68); g.lineTo(r * .26, -r * .3); g.stroke();
-      }
-      g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(-r * .42, -r * .55, r * .2, r * .13, -.6, 0, Math.PI * 2); g.fill();   // shine
-      g.restore();
-      g.fillStyle = 'rgba(0,0,0,.07)'; g.beginPath(); g.ellipse(0, r * .55, r * .8, r * .32, 0, 0, Math.PI); g.fill();                     // soft shade
-      g.strokeStyle = '#2b2d42'; g.lineWidth = line;
-      g.beginPath(); g.moveTo(-r, 0); g.lineTo(r, 0); g.stroke();                                // middle band
-      g.beginPath(); g.arc(0, 0, r - line / 2, 0, Math.PI * 2); g.stroke();                      // outline
-      g.beginPath(); g.arc(0, 0, r * .3, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.stroke();
-      g.beginPath(); g.arc(0, 0, r * .14, 0, Math.PI * 2); g.strokeStyle = '#c9cbd6'; g.lineWidth = Math.max(1, r * .06); g.stroke();
-      g.restore();
     }
     /** arcade-style catch reel: an arch of balls slides sideways and stops under the pointer */
     function drawWheel(ms) {
@@ -2630,7 +2597,7 @@ if (!code) {
       }
       return T.caught ? 'hide' : 'show';
     }
-    function drawThrowState(ms) { return drawThrow(ms, AW * .72, AH * .56, Math.min(AW, AH) * .11); }
+    function drawThrowState(ms) { return drawThrow(ms, AW * .72, AH * WILD_Y, Math.min(AW, AH) * .11); }
 
     function afterFloor() {
       if (G.floor >= Game.EXPLORE_MAX_FLOOR) {
@@ -2720,15 +2687,15 @@ if (!code) {
       if (walking) G.scroll = (G.scroll || 0) + 70 * Math.min(.05, (ms - last2) / 1000);
       last2 = ms;
       drawCave(G, ms, walking);
-      const size = Math.min(AW, AH) * .11, meX = (G.wild || G.state === 'won') ? AW * .28 : AW * .4, meY = Math.round(AH * .84);
+      const size = Math.min(AW, AH) * .11, meX = (G.wild || G.state === 'won') ? AW * .28 : AW * .4, meY = Math.round(AH * ME_Y);
       // the wild Pokémon (top-right) and its HP box
       if (G.state === 'caught' && ms - G.at < 2500 && G.throw) {   // celebration stars over the ball
-        drawBall(ac, G.throw.kind, AW * .72, AH * .56 - 14, 16);
-        for (let i = 0; i < 3; i++) PX.draw(ac, 'sparkle', AW * .72 + Math.cos(ms / 200 + i * 2) * 30, AH * .56 - 40 + Math.sin(ms / 200 + i * 2) * 12, 18);
+        drawBall(ac, G.throw.kind, AW * .72, AH * WILD_Y - 14, 16);
+        for (let i = 0; i < 3; i++) PX.draw(ac, 'sparkle', AW * .72 + Math.cos(ms / 200 + i * 2) * 30, AH * WILD_Y - 40 + Math.sin(ms / 200 + i * 2) * 12, 18);
       }
       const throwing = G.state === 'throw' ? drawThrowState(ms) : null;
       if ((G.wild && G.state !== 'won' && throwing !== 'hide') || (G.state === 'won' && ms - G.at < 900)) {
-        const wx = AW * .72, wy = AH * .56;
+        const wx = AW * .72, wy = AH * WILD_Y;
         const hurt = G.hurt === 'wild' && ms - G.hurtAt < 450, att = G.act === 'wild' && ms - G.actAt < 600;
         const fade = G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : G.state === 'fled' ? Math.max(0, 1 - (ms - G.at) / 900) : 1;
         if (G.wild.boss && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,90,70,.4)'); gr.addColorStop(1, 'rgba(255,90,70,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
@@ -2957,6 +2924,7 @@ if (!code) {
     const p = Game.pet();
     panel.classList.remove('hidden');
     openArena(`{i:sword} vs ${friend.username}`);
+    Music.set('boss');                                   // trainer battles get the boss theme (closeArena switches back)
     const me = Game.battler(p.sp, Game.level(), true);
     const opp = { id: theirs.sp, level: theirs.level, atk: theirs.atk, def: theirs.def, spd: theirs.spd, maxHp: Math.round(22 + theirs.level * 2.2 + theirs.def * .25), shiny: theirs.shiny, name: theirs.name || SPECIES_BY_ID[theirs.sp].name };
     const G = { state: 'battle', at: now(), meHp: me.maxHp, oppHp: opp.maxHp, act: null, actAt: 0, hurt: null, hurtAt: 0, over: false };
@@ -2993,8 +2961,8 @@ if (!code) {
       if (arenaGame !== G) return;
       requestAnimationFrame(G.loop);
       const ms = now(), t = ms / 1000;
-      if (!drawExploreBg({ state: 'battle', at: 0 }, ms)) { const g2 = ac.createLinearGradient(0, 0, 0, AH); g2.addColorStop(0, '#5aa0e6'); g2.addColorStop(.55, '#bfe3ff'); g2.addColorStop(.56, '#7cc35a'); g2.addColorStop(1, '#4f9a3f'); ac.fillStyle = g2; ac.fillRect(0, 0, AW, AH); }
-      const size = Math.min(AW, AH) * .11, wx = AW * .72, wy = AH * .56, mx = AW * .28, my = AH * .84;
+      if (!drawExploreBg({ state: 'battle', at: 0, floor: 0 }, ms)) { const g2 = ac.createLinearGradient(0, 0, 0, AH); g2.addColorStop(0, '#5aa0e6'); g2.addColorStop(.55, '#bfe3ff'); g2.addColorStop(.56, '#7cc35a'); g2.addColorStop(1, '#4f9a3f'); ac.fillStyle = g2; ac.fillRect(0, 0, AW, AH); }
+      const size = Math.min(AW, AH) * .11, wx = AW * .72, wy = AH * WILD_Y, mx = AW * .28, my = AH * ME_Y;
       const oh = G.hurt === 'opp' && ms - G.hurtAt < 450, oa = G.act === 'opp' && ms - G.actAt < 600, mh = G.hurt === 'me' && ms - G.hurtAt < 450, ma = G.act === 'me' && ms - G.actAt < 600;
       for (const [x, y, s2] of [[wx, wy, size * .8], [mx, my, size * .9]]) { pixelShadow(ac, x, y, s2, s2 * .22, .22, s2 / 8.5); }
       drawCreature(ac, opp.id, { x: wx + (oa ? -size * .4 : 0), y: wy, size: size * .95, t, maxH: AH * .26, shiny: opp.shiny, dir: 'downleft', anim: oh ? 'Hurt' : oa ? 'Attack' : undefined, animT: oh ? (ms - G.hurtAt) / 1000 : oa ? (ms - G.actAt) / 1000 : undefined, alpha: (oh && Math.floor(ms / 80) % 2 ? .4 : 1) * (G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : 1) });
