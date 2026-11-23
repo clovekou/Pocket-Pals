@@ -389,8 +389,8 @@
     // with a background picture, the party stands far back on the open lawn below the trees
     // (picture coords: 43-48% down, 18-80% across), small because they're further away
     const bg = V.bg, far = !!bg;
-    const fy = far ? Math.max(H * .3, bg.y + bg.h * (.43 + (p.depth - .62) * .5)) - V.lift * .5
-                   : H * p.depth - V.lift * .5;
+    // they stay put when the chat box opens (only the main Pokémon rises above it)
+    const fy = far ? Math.max(H * .3, bg.y + bg.h * (.43 + (p.depth - .62) * .5)) : H * p.depth;
     const x = far ? Math.max(bg.x, 0) + Math.min(bg.w, W) * (.18 + (p.x - .1) / .8 * .62) : p.x * W;
     const size = baseSize() * (far ? .34 : .55);
     const fitH = baseSize() * (far ? .68 : 1.15);   // every party Pokémon is drawn this tall, whatever its species
