@@ -560,11 +560,11 @@
     // they stay put when the chat box opens (only the main Pokémon rises above it)
     const fy = far ? Math.max(H * .3, bg.y + bg.h * (.43 + (p.depth - .62) * .5)) : H * p.depth;
     const x = far ? Math.max(bg.x, 0) + Math.min(bg.w, W) * (.18 + (p.x - .1) / .8 * .62) : p.x * W;
-    const size = baseSize() * (far ? .44 : .7);
+    const size = baseSize() * (far ? .55 : .85);
     // every party Pokémon shares one pixel size (snapped to whole device pixels), so their sprite
     // pixels line up and each species keeps its natural PMD size relative to the others
-    const pxScale = Math.max(1, Math.round(baseSize() * (far ? .88 : 1.45) / 28 * DPR)) / DPR;
-    const maxH = baseSize() * (far ? 1.95 : 3);
+    const pxScale = Math.max(1, Math.round(baseSize() * (far ? 1.1 : 1.75) / 28 * DPR)) / DPR;
+    const maxH = baseSize() * (far ? 2.45 : 3.6);
     pixelShadow(cx, x, fy, size * .8, size * .16, .14, pxScale);
     const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
     const pos = drawCreature(cx, p.sp, {
