@@ -1988,6 +1988,12 @@ if (!code) {
   let onlineTab = 'friends', onlineOpen = false, searchResult = null, searchMsg = '';
   const fmtTrainer = t => t ? `${esc(t.name)}${t.code ? ` <span class="muted">(${esc(t.code)})</span>` : ''}` : '—';
   function monFace(sp, shiny) { const f = portraitUrl(sp, shiny, 'Normal'); return f ? `<img class="face" src="${f}" alt="">` : miniCanvas(sp, { px: 52, shiny }); }
+  /** your current main Pokémon's face, in a Poké Ball ring (egg picture while it's still an egg) */
+  function trainerFace() {
+    const p = Game.pet(), f = p && !p.egg && portraitUrl(p.sp, p.shiny, 'Normal');
+    const src = f || (p ? PX.url(`egg_${SPECIES_BY_ID[p.sp].tier || 'common'}_0`) : PX.url('friends'));
+    return `<span class="tface"><img src="${src}" alt="" class="${f ? '' : 'egg'}"></span>`;
+  }
   function monLine(m) { if (!m) return '—'; const s = SPECIES_BY_ID[m.sp]; return `${m.shiny ? '{i:sparkle}' : ''}${esc(m.name || (s ? s.name : '?'))} Lv ${m.level || Game.memberLevel(m)}`; }
   function updateBadge() {
     const n = ON().enabled && ON().profile ? Online.pending() : 0;
@@ -2023,7 +2029,7 @@ if (!code) {
       const P = S2.profile, nReq = S2.incoming.length, uid = S2.user.uid;
       const actTrades = S2.trades.filter(t => (t.status === 'offered' && t.to === uid) || (t.status === 'countered' && t.from === uid)).length;
       const tabs = [['friends', `Friends (${S2.friends.length})`], ['requests', `Requests${nReq ? ` (${nReq})` : ''}`], ['trades', `Trades${actTrades ? ` (${actTrades})` : ''}`], ['add', 'Add']];
-      body = `<div class="trainer">${ic('friends').replace('class="ic"', 'class="px" style="width:40px;height:40px"')}<div class="sp"><b>${esc(P.username)}</b><small>ID ${esc(P.code)}</small></div><button class="btn alt" id="onSignOut" style="width:auto;padding:8px 12px">Sign out</button></div>
+      body = `<div class="trainer">${trainerFace()}<div class="sp"><b>${esc(P.username)}</b><small>ID ${esc(P.code)}</small></div><button class="btn alt" id="onSignOut" style="width:auto;padding:8px 12px">Sign out</button></div>
         <div class="tabs">${tabs.map(([k, l]) => `<button data-ot="${k}" class="${onlineTab === k ? 'on' : ''}">${l}</button>`).join('')}</div>` + onlineTabBody(onlineTab);
     }
     openSheet(head('Friends') + body);
