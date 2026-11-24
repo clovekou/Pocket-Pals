@@ -93,7 +93,7 @@ function _portraitUrl(id, sd, shiny, emo) {
 }
 
 // PMD direction rows: 0 Down, 1 DownRight, 2 Right, 3 UpRight, 4 Up, 5 UpLeft, 6 Left, 7 DownLeft
-const DIR_ROW = { front: 0, downright: 1, right: 2, left: 6, downleft: 7 };
+const DIR_ROW = { front: 0, downright: 1, right: 2, upright: 3, left: 6, downleft: 7 };
 const ANIM_FALLBACK = {
   Eat: ['Eat', 'Charge', 'Idle'], Hop: ['Hop', 'Nod', 'Idle'], Attack: ['Attack', 'Charge', 'Idle'],
   Hurt: ['Hurt', 'Idle'], Walk: ['Walk', 'Idle'], Sleep: ['Sleep', 'Idle'], Idle: ['Idle'],

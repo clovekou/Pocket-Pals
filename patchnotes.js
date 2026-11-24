@@ -3,6 +3,12 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 96, date: '2026-11-24', title: 'Eyes on the opponent',
+    notes: [
+      'In battles your Pokémon now turns to look up at the wild Pokémon, boss or friend it is facing.',
+    ],
+  },
+  {
     version: 95, date: '2026-11-24', title: 'Your Pokémon has more to say',
     notes: [
       'Every Pokémon now has its own personality: Cheerful, Shy, Brave, Laid-back, Cheeky or Gentle. Check it in the stat card.',

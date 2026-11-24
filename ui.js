@@ -2824,7 +2824,7 @@ if (!code) {
       // your Pokémon
       const hurtMe = G.hurt === 'me' && ms - G.hurtAt < 450, attMe = G.act === 'me' && ms - G.actAt < 600;
       pixelShadow(ac, meX, meY, size * .9, size * .2, .22, size / 10);
-      drawCreature(ac, P.sp, { x: meX + (attMe ? size * .4 : 0), y: meY, size, t, maxH: AH * .3, shiny: P.shiny, dir: walking ? 'right' : 'downright', walking,
+      drawCreature(ac, P.sp, { x: meX + (attMe ? size * .4 : 0), y: meY, size, t, maxH: AH * .3, shiny: P.shiny, dir: walking ? 'right' : G.wild || G.state === 'won' || G.state === 'lost' ? 'upright' : 'downright', walking,
         anim: G.state === 'lost' ? 'Hurt' : hurtMe ? 'Hurt' : attMe ? 'Attack' : (G.state === 'won' || (G.state === 'chest' && G.chest && G.chest.open)) ? 'Hop' : undefined,
         animT: hurtMe ? (ms - G.hurtAt) / 1000 : attMe ? (ms - G.actAt) / 1000 : (G.state === 'won' || G.state === 'chest') ? ((ms - G.at) / 1000) % Math.max(.4, animLength(P.sp, 'Hop') + .3) : undefined,
         alpha: hurtMe && Math.floor(ms / 80) % 2 ? .4 : 1 });
@@ -3083,7 +3083,7 @@ if (!code) {
       const oh = G.hurt === 'opp' && ms - G.hurtAt < 450, oa = G.act === 'opp' && ms - G.actAt < 600, mh = G.hurt === 'me' && ms - G.hurtAt < 450, ma = G.act === 'me' && ms - G.actAt < 600;
       for (const [x, y, s2] of [[wx, wy, size * .8], [mx, my, size * .9]]) { pixelShadow(ac, x, y, s2, s2 * .22, .22, s2 / 8.5); }
       drawCreature(ac, opp.id, { x: wx + (oa ? -size * .4 : 0), y: wy, size: size * .95, t, maxH: AH * .26, shiny: opp.shiny, dir: 'downleft', anim: oh ? 'Hurt' : oa ? 'Attack' : undefined, animT: oh ? (ms - G.hurtAt) / 1000 : oa ? (ms - G.actAt) / 1000 : undefined, alpha: (oh && Math.floor(ms / 80) % 2 ? .4 : 1) * (G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : 1) });
-      drawCreature(ac, p.sp, { x: mx + (ma ? size * .4 : 0), y: my, size, t, maxH: AH * .3, shiny: p.shiny, dir: 'downright', anim: mh ? 'Hurt' : ma ? 'Attack' : G.state === 'won' ? 'Hop' : undefined, animT: mh ? (ms - G.hurtAt) / 1000 : ma ? (ms - G.actAt) / 1000 : G.state === 'won' ? ((ms - G.at) / 1000) % Math.max(.4, animLength(p.sp, 'Hop') + .3) : undefined, alpha: mh && Math.floor(ms / 80) % 2 ? .4 : 1 });
+      drawCreature(ac, p.sp, { x: mx + (ma ? size * .4 : 0), y: my, size, t, maxH: AH * .3, shiny: p.shiny, dir: 'upright', anim: mh ? 'Hurt' : ma ? 'Attack' : G.state === 'won' ? 'Hop' : undefined, animT: mh ? (ms - G.hurtAt) / 1000 : ma ? (ms - G.actAt) / 1000 : G.state === 'won' ? ((ms - G.at) / 1000) % Math.max(.4, animLength(p.sp, 'Hop') + .3) : undefined, alpha: mh && Math.floor(ms / 80) % 2 ? .4 : 1 });
       drawEndure(G, ms, mx, my - size * 2.2);
       hpBox(ac, 10, 10, Math.min(250, AW * .62), `${friend.username}'s ${opp.name}`.slice(0, 22), opp.level, G.oppHp, opp.maxHp, false);
       hpBox(ac, AW - Math.min(250, AW * .62) - 10, AH - 70, Math.min(250, AW * .62), petName(), me.level, G.meHp, me.maxHp, true);
