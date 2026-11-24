@@ -32,7 +32,15 @@ const Game = (() => {
   const CFG_DEFAULT = {
     exploreFloors: 10, fragments: 20, exploreEnergy: 30,
     shinyMult: 1, legendMult: 1, treasureMult: 1, eggMult: 1, bossShinyMult: 1,
-    features: { explore: true, training: true, codes: true, shop: true },
+    // explore & battle tuning (Admin → Game settings)
+    wildChance: 30,      // % a floor has a wild battle
+    dropChance: 35,      // % a beaten wild Pokémon drops treasure
+    floorHeal: 15,       // % HP your Pokémon recovers walking to the next floor
+    runChance: 80,       // % "Run" works
+    bossHpMult: 1.8,     // floor boss HP ×
+    bossLegendMult: 1,   // × each map's legendary-boss %
+    catchMult: 1,        // × every ball's catch rate (the Master Ball always catches)
+    features: { explore: true, training: true, codes: true, shop: true, teamBackup: true, friendHelpers: true },
     announcement: '',
     // Poké Mart prices in Pokécoins (0 = not on the shelf), from items.js. The admin can change them.
     shopBuy: priceList('buy'), shopSell: priceList('sell'),
@@ -48,6 +56,8 @@ const Game = (() => {
     const num = (k, lo, hi) => { const v = Number(c[k]); CFG[k] = Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : CFG_DEFAULT[k]; };
     num('exploreFloors', 3, 50); num('fragments', 1, 200); num('exploreEnergy', 0, 100);
     num('shinyMult', .1, 50); num('legendMult', 0, 100); num('treasureMult', 0, 5); num('eggMult', 0, 10); num('bossShinyMult', .1, 50);
+    num('wildChance', 0, 100); num('dropChance', 0, 100); num('floorHeal', 0, 100); num('runChance', 0, 100);
+    num('bossHpMult', .5, 5); num('bossLegendMult', 0, 50); num('catchMult', .1, 10);
     CFG.exploreFloors = Math.round(CFG.exploreFloors); CFG.fragments = Math.round(CFG.fragments);
     CFG.features = Object.assign({}, CFG_DEFAULT.features, c.features || {});
     CFG.announcement = String(c.announcement || '').slice(0, 400);
@@ -662,7 +672,7 @@ const Game = (() => {
     const r = Math.random(), m = EXPLORE_MAPS[map] || {};
     // a wandering legendary is very rare; maps whose legendary is "more likely" (beastChance 4) double it, the desert has none
     const legend = m.noLegend ? 0 : (.0008 + floor * .0002) * CFG.legendMult * (m.beastChance >= 4 ? 2 : 1), eggChance = Math.min(.4, (.002 + floor * .0003) * CFG.eggMult),   // Mystery Eggs in the grass: very rare
-      treasure = Math.min(.55, (.2 + floor * .015) * CFG.treasureMult), wild = .3;
+      treasure = Math.min(.55, (.2 + floor * .015) * CFG.treasureMult), wild = CFG.wildChance / 100;
     if (Math.random() < legend && SPECIES.some(s => isSpecial(s.id))) return 'legend';
     if (r < eggChance) return 'egg';
     if (r < eggChance + treasure) return 'treasure';
@@ -746,7 +756,7 @@ const Game = (() => {
    *  On a themed map it's one of that map's types, and its legendary beast turns up beastChance % of the time. */
   function rollBoss(map) {
     const m = EXPLORE_MAPS[map] || firstMap();
-    if (!m.noLegend && m.beast && SPECIES_BY_ID[m.beast] && Math.random() * 100 < m.beastChance) {
+    if (!m.noLegend && m.beast && SPECIES_BY_ID[m.beast] && Math.random() * 100 < m.beastChance * CFG.bossLegendMult) {
       return { sp: m.beast, level: Math.max(5, level() + 3), shiny: oneIn(150, CFG.bossShinyMult), boss: true, bossTier: 'legend', legend: true };
     }
     const r = Math.random() * 100;

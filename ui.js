@@ -1245,7 +1245,7 @@ if (!code) {
       return `<div class="mini"><i style="width:${v}%;background:${col}"></i></div>`;
     };
     // which Pokémon friends can borrow as their explore Backup (only matters once you're signed in)
-    const lending = ON().enabled && ON().profile, hk = Game.helperKey();
+    const lending = ON().enabled && ON().profile && Game.feature('friendHelpers'), hk = Game.helperKey();
     const isHelper = m => lending && !m.egg && m.key && m.key === hk;
     // one clean row per Pokémon: tap it for its options
     const slot = (m, i, isMain) => {
@@ -1841,7 +1841,7 @@ if (!code) {
     const pool = [{ m: main, i: -1 }, ...Game.party().map((m, i) => ({ m, i }))].filter(x => x.m && !x.m.egg && !x.m.locked && SPECIES_BY_ID[x.m.sp]);
     const friendPool = () => friendPicks();
     let fpool = friendPool();
-    if (pool.length < 2 && !fpool.length) { closeSheet(); return startExplore({ map: mapId }); }   // nobody to bring along
+    if (!Game.feature('teamBackup') || (pool.length < 2 && !fpool.length)) { closeSheet(); return startExplore({ map: mapId }); }   // backups switched off, or nobody to bring along
     // own Pokémon are pool[0..n-1]; friends' Pokémon follow at n.. (they can only be the Backup)
     const n = pool.length, all = () => pool.concat(fpool);
     const nm = x => x.friend ? x.c.name || SPECIES_BY_ID[x.c.sp].name : x.m.name || SPECIES_BY_ID[x.m.sp].name;
@@ -1908,7 +1908,7 @@ if (!code) {
   /** one recommended Pokémon per friend: their chosen helper, or — once you've explored with that today —
    *  a random other one from their team (the same pick all day, so it doesn't change every time you look) */
   function friendPicks() {
-    const O = ON(); if (!O.enabled || !O.profile || !O.friends) return [];
+    const O = ON(); if (!O.enabled || !O.profile || !O.friends || !Game.feature('friendHelpers')) return [];
     const used = Game.borrowedToday(), day = Math.floor(Date.now() / 864e5);
     const out = [];
     O.friends.forEach(f => {
@@ -2756,7 +2756,7 @@ if (!code) {
 
     function nextFloor() {
       G.floor++; G.state = 'walk'; G.at = now(); G.wild = null; G.chest = null;
-      G.meHp = Math.min(G.me.maxHp, G.meHp + Math.round(G.me.maxHp * .15));  // catches its breath between floors
+      G.meHp = Math.min(G.me.maxHp, G.meHp + Math.round(G.me.maxHp * Game.config.floorHeal / 100));  // catches its breath between floors
       G.tired = !Game.exploreStep();
       info(); say(`B${G.floor}F — ${esc(name())} explores…`); buttons([]);
       setTimeout(() => { if (arenaGame === G) resolveFloor(); }, WALK_MS);
@@ -2794,7 +2794,7 @@ if (!code) {
       G.wild = Object.assign(Game.battler(w.sp, w.level, false), { shiny: w.shiny, name: ws.name, legend: !!w.legend, boss: !!w.boss, raw: w });
       if (w.legend && !w.boss) G.wild.maxHp = Math.round(G.wild.maxHp * 1.2);   // legendaries are a little tougher
       if (w.boss) {                                                    // floor boss: lots of HP and hits hard
-        G.wild.maxHp = Math.round(G.wild.maxHp * 1.8);
+        G.wild.maxHp = Math.round(G.wild.maxHp * Game.config.bossHpMult);
         G.wild.atk = Math.round(G.wild.atk * 1.15); G.wild.def = Math.round(G.wild.def * 1.15);
       }
       G.wildHp = G.wild.maxHp; G.state = 'encounter'; G.at = now(); G.legendAt = w.boss && !w.legend ? now() : 0; G.throw = null; G.wheel = null;
@@ -2832,7 +2832,7 @@ if (!code) {
       ]);
     }
     function run() {
-      if (Math.random() < .8) { say('Got away safely!'); Sound.play('wake'); G.wild = null; G.state = 'empty'; return afterFloor(); }
+      if (Math.random() * 100 < Game.config.runChance) { say('Got away safely!'); Sound.play('wake'); G.wild = null; G.state = 'empty'; return afterFloor(); }
       say(`Couldn't get away! The wild ${esc(G.wild.name)} attacks!`); fight(true);
     }
     function fight(wildFirst) {
@@ -2863,7 +2863,7 @@ if (!code) {
       if (G.wild.legend || G.wild.boss) { G.wins++; return startWheel(); }
       G.wins++; G.state = 'won'; G.at = now(); Sound.play('level');
       let sub = `${esc(name())} feels proud!`;
-      if (Math.random() < .35) { const k = Game.rollTreasure(G.floor); Game.addItem(k); G.finds[k] = (G.finds[k] || 0) + 1; sub = `It dropped ${/^[AEIOU]/.test(Game.ITEMS[k].name) ? 'an' : 'a'} {i:${Game.ITEMS[k].icon}} ${Game.ITEMS[k].name}!`; }
+      if (Math.random() * 100 < Game.config.dropChance) { const k = Game.rollTreasure(G.floor); Game.addItem(k); G.finds[k] = (G.finds[k] || 0) + 1; sub = `It dropped ${/^[AEIOU]/.test(Game.ITEMS[k].name) ? 'an' : 'a'} {i:${Game.ITEMS[k].icon}} ${Game.ITEMS[k].name}!`; }
       say(`The wild ${esc(G.wild.name)} fainted! ${esc(name())} won!`, sub);
       afterFloor();
     }
@@ -2946,7 +2946,8 @@ if (!code) {
     function throwBall() {
       const b = BALLS[G.wheel.result];
       // legendaries are much harder to hold (except with a Master Ball)
-      const rate = G.wild.legend && G.wheel.result !== 'master' ? b.rate * .5 : b.rate;
+      const base = G.wild.legend && G.wheel.result !== 'master' ? b.rate * .5 : b.rate;
+      const rate = G.wheel.result === 'master' ? 1 : Math.min(1, base * Game.config.catchMult);   // admin: catch rate ×
       const caught = Math.random() < rate;
       G.state = 'throw'; G.at = now(); G.lastShake = -1; G.throw = { ball: b.icon, kind: G.wheel.result, caught, shakes: caught ? 3 : 1 + Math.floor(Math.random() * 3) };
       Sound.play('tap'); say(`You threw the ${b.name}!`);
