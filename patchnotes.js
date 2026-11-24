@@ -3,6 +3,13 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 106, date: '2026-11-24', title: 'Pack your Bag before exploring',
+    notes: [
+      'In a dungeon, the Items button now only shows items from your Bag: Potions, Oran and Sitrus Berries, Lemonade and Rare Candy.',
+      'The free berries and Poffins from feeding stay at home, so stock up at the Poké Mart before a long trip!',
+    ],
+  },
+  {
     version: 104, date: '2026-11-24', title: 'A brand-new world to explore',
     notes: [
       'All-new explore maps! Ancient Lab, Wildwood Forest, Frostwave Coast, Scorched Canyon and Skyward Peak.',

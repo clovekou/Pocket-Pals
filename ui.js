@@ -3073,8 +3073,10 @@ if (!code) {
       if (Game.itemCount('oran')) list.push({ label: `{i:oran} Oran ×${Game.itemCount('oran')}`, cls: 'gold', fn: () => useInDungeon('oran') });
       if (Game.itemCount('lemonade')) list.push({ label: `{i:lemonade} Lemonade ×${Game.itemCount('lemonade')}`, cls: 'gold', fn: () => useInDungeon('lemonade') });
       if (Game.itemCount('rareCandy')) list.push({ label: `{i:rareCandy} Candy ×${Game.itemCount('rareCandy')}`, cls: 'alt', fn: () => useInDungeon('rareCandy') });
-      FLAVORS.forEach((f, i) => list.push({ label: `{i:${f.icon}} ${f.label.replace(' Berry', '')}`, cls: 'alt', fn: () => useInDungeon('berry', i) }));
-      list.push({ label: '{i:poffin} Poffin', cls: 'alt', fn: () => useInDungeon('poffin') });
+      // berries and Poffins only when you're carrying them in the Bag (the free ones from feeding don't come along)
+      FLAVORS.forEach((f, i) => { if (Game.itemCount(f.icon)) list.push({ label: `{i:${f.icon}} ${f.label.replace(' Berry', '')} ×${Game.itemCount(f.icon)}`, cls: 'alt', fn: () => useInDungeon('berry', i) }); });
+      if (Game.itemCount('poffin')) list.push({ label: `{i:poffin} Poffin ×${Game.itemCount('poffin')}`, cls: 'alt', fn: () => useInDungeon('poffin') });
+      if (!list.length) say(`Your Bag has nothing to use here. <small>Potions, Oran and Sitrus Berries, Lemonade and Rare Candy can be used while exploring. Find them in chests or buy them at the Poké Mart.</small>`);
       list.push({ label: '← Back', cls: 'red', fn: () => { if (inBattle) { say(`The wild ${esc(G.wild.name)} is waiting…`); encounterButtons(); } else { say('What next?'); afterFloor(); } } });
       buttons(list, true);
     }
@@ -3083,12 +3085,17 @@ if (!code) {
       const nm = esc(name());
       let msg = '';
       if (kind === 'berry') {
-        const f = FLAVORS[i], r = Game.feedBerry(i);
-        if (r.error) { toast('Not right now.'); return showItems(); }
+        const f = FLAVORS[i];
+        if (!Game.itemCount(f.icon)) { toast('You have none left.'); return showItems(G.itemsInBattle); }
+        const r = Game.feedBerry(i);
+        if (r.error) { toast('Not right now.'); return showItems(G.itemsInBattle); }
+        Game.state.player.bag[f.icon]--; Game.save();                          // it came out of the Bag
         healHp(.1); Sound.play('eat');
         msg = `${nm} ate the {i:${f.icon}} ${f.label}!${r.fav ? ' It loved it!' : ''} <small>+${r.fav ? 35 : 25} food · +10% HP</small>`;
       } else if (kind === 'poffin') {
-        const r = Game.feedCandy(); if (r.error) { toast('Not right now.'); return showItems(); }
+        if (!Game.itemCount('poffin')) { toast('You have none left.'); return showItems(G.itemsInBattle); }
+        const r = Game.feedCandy(); if (r.error) { toast('Not right now.'); return showItems(G.itemsInBattle); }
+        Game.state.player.bag.poffin--; Game.save();                            // it came out of the Bag
         Sound.play('eat'); msg = `${nm} munched a {i:poffin} Poffin! <small>+12 happy</small>`;
       } else if (kind === 'oran') {
         const r = Game.useItem('oran'); if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return showItems(); }
