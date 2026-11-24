@@ -1813,28 +1813,20 @@ if (!code) {
       openMaps();
     }));
   }
-  // ---------- Explore: pick a map (which Pokémon live on each is in game.js EXPLORE_MAPS) ----------
-  const EXPLORE_MAP_UI = [
-    { id: 'cave', name: 'Crystal Cave', desc: 'Every kind of Pokémon lives here. Rare boss: Diancie!', thumb: 'backgrounds/explore/thumb/cave.jpg' },
-    { id: 'forest', name: 'Deep Forest', desc: 'Grass, Bug and Poison Pokémon. Rare boss: Celebi!', src: 'backgrounds/explore/forest.jpg', thumb: 'backgrounds/explore/thumb/forest.jpg' },
-    { id: 'desert', name: 'Desert Ruins', desc: 'Ground, Rock and Fire Pokémon. No legendaries here.', src: 'backgrounds/explore/desert.jpg', thumb: 'backgrounds/explore/thumb/desert.jpg' },
-    { id: 'building', name: 'Abandoned Building', desc: 'Ghost, Dark and Normal Pokémon. Rare boss: Darkrai!', src: 'backgrounds/explore/building.jpg', thumb: 'backgrounds/explore/thumb/building.jpg' },
-    { id: 'lab', name: 'Abandoned Lab', desc: 'Psychic, Steel and Electric Pokémon. Rare boss: Mewtwo!', src: 'backgrounds/explore/lab.jpg', thumb: 'backgrounds/explore/thumb/lab.jpg' },
-    { id: 'thunder', name: 'Thunder Plains', desc: 'Electric, Flying and Rock Pokémon. Rare boss: Raikou!', src: 'backgrounds/explore/thunder.jpg', thumb: 'backgrounds/explore/thumb/thunder.jpg' },
-    { id: 'sea', name: 'Undersea Cave', desc: 'Water Pokémon. Rare boss: Suicune!', src: 'backgrounds/explore/sea.jpg', thumb: 'backgrounds/explore/thumb/sea.jpg' },
-    { id: 'volcano', name: 'Volcano Cave', desc: 'Fire, Rock and Ground Pokémon. Rare boss: Entei!', src: 'backgrounds/explore/volcano.jpg', thumb: 'backgrounds/explore/thumb/volcano.jpg' },
-  ];
+  // ---------- Explore: pick a map (the maps are in maps.js; the admin can change their Pokémon in Admin → Explore maps) ----------
+  const EXPLORE_MAP_UI = (typeof EXPLORE_MAP_DEFAULTS !== 'undefined' ? EXPLORE_MAP_DEFAULTS : [{ id: 'cave', name: 'Crystal Cave', thumb: 'backgrounds/explore/thumb/cave.jpg' }])
+    .map(m => ({ id: m.id, name: m.name, src: m.src, thumb: m.thumb }));
   function openMaps() {
     EXPLORE_MAP_UI.forEach(m => { if (m.src) new Image().src = m.src; });   // start loading the big pictures now
     const MAPS = Game.EXPLORE_MAPS || {}, floors = Game.EXPLORE_MAX_FLOOR;
     const card = m => {
       const def = MAPS[m.id] || {}, types = def.types ? Object.keys(def.types) : null;
       const chips = types ? types.map(el => `<i style="background:${(ELEMENTS[el] || {}).color || '#777'}">${(ELEMENTS[el] || {}).label || el}</i>`).join('') : '<i class="all">All types</i>';
-      const beast = def.beast && SPECIES_BY_ID[def.beast];
+      const beast = def.beast && SPECIES_BY_ID[def.beast], chase = def.chase && def.chaseChance > 0 && SPECIES_BY_ID[def.chase];
       return `<button class="mapcard" data-map="${m.id}">
         <span class="mapimg" style="background-image:url('${m.thumb}')"></span><span class="mapshade"></span>
         <span class="mapboss">${def.noLegend ? 'No legendaries' : `{i:sparkle} ${beast ? `Rare boss: ${beast.name}` : 'Any legendary'}`}</span>
-        <span class="mapinfo"><b class="mapname">${m.name}</b><span class="mapchips">${chips}</span></span></button>`;
+        <span class="mapinfo"><b class="mapname">${m.name}</b>${chase ? `<span class="mapchase">{i:star} Main chase: ${esc(chase.name)}</span>` : ''}<span class="mapchips">${chips}</span></span></button>`;
     };
     openSheet(head('Choose a map') + `
       <p class="mapsub">{i:map} ${floors} floors deep · battles, treasure and a boss at the bottom</p>
@@ -2829,6 +2821,7 @@ if (!code) {
         `Win the battle to spin the catch wheel.${frag ? ` You have ${frag}/${Game.FRAGMENTS_TO_SUMMON} of its fragments.` : ''}`);
       else if (w.boss) say(`{i:sword} The <b>floor boss</b> blocks the way! It's a mighty ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
         (w.bossTier === 'final' ? '{i:sparkle} A very rare fully evolved boss! ' : w.bossTier === 'stage2' ? 'A rare evolved boss! ' : '') + 'It\'s much stronger than usual. Beat it to spin the catch wheel!');
+      else if (w.chase) say(`{i:star} The main chase! A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · the Pokémon everyone hunts on this map`);
       else say(`A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · ${esc(name())} is Lv ${G.me.level}`);
     }
     function encounterButtons() {

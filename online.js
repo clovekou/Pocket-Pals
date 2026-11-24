@@ -60,6 +60,8 @@ const Online = (() => {
   // Applied from the last-known copy straight away (works offline), then refreshed live from Firestore.
   const CFG_KEY = 'pocketpal.gameConfig';
   try { const c = localStorage.getItem(CFG_KEY); if (c) Game.applyConfig(JSON.parse(c)); } catch (e) {}
+  const MAPS_KEY = 'pocketpal.maps';      // the admin's explore-map settings, kept for offline play
+  try { const c = localStorage.getItem(MAPS_KEY); if (c) Game.applyMaps(JSON.parse(c)); } catch (e) {}
   const DEVMAIL_KEY = 'pocketpal.devmail';
   try { const c = localStorage.getItem(DEVMAIL_KEY); if (c) Game.applyDevMail(JSON.parse(c)); } catch (e) {}
   // admin edits to evolutions (Admin → Evolutions), same caching as the game settings
@@ -112,6 +114,12 @@ const Online = (() => {
     db.collection('config').doc('news').onSnapshot(d => {
       const n = d.exists ? d.data() : null;
       Game.applyNews(n && n.text ? { id: n.id, text: n.text } : null);
+    }, () => {});
+    // Admin → Explore maps: which Pokémon live on each map, its legendary and main chase
+    db.collection('config').doc('maps').onSnapshot(d => {
+      const m = d.exists ? (d.data().maps || {}) : {};
+      Game.applyMaps(m);
+      try { localStorage.setItem(MAPS_KEY, JSON.stringify(m)); } catch (e) {}
     }, () => {});
     // messages from Admin → Developer mail, shown in the mail box on the home screen
     db.collection('config').doc('devmail').onSnapshot(d => {

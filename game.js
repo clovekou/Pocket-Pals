@@ -682,18 +682,39 @@ const Game = (() => {
     }
     return pick;
   }
-  // Explore maps. The plain Crystal Cave has every kind of Pokémon; the others favour types that fit the place
-  // (weights pick a type first), and their floor boss has a small chance (beastChance %) to be that map's legendary beast.
-  const EXPLORE_MAPS = {
-    cave:     { types: null, beast: 719, beastChance: 2 },                                              // Diancie (a jewel in the crystals)
-    forest:   { types: { grass: 6, bug: 5, poison: 2, fairy: 1, normal: 1 }, beast: 251, beastChance: 4 },   // Celebi — a bit more likely
-    desert:   { types: { ground: 6, rock: 5, fire: 2, fighting: 1 }, noLegend: true },                     // no legendaries here
-    building: { types: { ghost: 5, dark: 4, normal: 2, poison: 1, bug: 1 }, beast: 491, beastChance: 2 },   // Darkrai
-    lab:      { types: { psychic: 5, steel: 4, electric: 3, poison: 2 }, beast: 150, beastChance: 4 },      // Mewtwo — a bit more likely
-    thunder: { types: { electric: 6, flying: 2, rock: 2 }, beast: 243, beastChance: 2 },   // Raikou
-    sea:     { types: { water: 1 }, beast: 245, beastChance: 2 },                         // Suicune
-    volcano: { types: { fire: 6, rock: 2, ground: 2 }, beast: 244, beastChance: 2 },       // Entei
-  };
+  // Explore maps (defaults in maps.js). The plain Crystal Cave has every kind of Pokémon; the others favour types that
+  // fit the place (weights pick a type first). The floor boss has a small chance (beastChance %) to be the map's legendary,
+  // and each wild battle has chaseChance % to be the map's "main chase" Pokémon. The admin can change all of it (config/maps).
+  const MAP_DEFAULTS = {};
+  (typeof EXPLORE_MAP_DEFAULTS !== 'undefined' ? EXPLORE_MAP_DEFAULTS : [{ id: 'cave', types: null }]).forEach(m => {
+    MAP_DEFAULTS[m.id] = { types: m.types ? Object.assign({}, m.types) : null, beast: m.beast || 0, beastChance: m.beastChance || 0,
+      noLegend: !!m.noLegend, chase: m.chase || 0, chaseChance: m.chaseChance || 0 };
+  });
+  const EXPLORE_MAPS = JSON.parse(JSON.stringify(MAP_DEFAULTS));   // the live values (same object all along; overrides fill it in)
+  /** the admin's map overrides ({ [mapId]: { types, beast, beastChance, noLegend, chase, chaseChance } }), checked and clamped */
+  function applyMaps(over) {
+    over = over && typeof over === 'object' ? over : {};
+    const pct = (v, d) => { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : d; };
+    const sp = v => { const n = Math.round(Number(v)); return n && SPECIES_BY_ID[n] ? n : 0; };
+    Object.keys(MAP_DEFAULTS).forEach(id => {
+      const d = MAP_DEFAULTS[id], o = over[id] || {};
+      let types = d.types;
+      if (o.allTypes === true) types = null;
+      else if (o.types && typeof o.types === 'object') {
+        const t = {}; Object.entries(o.types).forEach(([el, w]) => { const n = pct(w, 0); if (n > 0) t[el] = n; });
+        types = Object.keys(t).length ? t : d.types;
+      }
+      EXPLORE_MAPS[id] = {
+        types: types ? Object.assign({}, types) : null,
+        beast: 'beast' in o ? sp(o.beast) : d.beast,
+        beastChance: 'beastChance' in o ? pct(o.beastChance, d.beastChance) : d.beastChance,
+        noLegend: 'noLegend' in o ? !!o.noLegend : d.noLegend,
+        chase: 'chase' in o ? sp(o.chase) : d.chase,
+        chaseChance: 'chaseChance' in o ? pct(o.chaseChance, d.chaseChance) : d.chaseChance,
+      };
+    });
+    emit('config');
+  }
   /** the species a map can show: every one for the plain cave, else one of its types (picked by weight) */
   function mapPool(map, list) {
     const m = EXPLORE_MAPS[map] || EXPLORE_MAPS.cave;
@@ -707,6 +728,11 @@ const Game = (() => {
   /** a wild Pokémon 3–5 levels below your main (never legendary), suited to the map */
   function rollWild(map) {
     const lv = Math.max(1, level() - (3 + rnd(3)));
+    const mm = EXPLORE_MAPS[map];
+    if (mm && mm.chase && SPECIES_BY_ID[mm.chase] && Math.random() * 100 < mm.chaseChance) {   // the map's main chase
+      const leg = isSpecial(mm.chase);
+      if (!leg || !mm.noLegend) return { sp: mm.chase, level: leg ? Math.max(5, level()) : lv, shiny: oneIn(200, CFG.shinyMult), legend: leg, chase: true };
+    }
     const pool = mapPool(map, SPECIES.filter(s => !isSpecial(s.id)));
     // fit the stage to the level: low levels meet first stages, higher levels can meet evolved ones
     const fit = pool.filter(s => (s.stage === 1) || (s.stage === 2 && lv >= 18) || (s.stage >= 3 && lv >= 34));
@@ -719,7 +745,7 @@ const Game = (() => {
    *  On a themed map it's one of that map's types, and its legendary beast turns up beastChance % of the time. */
   function rollBoss(map) {
     const m = EXPLORE_MAPS[map] || EXPLORE_MAPS.cave;
-    if (m.beast && SPECIES_BY_ID[m.beast] && Math.random() * 100 < m.beastChance) {
+    if (!m.noLegend && m.beast && SPECIES_BY_ID[m.beast] && Math.random() * 100 < m.beastChance) {
       return { sp: m.beast, level: Math.max(5, level() + 3), shiny: oneIn(150, CFG.bossShinyMult), boss: true, bossTier: 'legend', legend: true };
     }
     const r = Math.random() * 100;
@@ -990,7 +1016,7 @@ const Game = (() => {
     pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, sleepNow, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
-    ITEMS, EXPLORE_MAPS, ENDURE_BOND, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
+    ITEMS, EXPLORE_MAPS, applyMaps, ENDURE_BOND, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
     applyConfig, applyNews, applyDevMail, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem, ownsBackground, buyBackground, useBackground,
     useEvoItem, giveHeld, takeHeld, evoTarget, evoUsers, heldEvo, evoMethods,
     /** admin edits to evolutions (Firestore config/evolutions) */

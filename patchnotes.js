@@ -3,6 +3,13 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 103, date: '2026-11-24', title: 'Main chase Pokémon',
+    notes: [
+      'Maps can now have a Main chase: a special Pokémon to hunt there, shown on the map card with a star.',
+      'When you meet the main chase in a dungeon, you\'ll know it!',
+    ],
+  },
+  {
     version: 102, date: '2026-11-24', title: 'Four new places to explore',
     notes: [
       'Deep Forest: Grass, Bug and Poison Pokémon. Celebi is rare, but turns up more often than other legendaries.',

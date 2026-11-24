@@ -91,6 +91,23 @@
   .bgi { border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 10px; display: grid; gap: 8px; }
   .bgi .th { width: 100%; aspect-ratio: 3 / 4; border-radius: 10px; background: var(--chip) center / cover no-repeat; }
   .bgi label { font-size: 12px; color: var(--muted); font-weight: 700; display: grid; gap: 3px; }
+  .maped-list { display: grid; gap: 12px; }
+  .maped { border: 1px solid var(--line); background: #fff; border-radius: 16px; overflow: hidden; }
+  .maped > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+  .maped > summary::-webkit-details-marker { display: none; }
+  .maped .th { width: 120px; aspect-ratio: 3 / 1; border-radius: 10px; background: var(--chip) center / cover no-repeat; flex: none; }
+  .maped .sum { flex: 1; min-width: 0; } .maped .sum b { display: block; font-size: 16px; } .maped .sum small { color: var(--muted); display: block; line-height: 1.5; }
+  .maped .chev { color: var(--muted); font-size: 18px; transition: transform .2s; } .maped[open] .chev { transform: rotate(90deg); }
+  .maped .body { padding: 4px 14px 14px; border-top: 1px solid var(--line); }
+  .maped h4 { margin: 14px 0 6px; font-size: 14px; }
+  .typew { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+  .typew label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; background: var(--chip); border-radius: 10px; padding: 4px 4px 4px 9px; }
+  .typew label.on { background: #e7defd; }
+  .typew input { width: 52px; padding: 4px 6px; text-align: center; }
+  .typew.off { opacity: .4; pointer-events: none; }
+  .maped .g3 label, .maped .g2 label { font-size: 12px; color: var(--muted); font-weight: 700; display: grid; gap: 3px; }
+  .maped .reset { margin-top: 12px; }
+  @media (max-width: 560px) { .maped .th { width: 84px; } .maped .g3 { grid-template-columns: 1fr; } }
   .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 9; max-width: calc(100% - 32px); }
   @media (max-width: 560px) { .mons { grid-template-columns: 1fr; } }
 </style>
@@ -112,6 +129,7 @@
     <button data-tab="devmail">Developer mail</button>
     <button data-tab="codes">Gift codes</button>
     <button data-tab="players">Players</button>
+    <button data-tab="maps">Explore maps</button>
     <button data-tab="evos">Evolutions</button>
     <button data-tab="bgs">Backgrounds</button>
   </nav>
@@ -200,6 +218,16 @@
     </div>
     <h3 style="margin-top:22px">Existing codes</h3>
     <div class="codes" id="gcList"><p class="note">Loading…</p></div>
+  </section>
+
+  <section class="card" id="mapsCard" hidden>
+    <h2>Explore maps</h2>
+    <p class="sub">Choose which Pokémon live on each map, its legendary and its <b>main chase</b>, the Pokémon players hunt there. Changes go live for every player as soon as you save.</p>
+    <div id="mapEditors" class="maped-list"></div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn ok" id="mapsSave">Save maps</button>
+      <span class="note" id="mapsNote"></span>
+    </div>
   </section>
 
   <section class="card" id="evoCard" hidden>
@@ -292,6 +320,7 @@
 
 <script src="online-config.js"></script>
 <script src="species.js"></script>
+<script src="maps.js"></script>
 <script src="items.js"></script>
 <script src="evodata.js"></script>
 <script src="evolution.js"></script>
@@ -340,7 +369,7 @@ async function signIn() {
 $('#signOut').onclick = () => auth.signOut();
 
 async function onUser(u) {
-  $('#playersCard').hidden = $('#editCard').hidden = $('#settingsCard').hidden = $('#codesCard').hidden = $('#evoCard').hidden = $('#bgCard').hidden = $('#tabs').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
+  $('#playersCard').hidden = $('#editCard').hidden = $('#settingsCard').hidden = $('#codesCard').hidden = $('#evoCard').hidden = $('#bgCard').hidden = $('#mapsCard').hidden = $('#tabs').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
   cur = save = null; dirty();
   if (!u) { status('<h2>Admin sign-in</h2><p class="sub">Sign in with the Google account that has admin access.</p><button class="btn" id="signIn">Sign in with Google</button>'); $('#signIn').onclick = signIn; return; }
   $('#who').textContent = u.displayName || '';
@@ -358,7 +387,7 @@ async function onUser(u) {
     $('#copyUid').onclick = () => navigator.clipboard.writeText(u.uid).then(() => toast('UID copied'));
     return;
   }
-  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadBanned(); loadConfig(); loadNews(); loadDevMail(); loadCodes(); loadEvos();
+  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadBanned(); loadConfig(); loadNews(); loadDevMail(); loadCodes(); loadEvos(); loadMaps();
 }
 
 // ---------------- tabs ----------------
@@ -368,7 +397,7 @@ function showTab(t) {
   $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   $('#settingsCard').hidden = t !== 'settings'; $('#codesCard').hidden = t !== 'codes'; $('#newsCard').hidden = t !== 'news'; $('#devmailCard').hidden = t !== 'devmail';
   $('#playersCard').hidden = t !== 'players'; $('#editCard').hidden = t !== 'players' || !cur;
-  $('#evoCard').hidden = t !== 'evos'; $('#bgCard').hidden = t !== 'bgs';
+  $('#evoCard').hidden = t !== 'evos'; $('#bgCard').hidden = t !== 'bgs'; $('#mapsCard').hidden = t !== 'maps';
   if (t === 'bgs') loadBgs();
   if (t === 'evos') drawEvos();
 }
@@ -533,6 +562,94 @@ $('#cfgSave').onclick = async () => {
   try {
     await db.collection('config').doc('game').set({ ...c, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: auth.currentUser.uid });
     toast('Settings saved — live for every player'); loadConfig();
+  } catch (e) { toast("Couldn't save: " + e.message, 5000); }
+};
+// ---------------- explore maps (defaults in maps.js; overrides in Firestore config/maps) ----------------
+const MAPDEF = typeof EXPLORE_MAP_DEFAULTS !== 'undefined' ? EXPLORE_MAP_DEFAULTS : [];
+const TYPES = [...new Set(Object.values(SP).map(s => s.el))].sort();
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+const spVal = id => id && SP[id] ? `${pad(id)} ${SP[id].name}` : '';
+let mapOver = {};
+/** the values a map uses now: its default, with the saved override on top */
+function mapNow(d) {
+  const o = mapOver[d.id] || {};
+  return {
+    allTypes: o.allTypes === true || (!o.types && !d.types && o.allTypes !== false),
+    types: o.types || d.types || {},
+    beast: 'beast' in o ? o.beast : (d.beast || 0), beastChance: 'beastChance' in o ? o.beastChance : (d.beastChance || 0),
+    noLegend: 'noLegend' in o ? !!o.noLegend : !!d.noLegend,
+    chase: 'chase' in o ? o.chase : (d.chase || 0), chaseChance: 'chaseChance' in o ? o.chaseChance : (d.chaseChance || 0),
+  };
+}
+function mapSummary(v) {
+  const types = v.allTypes ? 'All types' : Object.entries(v.types).filter(([, w]) => w > 0).sort((a, b) => b[1] - a[1]).map(([t]) => cap(t)).join(', ') || 'No types set';
+  const leg = v.noLegend ? 'No legendaries' : v.beast && SP[v.beast] ? `Legendary: ${SP[v.beast].name} (${v.beastChance}% boss)` : 'Legendary: any';
+  const chase = v.chase && SP[v.chase] && v.chaseChance > 0 ? `Main chase: ${SP[v.chase].name} (${v.chaseChance}% per battle)` : 'No main chase';
+  return `${esc(types)}<br>${esc(leg)} · ${esc(chase)}`;
+}
+function drawMaps() {
+  $('#mapEditors').innerHTML = MAPDEF.map(d => {
+    const v = mapNow(d), edited = !!mapOver[d.id];
+    return `<details class="maped" data-map="${d.id}">
+      <summary><span class="th" style="background-image:url('${esc(d.thumb)}')"></span>
+        <span class="sum"><b>${esc(d.name)} ${edited ? '<span class="tag ed">edited</span>' : ''}</b><small>${mapSummary(v)}</small></span><span class="chev">›</span></summary>
+      <div class="body">
+        <h4>Pokémon types</h4>
+        <label class="chk"><input type="checkbox" data-all ${v.allTypes ? 'checked' : ''}> Every type (all Pokémon can appear)</label>
+        <p class="note" style="margin:4px 0 8px">Or set a weight for each type that lives here: bigger = more common, 0 = never. For example Grass 6 and Bug 3 means about two Grass for every Bug.</p>
+        <div class="typew ${v.allTypes ? 'off' : ''}">${TYPES.map(t => { const w = v.types[t] || 0; return `<label class="${w > 0 ? 'on' : ''}">${cap(t)}<input type="number" min="0" max="100" step="1" data-tw="${t}" value="${w}"></label>`; }).join('')}</div>
+        <h4>Legendary</h4>
+        <div class="g3">
+          <label>Legendary Pokémon<input type="text" list="spList" data-beast value="${esc(spVal(v.beast))}" placeholder="e.g. 0251 Celebi"></label>
+          <label>Floor boss chance %<input type="number" min="0" max="100" step="0.5" data-bc value="${v.beastChance}"></label>
+          <label class="chk" style="align-self:end"><input type="checkbox" data-nolegend ${v.noLegend ? 'checked' : ''}> No legendaries on this map</label>
+        </div>
+        <p class="note" style="margin:6px 0 0">The boss at the bottom of the map is this legendary that % of the time. Very rarely it also wanders in on other floors. Leave it empty for any legendary.</p>
+        <h4>Main chase</h4>
+        <div class="g2">
+          <label>Chase Pokémon<input type="text" list="spList" data-chase value="${esc(spVal(v.chase))}" placeholder="e.g. 0025 Pikachu"></label>
+          <label>Chance per wild battle %<input type="number" min="0" max="100" step="0.5" data-cc value="${v.chaseChance}"></label>
+        </div>
+        <p class="note" style="margin:6px 0 0">Shown on the map card as its main chase. Each wild battle has this % chance to be it. Leave it empty for no chase.</p>
+        <button class="btn alt sm reset" data-reset>Reset this map to its defaults</button>
+      </div></details>`;
+  }).join('');
+  $('#mapEditors').querySelectorAll('.maped').forEach(el => {
+    const all = el.querySelector('[data-all]'), grid = el.querySelector('.typew');
+    all.onchange = () => grid.classList.toggle('off', all.checked);
+    grid.querySelectorAll('[data-tw]').forEach(inp => { inp.oninput = () => inp.parentElement.classList.toggle('on', Number(inp.value) > 0); });
+    el.querySelector('[data-reset]').onclick = () => { delete mapOver[el.dataset.map]; const open = el.open; drawMaps(); const again = $(`.maped[data-map="${el.dataset.map}"]`); if (again) again.open = open; toast('Reset — press Save maps to apply'); };
+  });
+}
+async function loadMaps() {
+  try {
+    const d = await db.collection('config').doc('maps').get();
+    mapOver = d.exists ? (d.data().maps || {}) : {};
+    const at = d.exists && d.data().updatedAt; $('#mapsNote').textContent = at ? 'Last saved ' + at.toDate().toLocaleString() : 'Using the built-in maps.';
+  } catch (e) { mapOver = {}; $('#mapsNote').textContent = "Couldn't load maps: " + e.message; }
+  drawMaps();
+}
+$('#mapsSave').onclick = async () => {
+  const out = {};
+  for (const el of document.querySelectorAll('.maped')) {
+    const id = el.dataset.map, d = MAPDEF.find(m => m.id === id);
+    const pctOf = sel => Math.max(0, Math.min(100, Number(el.querySelector(sel).value) || 0));
+    const allTypes = el.querySelector('[data-all]').checked, types = {};
+    el.querySelectorAll('[data-tw]').forEach(i => { const w = Math.max(0, Math.min(100, Math.round(Number(i.value) || 0))); if (w > 0) types[i.dataset.tw] = w; });
+    if (!allTypes && !Object.keys(types).length) { el.open = true; toast(`${d.name}: pick at least one type, or tick "Every type"`); return; }
+    const beastTxt = el.querySelector('[data-beast]').value.trim(), chaseTxt = el.querySelector('[data-chase]').value.trim();
+    const beast = beastTxt ? parseSp(beastTxt) : 0, chase = chaseTxt ? parseSp(chaseTxt) : 0;
+    if (beastTxt && !beast) { el.open = true; toast(`${d.name}: no Pokémon called "${beastTxt}"`); return; }
+    if (chaseTxt && !chase) { el.open = true; toast(`${d.name}: no Pokémon called "${chaseTxt}"`); return; }
+    const v = { allTypes, types: allTypes ? null : types, beast, beastChance: pctOf('[data-bc]'), noLegend: el.querySelector('[data-nolegend]').checked, chase, chaseChance: pctOf('[data-cc]') };
+    // only keep maps that differ from their defaults
+    const def = { allTypes: !d.types, types: d.types || null, beast: d.beast || 0, beastChance: d.beastChance || 0, noLegend: !!d.noLegend, chase: d.chase || 0, chaseChance: d.chaseChance || 0 };
+    const same = JSON.stringify(Object.assign({}, v, { types: v.types && Object.fromEntries(Object.entries(v.types).sort()) })) === JSON.stringify(Object.assign({}, def, { types: def.types && Object.fromEntries(Object.entries(def.types).sort()) }));
+    if (!same) out[id] = v;
+  }
+  try {
+    await db.collection('config').doc('maps').set({ maps: out, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: auth.currentUser.uid });
+    toast('Maps saved — live for every player'); loadMaps();
   } catch (e) { toast("Couldn't save: " + e.message, 5000); }
 };
 // ---------------- announcement (config/news): broadcast live to every player ----------------
