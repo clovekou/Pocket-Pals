@@ -1107,11 +1107,10 @@ if (!code) {
       <p class="muted">Raise it, evolve it, and fill your Dex with all ${SPECIES.length} creatures (shinies too!).</p>
       <div class="starters">${STARTERS.map(id => { const s = SPECIES_BY_ID[id]; return `<button data-st="${id}">${miniCanvas(id, { px: 96 })}${esc(s.name)}<small>${ELEMENTS[s.el].label}</small></button>`; }).join('')}</div>`, { dialog: true, locked: true });
     sheet.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => {
+      const nm = SPECIES_BY_ID[+b.dataset.st].name;
       Game.pickStarter(+b.dataset.st); closeSheet(); Sound.play('hatch');
-      Install.suggestAfterStarter(SPECIES_BY_ID[+b.dataset.st].name);
-      toast('Your egg is here! Tap it 3 times to hatch.', 3500);
-      setTimeout(() => toast('{i:egg_legend_0} Bonus: a Mystery Egg is in your Bag → Items! Hatch your starter first, then use it.', 5500), 1800);
-      setTimeout(() => toast('Tip: swipe ← → for the Dex, ↑ for its card, ↓ for settings.', 4500), 3800);
+      // the guided tour walks them through hatching and the home screen; the Home Screen tip waits until it's over
+      setTimeout(() => Tour.start({ onEnd: () => Install.suggestAfterStarter(nm) }), 600);
     }));
   }
 
@@ -1486,7 +1485,7 @@ if (!code) {
       <label class="toggle"><span><b>Music volume</b><small id="setMusicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Sound effects</b><small>Retro beeps and battle sounds</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Sound effects volume</b><small id="setSfxVolTxt">${S.settings.sfxVol == null ? 80 : S.settings.sfxVol}%</small></span><input type="range" id="setSfxVol" min="0" max="100" step="5" value="${S.settings.sfxVol == null ? 80 : S.settings.sfxVol}" style="width:150px;accent-color:#e3350d"></label>
-      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:widget} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCredits">{i:credits} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
+      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:widget} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="openTour">{i:map} Tutorial</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCredits">{i:credits} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>
       <p class="muted" style="margin-top:6px;text-align:center;font-size:12px;opacity:.75">Pocket Pals · Version ${esc(String(window.APP_VERSION || '?'))}${window.APP_BUILD ? ' · ' + esc(window.APP_BUILD) : ''}</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
@@ -1498,6 +1497,7 @@ if (!code) {
     ['#setMasterVol', '#setSfxVol'].forEach(id => $(id).addEventListener('change', () => Sound.play('tap')));
     $('#setPlayer').addEventListener('input', e => { S.settings.player = e.target.value.slice(0, 14); Game.save(); });
     $('#howTo').addEventListener('click', openManual);
+    $('#openTour').addEventListener('click', () => { closeSheet(); Tour.start(); });
     $('#openCredits').addEventListener('click', openCredits);
     if ($('#openInstall')) $('#openInstall').addEventListener('click', () => Install.start(openSettings));
     if ($('#openCode')) $('#openCode').addEventListener('click', openRedeem);
@@ -1680,16 +1680,127 @@ if (!code) {
     dialog(icons('{i:sparkle} News'), esc(n.text).replace(/\n/g, '<br>'), [{ label: 'OK', cls: 'gold' }]);
   }
 
+  // ======================= guided tour (new players, and Options → Tutorial) =======================
+  // A spotlight walks through the home screen one part at a time. The egg step waits for the egg to hatch.
+  const Tour = (() => {
+    const STEPS = [
+      { title: 'Welcome to Pocket Pal!', text: () => `You're about to raise your very own Pokémon. It lives in <b>real time</b>, even while the app is closed, so check in on it during the day.<br><br>This quick tour shows you around. It takes about a minute.` },
+      { target: '#stage', place: 'top', when: () => Game.pet() && Game.pet().egg, wait: 'hatch', title: 'Hatch your egg',
+        text: () => `This is your egg! <b>Tap it 3 times</b> to hatch it.` },
+      { target: '#stage', place: 'top', when: () => Game.pet() && !Game.pet().egg, afterHatch: true, title: 'Meet your partner',
+        text: () => `This is <b>${esc(petName())}</b>! <b>Tap it</b> to pet it. It walks around, chats with you, and grows <b>1 level every hour</b>.` },
+      { target: '#nameBtn', title: 'Its card', text: () => `Its name, type and level. Tap here any time to see its stats, badges and progress.` },
+      { target: '#bars', title: 'Its 4 needs', text: () => `<b>Food</b>, <b>Happy</b>, <b>Energy</b> and <b>Hygiene</b> slowly go down over time. Keep them up!<br><br>If one drops to 10 or less, that's a <b>slip-up</b>, and evolving takes longer.` },
+      { target: '[data-act="care"]', title: 'Care', text: () => `Feed it berries, give it a bath, and put it to bed when it's tired.<br><br>Every Pokémon has a hidden <b>favourite berry</b>. Try them all!` },
+      { target: '[data-act="bag"]', title: 'Bag', text: () => `Your items and the <b>Poké Mart</b>. Potions heal in dungeons, balls help you catch, and treasure sells for Pokécoins.${Game.itemCount('mysteryEgg') ? '<br><br>{i:egg_legend_0} There\'s a <b>bonus Mystery Egg</b> waiting in there!' : ''}` },
+      { target: '[data-act="explore"]', title: 'Explore', text: () => `Go on adventures!<br>• <b>Dungeons</b>: battle wild Pokémon, find treasure, and try to catch the boss at the bottom.<br>• <b>Training</b>: mini-games that make it stronger.<br><br>Both use some energy.` },
+      { target: '[data-act="party"]', title: 'Party', text: () => `Keep up to 6 Pokémon. Choose which one is your main, bring a Backup when exploring, and store extras in the PC Box.` },
+      { target: '[data-act="dex"]', title: 'Pokédex', text: () => `Every Pokémon you hatch, catch or evolve is recorded here. Can you collect them all, shinies too?` },
+      { target: '#friendsBtn', title: 'Friends', text: () => `Sign in to save your progress online, add friends, trade Pokémon, and borrow a friend's Pokémon for exploring.` },
+      { target: '#settingsBtn', title: 'Options', text: () => `Sound, backgrounds, <b>How to play</b>, and this tour again, any time.` },
+      { target: '#mailBtn', title: 'Updates', text: () => `News and new features arrive here. When the envelope glows, there's something new to read.` },
+      { title: 'You\'re all set!', text: () => `Take good care of ${Game.pet() && !Game.pet().egg ? `<b>${esc(petName())}</b>` : 'your Pokémon'}!<br><br>Tip: swipe <b>← →</b> for the Pokédex, <b>↑</b> for its card and <b>↓</b> for Options.`, last: true },
+    ];
+    let root = null, hole = null, card = null, blocker = null, list = [], i = 0, raf = 0, onEnd = null, waiting = false;
+    function build() {
+      root = document.createElement('div'); root.id = 'tour';
+      root.innerHTML = '<div class="tr-block"></div><div class="tr-hole"></div><div class="tr-card" role="dialog" aria-live="polite"></div>';
+      blocker = root.querySelector('.tr-block'); hole = root.querySelector('.tr-hole'); card = root.querySelector('.tr-card');
+      document.body.appendChild(root);
+    }
+    function place() {
+      if (!root) return;
+      const st = list[i], el = st && st.target && document.querySelector(st.target);
+      const vw = window.innerWidth, vh = window.innerHeight, cw = card.offsetWidth, ch = card.offsetHeight, m = 12;
+      if (el) {
+        const r = el.getBoundingClientRect(), pad = st.target === '#stage' ? 0 : 6;
+        Object.assign(hole.style, { display: 'block', left: r.left - pad + 'px', top: r.top - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px',
+          borderRadius: st.target === '#stage' ? '26px' : getComputedStyle(el).borderRadius || '16px' });
+        let top;
+        if (st.place === 'top') top = Math.max(m, r.top + 14);                                        // inside the top of a big area
+        else top = r.top + r.height / 2 > vh / 2 ? r.top - pad - ch - 14 : r.bottom + pad + 14;      // above or below the spotlight
+        top = Math.max(m, Math.min(vh - ch - m, top));
+        const left = Math.max(m, Math.min(vw - cw - m, r.left + r.width / 2 - cw / 2));
+        Object.assign(card.style, { top: top + 'px', left: left + 'px', transform: 'none' });
+      } else {
+        hole.style.display = 'none';
+        Object.assign(card.style, { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
+      }
+      raf = requestAnimationFrame(place);       // follow the layout (animations, rotation, keyboard)
+    }
+    function show() {
+      const st = list[i];
+      waiting = !!st.wait;
+      root.classList.toggle('dim', !st.target);
+      blocker.style.pointerEvents = waiting ? 'none' : 'auto';          // the egg step lets your taps through
+      const dots = list.map((_, k) => `<i class="${k === i ? 'on' : k < i ? 'done' : ''}"></i>`).join('');
+      card.innerHTML = icons(`<div class="tr-dots">${dots}</div><h3>${st.title}</h3><p>${st.text()}</p>
+        ${waiting ? '<div class="tr-wait"><span class="tr-tap"></span>Waiting for you to tap the egg…</div>' : ''}
+        <div class="tr-btns">${st.last ? '' : '<button class="tr-skip" data-tr="skip">Skip tour</button>'}<span class="tr-sp"></span>
+        ${i > 0 && !waiting && !st.last ? '<button class="btn alt" data-tr="back">Back</button>' : ''}
+        ${waiting ? '' : `<button class="btn red" data-tr="next">${st.last ? 'Let\'s play!' : i === 0 ? 'Show me around' : 'Next'}</button>`}</div>`);
+      card.querySelectorAll('[data-tr]').forEach(b => b.addEventListener('click', () => {
+        Sound.play('tap');
+        const a = b.dataset.tr;
+        if (a === 'next') go(i + 1); else if (a === 'back') go(i - 1); else finish();
+      }));
+      card.classList.remove('in'); void card.offsetWidth; card.classList.add('in');
+    }
+    function go(k) {
+      // skip steps that don't apply any more (e.g. the egg has already hatched)
+      while (k < list.length && list[k].when && !list[k].when()) k++;
+      while (k > 0 && k < list.length && list[k].when && !list[k].when()) k--;
+      if (k >= list.length) return finish();
+      i = Math.max(0, k); show();
+    }
+    function start(opts = {}) {
+      if (root) return;
+      closeSheet(); Talk.clear();
+      onEnd = opts.onEnd || null;
+      const egg = Game.pet() && Game.pet().egg;
+      list = STEPS.filter(st => !st.when || st.when() || (st.afterHatch && egg)); build();   // only the steps that will show
+      go(0); cancelAnimationFrame(raf); place();
+    }
+    function finish() {
+      if (!root) return;
+      cancelAnimationFrame(raf); root.remove(); root = null;
+      ST().settings.tourSeen = true; Game.save();
+      const f = onEnd; onEnd = null; if (f) f();
+    }
+    /** game events: the hatch finishes the egg step */
+    function event(ev) {
+      if (!root || !waiting || list[i].wait !== ev) return;
+      waiting = false; card.innerHTML = icons(`<h3>It hatched! {i:sparkle}</h3><p>Say hello to your new partner!</p>`);
+      setTimeout(() => { if (root) go(i + 1); }, 2600);
+    }
+    return { start, event, active: () => !!root };
+  })();
+  /** existing players who never saw the tour: offer it once, when nothing else is on screen */
+  function offerTour() {
+    if (ST().settings.tourSeen || !ST().player.starterPicked || Tour.active()) return;
+    if (!sheet.classList.contains('hidden') || !arena.classList.contains('hidden')) return setTimeout(offerTour, 8000);
+    dialog('New: a quick tour', 'Want a one-minute tour of Pocket Pal? It shows what every button does. You can always find it later in Options → Tutorial.', [
+      { label: 'Not now', cls: 'alt', fn: () => { ST().settings.tourSeen = true; Game.save(); } },
+      { label: 'Show me', cls: 'red', fn: () => Tour.start() },
+    ]);
+  }
+
   function openManual() {
+    const sec = (icon, title, body) => `<details class="mbox"><summary>{i:${icon}}<b>${title}</b></summary><div class="mb">${body}</div></details>`;
     openSheet(head('How to play') + `<div class="manual">
-      <h4>Time</h4><ul><li>1 real minute = 1 game minute. +1 level every hour.</li><li>It keeps living while the app is closed (up to 2 weeks of catch-up).</li></ul>
-      <h4>Needs</h4><ul><li>FOOD −2/min, ENE −1/min, HYG −1/min (−4 more per poop), HAPPY −1/min (faster if hungry or dirty).</li><li>Letting a need drop to 10 or less is a <b>slip-up</b>: it delays evolution by 1 level and cools the bond.</li></ul>
-      <h4>Care</h4><ul><li>{i:pecha}{i:aspear}{i:cheri} <b>Pecha, Aspear and Cheri Berries</b> +25 food. One is its hidden favourite (+35 food, +happy, bond).</li><li>{i:poffin} <b>Poffin</b> +food +happy but adds weight. Over 50 weight = sluggish.</li><li>{i:pokeball} <b>Poké Ball Catch</b> trains SPEED and burns weight. {i:rock} <b>Rock Smash</b> trains ATTACK. {i:shield} <b>Protect</b> trains DEFENCE.</li><li>{i:bath} <b>Bath</b> clears poops. {i:hand} <b>Tap</b> to pet it. {i:sleep} <b>Sleep</b> restores energy; needs drop much slower.</li></ul>
-      <h4>Evolution</h4><ul><li>When it reaches its evolution level and every need is ≥ 40, a button appears — you choose to evolve or keep its form.</li></ul>
-      <h4>Endings</h4><ul><li>{i:rain} <b>Run-away</b>: all needs at 0 for 1 hour. One act of care cancels it. Curses the next egg.</li><li>{i:hand} <b>Release</b>: hold your finger on it for 3 seconds.</li></ul>
-      <h4>Eggs</h4><ul><li>Eggs hatch into a first-stage Pokémon — Common, Rare or (after ${Game.LEGEND_UNLOCK} registered) Legendary — favouring ones you haven't raised yet.</li><li>Streak + bond improve the shiny odds (1/48 → best 1/8). A farewell doubles them for the next egg.</li></ul>
-      <h4>Gestures</h4><ul><li>Swipe ← → Pokédex · ↑ Summary · ↓ Options · hold 3 s = release.</li></ul>
+      <p class="mintro">Raise a Pokémon that lives on your phone in real time. Keep it happy, help it grow and evolve, explore dungeons, and fill your Pokédex.</p>
+      <div class="btns" style="margin:0 0 14px"><button class="btn red" id="manTour">{i:map} Take the guided tour</button></div>
+      ${sec('egg_legend_0', 'Getting started', `<ul><li>Pick a starter. It arrives as an egg: <b>tap it 3 times</b> to hatch it.</li><li>Your Pokémon lives in real time. It keeps going while the app is closed (up to 2 weeks).</li><li>It grows <b>1 level every hour</b>.</li></ul>`)}
+      ${sec('heart', 'Keeping it happy', `<ul><li>It has 4 needs: <b>Food, Happy, Energy, Hygiene</b>. They slowly go down.</li><li>{i:pecha} <b>Care → Feed</b>: berries fill it up. One is its hidden favourite (extra food, happiness and bond).</li><li>{i:bath} <b>Bath</b> cleans it and its poops. {i:sleep} <b>Sleep</b> restores energy.</li><li>{i:hand} <b>Tap it</b> to pet it and build your bond.</li><li>{i:warning} If a need drops to 10 or less, that's a <b>slip-up</b>: evolving takes a level longer.</li></ul>`)}
+      ${sec('up', 'Growing and evolving', `<ul><li>When it reaches its evolution level and every need is at least 40, an <b>Evolve</b> button appears. You choose to evolve or stay as you are.</li><li>Some Pokémon evolve with an item from the Bag instead, or at a certain time of day.</li><li>{i:sword} <b>Training</b> mini-games raise ATTACK, DEFENCE and SPEED.</li></ul>`)}
+      ${sec('map', 'Exploring dungeons', `<ul><li><b>Explore → Explore a dungeon</b>, then choose a map. Each map has its own Pokémon types and a rare legendary.</li><li>Pick a <b>Main</b> and a <b>Backup</b>. If your Main faints, the Backup jumps in.</li><li>Each floor can hold a wild battle, treasure, or nothing. Go deeper, or head home whenever you like.</li><li>Beat the <b>boss</b> on the last floor, then spin the catch wheel for one throw to catch it.</li><li>{i:oran} Only items in your Bag can be used in a dungeon, so pack Potions before you go!</li></ul>`)}
+      ${sec('pokeball', 'Your team and the Pokédex', `<ul><li><b>Party</b>: up to 6 Pokémon. Tap one to make it your main or move it to the PC Box.</li><li><b>Pokédex</b>: everything you hatch, catch or evolve is recorded here.</li><li>Raise your main to Lv ${Game.NEW_EGG_LEVEL} to get a new egg.</li></ul>`)}
+      ${sec('coin', 'Bag and Poké Mart', `<ul><li>Treasure from dungeons sells for <b>Pokécoins</b>.</li><li>Spend them on Potions, balls, evolution items and backgrounds.</li><li>{i:egg_legend_0} A <b>Mystery Egg</b> hatches into a random Pokémon.</li></ul>`)}
+      ${sec('friends', 'Friends', `<ul><li>Sign in (top right) to save online and play on any device.</li><li>Add friends, trade Pokémon, and lend each other a Pokémon for exploring.</li></ul>`)}
+      ${sec('sparkle', 'Shinies and legendaries', `<ul><li>Shiny Pokémon are rare colour variants. Daily care streaks and a strong bond make shiny eggs more likely.</li><li>Legendaries appear very rarely as dungeon bosses. Didn't catch one? It leaves a <b>fragment</b>; collect ${Game.FRAGMENTS_TO_SUMMON} to summon it.</li></ul>`)}
+      ${sec('hand', 'Gestures', `<ul><li>Swipe <b>← →</b>: Pokédex · <b>↑</b>: its card · <b>↓</b>: Options.</li><li>Hold your finger on your Pokémon for 3 seconds to say goodbye (release it).</li></ul>`)}
       </div>`);
+    $('#manTour').addEventListener('click', () => { closeSheet(); Tour.start(); });
   }
 
   // ======================= stage input =======================
@@ -1810,12 +1921,25 @@ if (!code) {
       </div><p class="muted" style="margin-top:12px">${ex || tr ? 'These use some energy.' : 'Exploring and training are closed right now. Check back soon!'}</p>`);
     sheet.querySelectorAll('[data-adv]').forEach(b => b.addEventListener('click', () => {
       if (b.dataset.adv === 'training') return openGames();
+      if (!ST().settings.exploreTipSeen) return exploreIntro();
       openMaps();
     }));
   }
   // ---------- Explore: pick a map (the maps are in maps.js; the admin can change their Pokémon in Admin → Explore maps) ----------
   const EXPLORE_MAP_UI = (typeof EXPLORE_MAP_DEFAULTS !== 'undefined' ? EXPLORE_MAP_DEFAULTS : [{ id: 'cave', name: 'Crystal Cave' }])
     .map(m => ({ id: m.id, name: m.name, src: m.src, thumb: m.thumb }));
+  /** shown once, before the first dungeon */
+  function exploreIntro() {
+    ST().settings.exploreTipSeen = true; Game.save();
+    openSheet(head('How exploring works') + `<div class="steps">
+      <div class="stp"><i>1</i><div><b>Choose a map</b><small>Each map has its own Pokémon types and a rare legendary boss.</small></div></div>
+      <div class="stp"><i>2</i><div><b>Pick your team</b><small>A Main explores. A Backup jumps in if the Main faints.</small></div></div>
+      <div class="stp"><i>3</i><div><b>Go floor by floor</b><small>Battle wild Pokémon, open treasure chests, or head home any time.</small></div></div>
+      <div class="stp"><i>4</i><div><b>Beat the boss</b><small>On the last floor, win the battle, then spin the catch wheel for one throw!</small></div></div>
+      </div><p class="muted">{i:oran} Tip: only items in your Bag work in dungeons, so bring some Potions.</p>
+      <div class="btns"><button class="btn red" id="exGo">{i:map} Choose a map</button></div>`);
+    $('#exGo').addEventListener('click', openMaps);
+  }
   function openMaps() {
     EXPLORE_MAP_UI.forEach(m => { if (m.src) new Image().src = m.src; });   // start loading the big pictures now
     const MAPS = Game.EXPLORE_MAPS || {}, floors = Game.EXPLORE_MAX_FLOOR;
@@ -3506,7 +3630,7 @@ if (!code) {
     else if (ev === 'poop') { Sound.play('poop'); }
     else if (ev === 'slip') { toast('{i:warning} Slip-up! A need hit rock bottom — evolution delayed.', 3500); Sound.play('sad'); Talk.say('slip', { prio: 2 }); }
     else if (ev === 'def') { toast('{i:shield} 12 h of great care: DEF +1'); }
-    else if (ev === 'hatch') { onHatched(); }
+    else if (ev === 'hatch') { onHatched(); Tour.event('hatch'); }
     else if (ev === 'away') {
       const a = d.before, b = d.after;
       let msg = `While you were away (${fmtDur(d.minutes)})`;
@@ -3643,7 +3767,7 @@ if (!code) {
   Online.init(); updateBadge();
   setTimeout(showAnnouncement, 2500);
   if (!ST().player.starterPicked) startNewGame();
-  else setTimeout(greet, 900);
+  else { setTimeout(greet, 900); setTimeout(offerTour, 6000); }
   requestAnimationFrame(frame);
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {

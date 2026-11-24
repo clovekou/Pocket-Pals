@@ -3,6 +3,15 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 107, date: '2026-11-24', title: 'A guided tour for new trainers',
+    notes: [
+      'New players get a step-by-step tour that shows what every part of the screen does, starting with hatching your egg.',
+      'Replay it any time from Options → Tutorial.',
+      'How to play has been rewritten into simple sections you can open one at a time.',
+      'Your first dungeon now starts with a quick "How exploring works" guide.',
+    ],
+  },
+  {
     version: 106, date: '2026-11-24', title: 'Pack your Bag before exploring',
     notes: [
       'In a dungeon, the Items button now only shows items from your Bag: Potions, Oran and Sitrus Berries, Lemonade and Rare Candy.',
