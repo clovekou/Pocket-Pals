@@ -1814,7 +1814,7 @@ if (!code) {
     }));
   }
   // ---------- Explore: pick a map (the maps are in maps.js; the admin can change their Pokémon in Admin → Explore maps) ----------
-  const EXPLORE_MAP_UI = (typeof EXPLORE_MAP_DEFAULTS !== 'undefined' ? EXPLORE_MAP_DEFAULTS : [{ id: 'cave', name: 'Crystal Cave', thumb: 'backgrounds/explore/thumb/cave.jpg' }])
+  const EXPLORE_MAP_UI = (typeof EXPLORE_MAP_DEFAULTS !== 'undefined' ? EXPLORE_MAP_DEFAULTS : [{ id: 'cave', name: 'Crystal Cave' }])
     .map(m => ({ id: m.id, name: m.name, src: m.src, thumb: m.thumb }));
   function openMaps() {
     EXPLORE_MAP_UI.forEach(m => { if (m.src) new Image().src = m.src; });   // start loading the big pictures now

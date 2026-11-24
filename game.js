@@ -691,6 +691,7 @@ const Game = (() => {
       noLegend: !!m.noLegend, chase: m.chase || 0, chaseChance: m.chaseChance || 0 };
   });
   const EXPLORE_MAPS = JSON.parse(JSON.stringify(MAP_DEFAULTS));   // the live values (same object all along; overrides fill it in)
+  const firstMap = () => EXPLORE_MAPS[Object.keys(EXPLORE_MAPS)[0]] || { types: null };   // an unknown map id falls back to the first map
   /** the admin's map overrides ({ [mapId]: { types, beast, beastChance, noLegend, chase, chaseChance } }), checked and clamped */
   function applyMaps(over) {
     over = over && typeof over === 'object' ? over : {};
@@ -717,7 +718,7 @@ const Game = (() => {
   }
   /** the species a map can show: every one for the plain cave, else one of its types (picked by weight) */
   function mapPool(map, list) {
-    const m = EXPLORE_MAPS[map] || EXPLORE_MAPS.cave;
+    const m = EXPLORE_MAPS[map] || firstMap();
     if (!m.types) return list;
     const entries = Object.entries(m.types);
     let r = Math.random() * entries.reduce((a, [, w]) => a + w, 0), el = entries[0][0];
@@ -744,7 +745,7 @@ const Game = (() => {
    *  rare: a middle stage (12%) · very rare: a final stage (3%) · extremely rare: a legendary (0.5%).
    *  On a themed map it's one of that map's types, and its legendary beast turns up beastChance % of the time. */
   function rollBoss(map) {
-    const m = EXPLORE_MAPS[map] || EXPLORE_MAPS.cave;
+    const m = EXPLORE_MAPS[map] || firstMap();
     if (!m.noLegend && m.beast && SPECIES_BY_ID[m.beast] && Math.random() * 100 < m.beastChance) {
       return { sp: m.beast, level: Math.max(5, level() + 3), shiny: oneIn(150, CFG.bossShinyMult), boss: true, bossTier: 'legend', legend: true };
     }

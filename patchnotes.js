@@ -3,6 +3,14 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 104, date: '2026-11-24', title: 'A brand-new world to explore',
+    notes: [
+      'All-new explore maps! Ancient Lab, Wildwood Forest, Frostwave Coast, Scorched Canyon and Skyward Peak.',
+      'Between them, every Pokémon type has a home, so every Pokémon can be found somewhere.',
+      'Each map has its own legendary: Mewtwo, Celebi, Articuno, Entei and Rayquaza.',
+    ],
+  },
+  {
     version: 103, date: '2026-11-24', title: 'Main chase Pokémon',
     notes: [
       'Maps can now have a Main chase: a special Pokémon to hunt there, shown on the map card with a star.',
