@@ -25,9 +25,11 @@
   --hp-hi: #48d048; --hp-mid: #f8c030; --hp-lo: #f85838;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
-  /* all game text uses the pixel font (Mystery Dungeon-style menus) */
-  --font: "PP Digits", "Pixelify Sans", "Nunito", ui-rounded, system-ui, -apple-system, sans-serif;
+  /* sentences and descriptions use a rounded, easy-to-read font; titles, names, buttons and numbers keep
+     the pixel font for the game look; the Pokémon's chat box keeps its own pixel font (--chat) */
+  --font: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
   --pixel: "PP Digits", "Pixelify Sans", "Nunito", ui-rounded, system-ui, sans-serif;
+  --chat: "PP Digits", "Pixelify Sans", "Nunito", ui-rounded, system-ui, -apple-system, sans-serif;
   /* kept for inline styles used by the game code */
   --card: #ffffff; --card2: #f1eedf; --glass-hi: #ece8d8; --accent: #e3350d; --gold: #ffcb05;
 }
@@ -192,7 +194,7 @@ img.dk { image-rendering: pixelated; }
 .btns { display: grid; gap: 8px; margin-top: 16px; }
 .btns.two { grid-template-columns: 1fr 1fr; }
 p { line-height: 1.55; margin: 6px 0; }
-.muted { color: var(--muted); font-size: 13px; font-weight: 700; }
+.muted { color: var(--muted); font-size: 14px; font-weight: 600; line-height: 1.45; }
 
 .foods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .food { border: 3px solid var(--line); background: #fff; border-radius: 16px; padding: 10px; text-align: left; display: flex; gap: 10px; align-items: center; color: var(--ink); box-shadow: 0 3px 0 rgba(0, 0, 0, .2); }
@@ -287,7 +289,7 @@ p { line-height: 1.55; margin: 6px 0; }
 #scene { image-rendering: pixelated; }
 
 /* ---------- Mystery-Dungeon-style dialogue ---------- */
-#talk { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 3; cursor: pointer; }
+#talk { font-family: var(--chat); position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 3; cursor: pointer; }
 .tk-face { position: absolute; left: 0; bottom: calc(100% + 6px); width: 84px; height: 84px; border: 3px solid #fff; border-radius: 8px;
   background: #1c2a6b; box-shadow: 0 0 0 2px #0c1440, 0 6px 16px rgba(0, 0, 0, .4); overflow: hidden; }
 .tk-face img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
@@ -348,7 +350,7 @@ p { line-height: 1.55; margin: 6px 0; }
 /* same look as a friend's picture in the list below */
 .tface img { display: block; width: 52px; height: 52px; border-radius: 10px; border: 2px solid var(--line); background: #e6f2ff; image-rendering: pixelated; object-fit: cover; }
 .tface img.egg { object-fit: contain; padding: 6px; }
-.trainer small { color: var(--muted); font-family: var(--pixel); }
+.trainer small { color: var(--muted); font-family: var(--font); }
 .trainer .sp { flex: 1; min-width: 0; }
 .fcard { display: flex; align-items: center; gap: 10px; background: #fff; border: 3px solid var(--line); border-radius: 14px; padding: 8px 10px; margin-bottom: 8px; }
 .fcard img.face, .fcard canvas { width: 52px; height: 52px; border-radius: 10px; border: 2px solid var(--line); background: #e6f2ff; image-rendering: pixelated; flex: none; }
@@ -502,7 +504,7 @@ html.standalone #top { padding-top: 10px; }
 .itemtile button { width: 100%; border: 2px solid var(--line); border-radius: 10px; padding: 5px 0; font-family: var(--pixel); font-weight: 700; font-size: 13px;
   background: var(--red); color: #fff; box-shadow: inset 0 -3px 0 var(--red-d); }
 .itemtile button.gold { background: var(--yellow); color: var(--ink); box-shadow: inset 0 -3px 0 #d9a800; }
-.itemtile .inote { font-family: var(--pixel); font-size: 12px; color: var(--muted); padding: 6px 0 4px; }
+.itemtile .inote { font-family: var(--font); font-size: 12px; color: var(--muted); padding: 6px 0 4px; }
 details.more { margin: 4px 0 8px; }
 details.more > summary { font-family: var(--pixel); font-weight: 700; cursor: pointer; padding: 8px 4px; color: var(--muted); list-style: none; }
 details.more > summary::before { content: '▸ '; }
@@ -556,7 +558,7 @@ details.more[open] > summary::before { content: '▾ '; }
 .bggrid.one { grid-template-columns: minmax(0, 1fr); }
 .bgthumb.wide { aspect-ratio: 3 / 1; }
 .bgcard .mapdesc { font-size: 13px; line-height: 1.35; opacity: .8; padding: 0 2px 2px; text-align: left; }
-.mapsub { margin: 2px 2px 10px; font-family: var(--pixel); font-size: 14px; opacity: .8; display: flex; align-items: center; gap: 6px; }
+.mapsub { margin: 2px 2px 10px; font-family: var(--font); font-size: 14px; opacity: .8; display: flex; align-items: center; gap: 6px; }
 .maplist { display: grid; gap: 12px; }
 .mapcard { position: relative; display: block; width: 100%; aspect-ratio: 2.4 / 1; padding: 0; border: 3px solid var(--line); border-radius: 18px;
   overflow: hidden; background: #14122e; cursor: pointer; box-shadow: 0 5px 0 rgba(29,21,48,.35); transition: transform .12s, box-shadow .12s; }
@@ -637,3 +639,14 @@ details.more[open] > summary::before { content: '▾ '; }
 .prow .pb.lock { background: #e6e6e6; color: #666; }
 .prow .chev { font-size: 22px; color: #b9b4a3; flex: none; line-height: 1; }
 .prow.empty { justify-content: center; color: var(--muted); font-family: var(--pixel); background: transparent; border-style: dashed; min-height: 60px; }
+
+/* ---- readable text: comfortable sizes, spacing and contrast for sentences ---- */
+#sheet p { font-size: 15px; line-height: 1.5; font-weight: 600; }
+#sheet small, .food small, .prow .pi small, .teamcard small, .fcard small, .itemrow small { font-family: var(--font); font-weight: 600; letter-spacing: .01em; }
+#sheet h2 + p { margin-top: 4px; }
+.toast { font-family: var(--font); font-size: 15px; font-weight: 700; line-height: 1.4; }
+#epMsg { font-family: var(--font); font-size: 16px; font-weight: 700; line-height: 1.45; }
+#epMsg b { color: #1d2a6b; }
+#epMsg small { display: block; margin-top: 3px; font-size: 13px; font-weight: 600; color: var(--muted); line-height: 1.4; }
+.mapsub { opacity: 1; color: var(--muted); font-weight: 600; }
+.teamh small { font-family: var(--font); }

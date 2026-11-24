@@ -1596,8 +1596,9 @@ if (!code) {
         body: `<ul>${(p.notes || []).map(n => `<li>${esc(n)}</li>`).join('')}</ul>` }))
       .concat(devPosts().map(p => ({ t: p.at, isNew: p.at > seenD, title: 'Game developer', dev: true, meta: fmt(p.at),
         body: `<p class="devmsg">${esc(p.text).replace(/\n/g, '<br>')}</p>` })))
-      .sort((a, b) => b.t - a.t);
-    openSheet(head('Developer mail') + `<div class="mail">${items.length ? items.map((m, i) => `
+      .sort((a, b) => b.t - a.t)
+      .slice(0, 5);                                    // only the 5 most recent
+    openSheet(head('Game Patch Updates') + `<div class="mail">${items.length ? items.map((m, i) => `
       <details class="${m.dev ? 'dev' : ''}" ${i === 0 || m.isNew ? 'open' : ''}><summary><b>${m.dev ? '✉️ ' : ''}${esc(m.title)}</b>${m.isNew ? '<span class="new">NEW</span>' : ''}<small>${esc(m.meta)}</small></summary>${m.body}</details>`).join('')
       : '<p class="muted">No mail yet.</p>'}
       <p class="muted" style="text-align:center;font-size:12px">You're on version ${esc(String(window.APP_VERSION || '?'))}.</p></div>`);

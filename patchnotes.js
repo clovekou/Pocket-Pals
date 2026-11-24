@@ -3,6 +3,13 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 100, date: '2026-11-24', title: 'Easier to read',
+    notes: [
+      'Descriptions, messages and menus now use a clear, rounded font, so they are much easier to read.',
+      'Titles, names and buttons keep the pixel look, and your Pokémon still chats in its pixel font.',
+    ],
+  },
+  {
     version: 99, date: '2026-11-24', title: 'A tidier Party',
     notes: [
       'The Party screen is cleaner: tap a Pokémon to make it your main, lend it to friends, or move it to the PC Box.',
