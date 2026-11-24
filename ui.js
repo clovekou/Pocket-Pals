@@ -1227,17 +1227,19 @@ if (!code) {
       const v = Math.min(m.food, m.joy, m.ene, m.hyg), col = v > 50 ? 'var(--hp-hi)' : v > 20 ? 'var(--hp-mid)' : 'var(--hp-lo)';
       return `<div class="mini"><i style="width:${v}%;background:${col}"></i></div>`;
     };
-    const slot = (m, i, isMain) => {
-      const s = SPECIES_BY_ID[m.sp], lv = m.egg ? '' : ` · Lv ${Game.memberLevel(m)}`;
-      const face = !m.egg && portraitUrl(m.sp, m.shiny, m.joy < 25 ? 'Sad' : 'Normal');
-      const pic = m.egg ? `<img class="face" src="${PX.url(`egg_${s.tier || 'common'}_${Math.min(2, m.taps || 0)}`)}" alt="">` : face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny });
-      return `<div class="pslot ${isMain ? 'main' : ''}">${pic}<div class="pi"><b>${m.egg ? 'Egg' : esc(memberName(m))}${m.shiny && !m.egg ? '{i:sparkle}' : ''}</b>
-        <small>${m.egg ? 'Waiting to hatch' : `${ELEMENTS[s.el].label}${lv}${isMain ? '' : ' · resting'}`}</small>${needBar(m)}</div>
-        <div class="acts">${isMain ? '<span class="tag">{i:arrow}Main</span>' : m.locked ? '<span class="tag">{i:lock}In a trade</span>' : `<button data-sw="${i}">Make main</button><button class="alt" data-tobox="${i}">To Box</button>`}${helperBtn(m)}</div></div>`;
-    };
     // which Pokémon friends can borrow as their explore Backup (only matters once you're signed in)
     const lending = ON().enabled && ON().profile, hk = Game.helperKey();
-    const helperBtn = m => !lending || m.egg ? '' : m.key && m.key === hk ? '<span class="tag helper">{i:friends}Friend helper</span>' : `<button class="alt" data-helper="${esc(m.key || '')}">{i:friends} Lend to friends</button>`;
+    const isHelper = m => lending && !m.egg && m.key && m.key === hk;
+    // one clean row per Pokémon: tap it for its options
+    const slot = (m, i, isMain) => {
+      const s = SPECIES_BY_ID[m.sp];
+      const face = !m.egg && portraitUrl(m.sp, m.shiny, m.joy < 25 ? 'Sad' : 'Normal');
+      const pic = m.egg ? `<img class="face" src="${PX.url(`egg_${s.tier || 'common'}_${Math.min(2, m.taps || 0)}`)}" alt="">` : face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny });
+      const badges = (isMain ? '<i class="pb main">Main</i>' : '') + (isHelper(m) ? '<i class="pb helper">Helper</i>' : '') + (m.locked ? '<i class="pb lock">Trading</i>' : '');
+      return `<button class="prow ${isMain ? 'main' : ''}" data-pm="${i}">${pic}<span class="pi"><b>${m.egg ? 'Egg' : esc(memberName(m))}${m.shiny && !m.egg ? '{i:sparkle}' : ''}</b>
+        <small>${m.egg ? 'Waiting to hatch' : `${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)}`}</small>${needBar(m)}</span>
+        <span class="pbs">${badges}</span><span class="chev" aria-hidden="true">›</span></button>`;
+    };
     const roomInParty = party.length + 1 < Game.PARTY_MAX;
     // the PC Box is a grid, three to a row; tap one to move it to the party or release it
     const boxSlot = (m, i) => {
@@ -1247,16 +1249,31 @@ if (!code) {
         ${m.shiny ? '<span class="boxshiny">{i:sparkle}</span>' : ''}${m.fav ? '<span class="boxfav">{i:star}</span>' : ''}${m.locked ? '<span class="boxlock">{i:lock}</span>' : ''}</button>`;
     };
     const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
-    openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.${lending ? ' Your <b>Friend helper</b> is the Pokémon your friends can take exploring as their Backup.' : ''}</p>
-      <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="pslot empty">Empty slot</div>'.repeat(empties)}</div>
+    openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Tap a Pokémon for options. Resting Pokémon don't get hungry or tired.</p>
+      <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="prow empty">Empty slot</div>'.repeat(empties)}</div>
       ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 4px">PC Box (${Game.box().length})</h4><p class="muted" style="margin:0 0 8px">Tap a Pokémon to move it to your party or release it.</p>
         <label class="boxsortsel"><span>Sort by</span><select id="boxSortSel">${BOX_SORTS.map(([k, l]) => `<option value="${k}" ${boxSort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
         <div class="boxgrid">${sortedBox().map(({ m, i }) => boxSlot(m, i)).join('')}</div>` : ''}`);
-    sheet.querySelectorAll('[data-helper]').forEach(b => b.addEventListener('click', () => {
-      const y = sheet.scrollTop; Game.setHelper(b.dataset.helper); Sound.play('medal');
-      toast('{i:friends} Friends can now bring this Pokémon along when they explore!');
-      Online.uploadSave(true).catch(() => {});
-      openParty(); sheet.scrollTop = y;
+    // tapping a row opens a small menu with just the actions that make sense for it
+    sheet.querySelectorAll('[data-pm]').forEach(b => b.addEventListener('click', () => {
+      const i = +b.dataset.pm, isMain = i < 0, m = isMain ? Game.pet() : party[i]; if (!m) return;
+      Sound.play('tap');
+      if (m.egg) { toast('Hatch your egg first.'); return; }
+      const nm = esc(memberName(m)), s = SPECIES_BY_ID[m.sp];
+      if (m.locked) { toast(`${nm} is in a trade right now.`); return; }
+      const acts = [];
+      if (!isMain) acts.push({ label: '{i:arrow} Make main', cls: 'red', fn: () => {
+        const pp = Game.pet(); if (!pp || pp.egg) { toast('Hatch your egg first, then you can switch.'); return openParty(); }
+        doSwitch(i); openParty();
+      } });
+      if (lending && !isHelper(m)) acts.push({ label: '{i:friends} Lend to friends', cls: 'gold', fn: () => {
+        Game.setHelper(m.key); Sound.play('medal'); Online.uploadSave(true).catch(() => {});
+        toast(`{i:friends} Friends can now take ${nm} exploring!`); openParty();
+      } });
+      if (!isMain) acts.push({ label: 'Move to PC Box', cls: 'alt', fn: () => { Game.partyToBox(i); openParty(); } });
+      acts.push({ label: 'Close', cls: 'alt', fn: () => openParty() });
+      const notes = [isMain ? 'Your main — the one you care for.' : 'Resting in your party.', isHelper(m) ? '{i:friends} Your friends can take it exploring.' : ''].filter(Boolean).join(' ');
+      dialog(`${m.shiny ? '{i:sparkle} ' : ''}${nm}`, `${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)}<br><span class="muted">${notes}</span>`, acts);
     }));
     const sortSel = sheet.querySelector('#boxSortSel');
     if (sortSel) sortSel.addEventListener('change', () => {
@@ -2537,7 +2554,7 @@ if (!code) {
   let exploreImg = null;
   const WALK_MS = 1700;   // how long the walk to each new floor takes
   const LEGEND_INTRO_MS = 4600, LEGEND_REVEAL_MS = 2700;   // the legendary entrance, and when it bursts into colour
-  const SWAP_OUT_MS = 900, SWAP_IN_MS = 1300;             // the fainted Main fades out, then the Backup is thrown in
+  const SWAP_OUT_MS = 900, SWAP_IN_MS = 1300;             // the fainted Main fades out, then the Backup runs in from the left
   /** a cinematic overlay for a legendary's entrance: darkness, rumble, light beams, a flash and a name banner */
   function drawLegendIntro(G, ms, wx, wy, size, layer) {
     const e = ms - G.intro.at, R = LEGEND_REVEAL_MS, D = LEGEND_INTRO_MS;
@@ -2727,8 +2744,7 @@ if (!code) {
       G.floor++; G.state = 'walk'; G.at = now(); G.wild = null; G.chest = null;
       G.meHp = Math.min(G.me.maxHp, G.meHp + Math.round(G.me.maxHp * .15));  // catches its breath between floors
       G.tired = !Game.exploreStep();
-      const pal = G.team[1] && G.cur === 0 ? ` and ${esc(G.team[1].nm())}` : '';
-      info(); say(`B${G.floor}F — ${esc(name())}${pal} explore${pal ? '' : 's'}…`); buttons([]);
+      info(); say(`B${G.floor}F — ${esc(name())} explores…`); buttons([]);
       setTimeout(() => { if (arenaGame === G) resolveFloor(); }, WALK_MS);
     }
     function resolveFloor() {
@@ -3140,7 +3156,7 @@ if (!code) {
         if (!['wheel', 'throw', 'fled'].includes(G.state) && !introOn) hpBox(ac, 10, 10, Math.min(250, AW * .62), (G.wild.legend ? '★ ' : G.wild.boss ? 'BOSS ' : '') + G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
       };
       // your team: the fighter in front, the Backup following along behind while exploring
-      const A = G.team[G.cur], bk = G.cur === 0 ? G.team[1] : null;
+      const A = G.team[G.cur];
       const celebrate = (G.state === 'chest' && G.chest && G.chest.open) || G.state === 'egg', ce = ms - G.at;
       const jumpH = celebrate && ce < 2600 ? Math.abs(Math.sin(ce / 1000 * Math.PI * 2.3)) * size * .7 : 0;   // happy jumps, facing you
       const hopT = ((ms - G.at) / 1000) % Math.max(.4, animLength(A.sp, 'Hop') + .3);
@@ -3152,26 +3168,21 @@ if (!code) {
       const drawMe = () => {
         const hurtMe = G.hurt === 'me' && ms - G.hurtAt < 450, attMe = G.act === 'me' && ms - G.actAt < 600;
         const baseDir = walking ? 'right' : celebrate ? 'front' : G.wild || G.state === 'won' || G.state === 'lost' ? 'upright' : 'downright';
-        // the Backup tags along a step behind (it's resting in its ball during battles)
-        if (bk && !G.wild && G.state !== 'lost') {
-          drawMember(bk, meX - size * 1.35, .9, { dir: baseDir, walking, hop: jumpH ? Math.abs(Math.sin(ce / 1000 * Math.PI * 2.3 - .9)) * size * .6 : 0,
-            anim: celebrate || G.state === 'won' ? 'Hop' : undefined, animT: celebrate || G.state === 'won' ? hopT : undefined });
-        }
         const sw = G.swapAt ? ms - G.swapAt : -1;
         if (sw >= 0 && sw < SWAP_OUT_MS + SWAP_IN_MS) {
           if (sw < SWAP_OUT_MS + 350) {             // the Main faints: slumps, flickers and fades away
             const k = Math.min(1, sw / SWAP_OUT_MS);
             drawMember(G.team[0], meX, 1, { dir: 'upright', anim: 'Hurt', animT: Math.min(.6, sw / 1000), alpha: (1 - k) * (Math.floor(sw / 90) % 2 ? .5 : 1), hop: -k * size * .15 });
           }
-          if (sw >= SWAP_OUT_MS) {                  // a Poké Ball arcs in and the Backup bursts out of it
-            const f = sw - SWAP_OUT_MS, bx = AW * .02, by = AH * .92;
-            if (f < 450) { const k = f / 450; drawBall(ac, 'poke', bx + (meX - bx) * k, by + (meY - size * .6 - by) * k - Math.sin(k * Math.PI) * AH * .18, 14, k * 14); }
-            else {
-              const g2 = f - 450, k = Math.min(1, g2 / 350);
-              if (g2 < 400) { const gr = ac.createRadialGradient(meX, meY - size * .7, 2, meX, meY - size * .7, size * 2.2); gr.addColorStop(0, `rgba(255,255,255,${.9 * (1 - g2 / 400)})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); ac.fillStyle = gr; ac.fillRect(meX - size * 2.5, meY - size * 3, size * 5, size * 5); }
-              drawMember(G.team[1], meX, .3 + .7 * k, { dir: 'upright', silhouette: k < 1 ? '#ffffff' : false, alpha: 1 });
-              for (let i = 0; i < 6; i++) PX.draw(ac, 'sparkle', meX + Math.cos(i + g2 / 300) * size * (.6 + k), meY - size * .8 + Math.sin(i * 1.7 + g2 / 300) * size * .7, 14, { alpha: 1 - Math.min(1, g2 / 850) });
+          if (sw >= SWAP_OUT_MS) {                  // the Backup dashes in from the left side of the screen
+            const f = sw - SWAP_OUT_MS, runK = Math.min(1, f / 800), ease = 1 - Math.pow(1 - runK, 2);
+            const x = -size * 1.5 + (meX + size * 1.5) * ease, arrived = runK >= 1;
+            for (let i = 0; i < 3 && !arrived; i++) {   // dust puffs kicked up behind it
+              const dk = ((f / 260) + i / 3) % 1;
+              ac.fillStyle = `rgba(230,225,210,${.45 * (1 - dk)})`; ac.beginPath(); ac.arc(x - size * (.5 + dk * .8), meY - 4 - dk * 10, size * (.12 + dk * .18), 0, Math.PI * 2); ac.fill();
             }
+            const hop = arrived ? Math.abs(Math.sin(Math.min(1, (f - 800) / 400) * Math.PI)) * size * .4 : 0;   // a ready-to-fight hop on arrival
+            drawMember(G.team[1], x, 1, { dir: arrived ? 'upright' : 'right', walking: !arrived, hop });
           }
         } else {
           drawMember(A, meX + (attMe ? size * .4 : 0), 1, { dir: baseDir, walking, hop: jumpH,

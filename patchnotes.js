@@ -3,6 +3,13 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 99, date: '2026-11-24', title: 'A tidier Party',
+    notes: [
+      'The Party screen is cleaner: tap a Pokémon to make it your main, lend it to friends, or move it to the PC Box.',
+      'Your Backup now stays out of sight while you explore. If your Main faints, the Backup runs in from the left to take over.',
+    ],
+  },
+  {
     version: 98, date: '2026-11-24', title: 'Explore with a friend\'s Pokémon',
     notes: [
       'Signed in? In Party, tap "Lend to friends" to choose the Pokémon your friends can take exploring.',

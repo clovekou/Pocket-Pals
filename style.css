@@ -619,3 +619,21 @@ details.more[open] > summary::before { content: '▾ '; }
 .teamcard.friend { background: #f1ecff; border-color: #8a6fd1; }
 .teamcard.friend.sub { background: #e3f0ff; border-color: #4f93c4; }
 .tag.helper { background: #8a6fd1; color: #fff; }
+
+/* ---- party: one clean, tappable row per Pokémon ---- */
+.prow { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fff; color: var(--ink); border: 2px solid #e4e0d2; border-radius: 16px; padding: 10px 12px; box-shadow: none; }
+.prow:active { background: #f6f3e8; transform: scale(.99); }
+.prow.main { border-color: var(--yellow); background: #fffbea; }
+.prow img.face, .prow canvas { width: 52px; height: 52px; flex: none; border-radius: 12px; border: 0; background: #eef4ff; image-rendering: pixelated; }
+.prow .pi { flex: 1; min-width: 0; display: block; }
+.prow .pi b { font-family: var(--pixel); font-size: 17px; display: flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.prow .pi small { color: var(--muted); font-size: 12px; display: block; }
+.prow .mini { height: 5px; border-radius: 4px; background: #e9e6dc; overflow: hidden; margin-top: 6px; max-width: 140px; }
+.prow .mini i { display: block; height: 100%; border-radius: 4px; }
+.prow .pbs { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+.prow .pb { font-style: normal; font-family: var(--pixel); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #eee; color: var(--ink); }
+.prow .pb.main { background: var(--yellow); }
+.prow .pb.helper { background: #ebe4ff; color: #5b3fb8; }
+.prow .pb.lock { background: #e6e6e6; color: #666; }
+.prow .chev { font-size: 22px; color: #b9b4a3; flex: none; line-height: 1; }
+.prow.empty { justify-content: center; color: var(--muted); font-family: var(--pixel); background: transparent; border-style: dashed; min-height: 60px; }
