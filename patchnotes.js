@@ -3,6 +3,13 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 94, date: '2026-11-24', title: 'Volume controls',
+    notes: [
+      'Options now has a Master volume, plus separate volumes for Music and Sound effects.',
+      'The mail icon is now just an envelope, and it glows when there\'s something new to read.',
+    ],
+  },
+  {
     version: 93, date: '2026-11-24', title: 'Developer mail',
     notes: [
       'New mailbox in the corner of the home screen. Patch notes for every update land here.',

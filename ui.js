@@ -6,8 +6,18 @@
   const ST = () => Game.state;
 
   // ======================= sound =======================
+  // volume settings (0–100): master scales everything, then music and sound effects each have their own
+  const pct = (k, def) => { const v = ST().settings[k]; return (v == null ? def : v) / 100; };
+  const masterVol = () => pct('masterVol', 100);
+  const sfxVol = () => masterVol() * pct('sfxVol', 80);
   const Sound = (() => {
-    let ac = null;
+    let ac = null, sfx = null;
+    // every sound effect plays through this one volume knob
+    function out() {
+      if (!sfx) { sfx = ac.createGain(); sfx.connect(ac.destination); }
+      sfx.gain.setValueAtTime(sfxVol() * 1.25, ac.currentTime);
+      return sfx;
+    }
     const SFX = {
       tap: [[660, .05]], pet: [[880, .06], [1175, .09]],
       eat: [[392, .07], [0, .04], [392, .07], [0, .04], [523, .1]],
@@ -29,7 +39,7 @@
       try { playUnsafe(n); } catch (e) { /* audio hiccup (e.g. Safari after locking the screen) — ignore */ }
     }
     function playUnsafe(n) {
-      if (!ST().settings.sound || !ac || ac.state === 'closed') return;
+      if (!ST().settings.sound || sfxVol() <= 0 || !ac || ac.state === 'closed') return;
       const seq = SFX[n]; if (!seq) return;
       let t = ac.currentTime + .01;
       for (const [f, d] of seq) {
@@ -37,7 +47,7 @@
           const o = ac.createOscillator(), g = ac.createGain();
           o.type = 'square'; o.frequency.value = f;
           g.gain.setValueAtTime(n.startsWith('blip') ? .025 : .05, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
-          o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d + .02);
+          o.connect(g); g.connect(out()); o.start(t); o.stop(t + d + .02);
         }
         t += d;
       }
@@ -52,7 +62,7 @@
       }
       const s = ac.createBufferSource(); s.buffer = noiseBuf; return s;
     }
-    const ok = () => ST().settings.sound && ac && ac.state !== 'closed';
+    const ok = () => ST().settings.sound && sfxVol() > 0 && ac && ac.state !== 'closed';
     /** the attacker lunges: a quick rising swoosh */
     function attack() {
       try {
@@ -60,7 +70,7 @@
         const t = ac.currentTime + .01, n = noise(), f = ac.createBiquadFilter(), g = ac.createGain();
         f.type = 'bandpass'; f.Q.value = 1.4; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(3200, t + .18);
         g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .06); g.gain.exponentialRampToValueAtTime(.0001, t + .22);
-        n.connect(f); f.connect(g); g.connect(ac.destination); n.start(t); n.stop(t + .25);
+        n.connect(f); f.connect(g); g.connect(out()); n.start(t); n.stop(t + .25);
       } catch (e) {}
     }
     /** the hit lands: a crunchy burst plus a falling thump; critical hits get a second, sharper crack */
@@ -71,11 +81,11 @@
           const n = noise(), f = ac.createBiquadFilter(), g = ac.createGain();
           f.type = 'lowpass'; f.frequency.setValueAtTime(top, t); f.frequency.exponentialRampToValueAtTime(300, t + .16);
           g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .18);
-          n.connect(f); f.connect(g); g.connect(ac.destination); n.start(t); n.stop(t + .2);
+          n.connect(f); f.connect(g); g.connect(out()); n.start(t); n.stop(t + .2);
           const o = ac.createOscillator(), og = ac.createGain();
           o.type = 'square'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(55, t + .14);
           og.gain.setValueAtTime(vol * .7, t); og.gain.exponentialRampToValueAtTime(.0001, t + .16);
-          o.connect(og); og.connect(ac.destination); o.start(t); o.stop(t + .18);
+          o.connect(og); og.connect(out()); o.start(t); o.stop(t + .18);
         };
         const t = ac.currentTime + .01;
         hit(t, .22, 5000);
@@ -84,7 +94,7 @@
           const o = ac.createOscillator(), g = ac.createGain();
           o.type = 'square'; o.frequency.setValueAtTime(1600, t + .09); o.frequency.exponentialRampToValueAtTime(400, t + .2);
           g.gain.setValueAtTime(.05, t + .09); g.gain.exponentialRampToValueAtTime(.0001, t + .22);
-          o.connect(g); g.connect(ac.destination); o.start(t + .09); o.stop(t + .24);
+          o.connect(g); g.connect(out()); o.start(t + .09); o.stop(t + .24);
         }
       } catch (e) {}
     }
@@ -151,7 +161,7 @@
     let track = 'town', cur = 'town', switching = 0;
     let master = null, filt = null, timer = null, next = 0, step = 0, melIdx = 0, melLeft = 0;
     const want = () => ST().settings.music !== false && vol() > 0 && !document.hidden;
-    const vol = () => { const v = ST().settings.musicVol; return (v == null ? 60 : v) / 100; };
+    const vol = () => masterVol() * pct('musicVol', 60);
     function tone(type, f, t, d, vol, dest) {
       const ac = Sound.ctx(), o = ac.createOscillator(), g = ac.createGain();
       o.type = type; o.frequency.value = f;
@@ -1340,15 +1350,21 @@ if (!code) {
     const S = ST();
     openSheet(head('Options') + `
       <label class="toggle"><span><b>Your name</b><small>What your Pokémon calls you</small></span><input id="setPlayer" maxlength="14" placeholder="partner" value="${esc(S.settings.player || '')}" style="width:140px;border:2px solid var(--line);border-radius:10px;padding:7px 9px;font:inherit;font-size:16px"></label>
+      <label class="toggle"><span><b>Master volume</b><small id="setMasterVolTxt">${S.settings.masterVol == null ? 100 : S.settings.masterVol}%</small></span><input type="range" id="setMasterVol" min="0" max="100" step="5" value="${S.settings.masterVol == null ? 100 : S.settings.masterVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Music</b><small>Cozy background tune</small></span><span class="sw"><input type="checkbox" id="setMusic" ${S.settings.music !== false ? 'checked' : ''}><i></i></span></label>
-      <label class="toggle"><span><b>Music volume</b><small id="musicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
-      <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
+      <label class="toggle"><span><b>Music volume</b><small id="setMusicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
+      <label class="toggle"><span><b>Sound effects</b><small>Retro beeps and battle sounds</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
+      <label class="toggle"><span><b>Sound effects volume</b><small id="setSfxVolTxt">${S.settings.sfxVol == null ? 80 : S.settings.sfxVol}%</small></span><input type="range" id="setSfxVol" min="0" max="100" step="5" value="${S.settings.sfxVol == null ? 80 : S.settings.sfxVol}" style="width:150px;accent-color:#e3350d"></label>
       <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:widget} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCredits">{i:credits} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>
       <p class="muted" style="margin-top:6px;text-align:center;font-size:12px;opacity:.75">Pocket Pals · Version ${esc(String(window.APP_VERSION || '?'))}${window.APP_BUILD ? ' · ' + esc(window.APP_BUILD) : ''}</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
     $('#setMusic').addEventListener('change', e => { S.settings.music = e.target.checked; Game.save(); });
-    $('#setMusicVol').addEventListener('input', e => { S.settings.musicVol = +e.target.value; $('#musicVolTxt').textContent = e.target.value + '%'; if (+e.target.value > 0 && S.settings.music === false) { S.settings.music = true; $('#setMusic').checked = true; } Game.save(); });
+    $('#setMusicVol').addEventListener('input', e => { S.settings.musicVol = +e.target.value; $('#setMusicVolTxt').textContent = e.target.value + '%'; if (+e.target.value > 0 && S.settings.music === false) { S.settings.music = true; $('#setMusic').checked = true; } Game.save(); });
+    $('#setMasterVol').addEventListener('input', e => { S.settings.masterVol = +e.target.value; $('#setMasterVolTxt').textContent = e.target.value + '%'; Game.save(); });
+    $('#setSfxVol').addEventListener('input', e => { S.settings.sfxVol = +e.target.value; $('#setSfxVolTxt').textContent = e.target.value + '%'; if (+e.target.value > 0 && !S.settings.sound) { S.settings.sound = true; $('#setSound').checked = true; } Game.save(); });
+    // let go of a slider: play a beep so you hear the new level
+    ['#setMasterVol', '#setSfxVol'].forEach(id => $(id).addEventListener('change', () => Sound.play('tap')));
     $('#setPlayer').addEventListener('input', e => { S.settings.player = e.target.value.slice(0, 14); Game.save(); });
     $('#howTo').addEventListener('click', openManual);
     $('#openCredits').addEventListener('click', openCredits);
@@ -1457,7 +1473,7 @@ if (!code) {
     const S = ST().settings;
     return (latestPatch() > (S.seenPatch || 0)) || (latestDev() > (S.seenDevAt || 0));
   };
-  function updateMailDot() { const d = $('#mailDot'); if (d) d.classList.toggle('hidden', !mailUnread()); }
+  function updateMailDot() { const b = $('#mailBtn'); if (b) b.classList.toggle('unread', mailUnread()); }
   function openMail() {
     const S = ST().settings, seenP = S.seenPatch || 0, seenD = S.seenDevAt || 0;
     const day = s => { const d = new Date(s + 'T00:00:00'); return isNaN(d) ? 0 : d.getTime(); };   // start of the day, so same-day developer posts sort above

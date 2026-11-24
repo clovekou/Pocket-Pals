@@ -105,12 +105,18 @@ img.px { image-rendering: pixelated; width: 28px; height: 28px; flex: none; }
 .cb-runaway { background: #3a3f58; color: #fff; }
 @keyframes bob { 50% { transform: translateY(-4px); } }
 /* developer mail (patch notes), top-right corner of the scene */
-#mailBtn { position: absolute; top: 12px; right: 12px; z-index: 3; width: 44px; height: 44px; padding: 0; border-radius: 50%; display: grid; place-items: center;
-  background: #fff; border: 3px solid #fff; box-shadow: 0 0 0 2.5px #2b2f45, 0 6px 14px rgba(30, 40, 80, .25); cursor: pointer; touch-action: manipulation; }
-#mailBtn .dk { width: 30px; height: 30px; pointer-events: none; display: block; transition: transform .15s; }
+#mailBtn { position: absolute; top: 10px; right: 10px; z-index: 3; width: 48px; height: 48px; padding: 0; border: 0; background: none;
+  display: grid; place-items: center; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+#mailBtn .dk { width: 40px; height: 40px; pointer-events: none; display: block; transition: transform .15s;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .45)); }
 #mailBtn:active .dk { transform: scale(.9); }
-#mailDot { position: absolute; top: -2px; right: -2px; width: 13px; height: 13px; border-radius: 50%; background: var(--red); border: 2.5px solid #fff; box-shadow: 0 0 0 1.5px #2b2f45; }
-#mailDot.hidden { display: none; }
+/* something unread: the envelope glows and bobs gently */
+#mailBtn.unread .dk { animation: mailGlow 1.8s ease-in-out infinite; }
+@keyframes mailGlow {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(255, 214, 102, .9)) drop-shadow(0 0 8px rgba(255, 190, 60, .55)); transform: translateY(0); }
+  50% { filter: drop-shadow(0 0 7px rgba(255, 226, 130, 1)) drop-shadow(0 0 18px rgba(255, 190, 60, .9)); transform: translateY(-2px); }
+}
+#mailDot { display: none; }
 .mail { display: flex; flex-direction: column; gap: 10px; }
 .mail details { border: 2px solid var(--line); border-radius: 14px; padding: 10px 12px; background: rgba(255,255,255,.6); }
 .mail summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 8px; }
