@@ -1220,6 +1220,23 @@ if (!code) {
     }[boxSort] || (() => 0);
     return list.sort(by);
   }
+  /** a small, clean menu for one Pokémon: portrait + name, one or two clear actions, a favorite star,
+   *  and a quiet "Release" link at the bottom. Closing (✕ or tapping outside) goes back via onClose. */
+  function monMenu({ m, meta, note, actions = [], fav = null, danger = null, onClose }) {
+    const face = portraitUrl(m.sp, m.shiny, 'Normal');
+    const pic = face ? `<img class="mm-face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 72, shiny: m.shiny });
+    openSheet(`<div class="mm">
+      <button class="mm-x" data-mmx aria-label="Close">✕</button>
+      <div class="mm-top">${pic}<div class="mm-id"><h2>${m.shiny ? '{i:sparkle}' : ''}${esc(memberName(m))}</h2><small>${meta}</small>${note ? `<span>${note}</span>` : ''}</div></div>
+      <div class="mm-acts">${fav ? `<button class="mm-fav ${fav.on ? 'on' : ''}" data-mmfav aria-label="${fav.on ? 'Remove from favorites' : 'Add to favorites'}" title="Favorite">{i:star}</button>` : ''}
+        <div class="mm-main">${actions.map((a, k) => `<button class="btn ${a.cls || ''}" data-mma="${k}">${a.label}</button>`).join('')}</div></div>
+      ${danger ? `<button class="mm-danger" data-mmdanger>${danger.label}</button>` : ''}
+    </div>`, { dialog: true });
+    sheet.querySelector('[data-mmx]').addEventListener('click', () => { closeSheet(); onClose && onClose(); });
+    sheet.querySelectorAll('[data-mma]').forEach(el => el.addEventListener('click', () => { closeSheet(); actions[+el.dataset.mma].fn(); }));
+    const fb = sheet.querySelector('[data-mmfav]'); if (fb) fb.addEventListener('click', () => fav.fn());
+    const db = sheet.querySelector('[data-mmdanger]'); if (db) db.addEventListener('click', () => { closeSheet(); danger.fn(); });
+  }
   function openParty() {
     const p = Game.pet(), party = Game.party();
     const needBar = m => {
@@ -1266,14 +1283,13 @@ if (!code) {
         const pp = Game.pet(); if (!pp || pp.egg) { toast('Hatch your egg first, then you can switch.'); return openParty(); }
         doSwitch(i); openParty();
       } });
-      if (lending && !isHelper(m)) acts.push({ label: '{i:friends} Lend to friends', cls: 'gold', fn: () => {
+      if (lending && !isHelper(m)) acts.push({ label: '{i:friends} Lend to friends', cls: isMain ? 'red' : 'alt', fn: () => {
         Game.setHelper(m.key); Sound.play('medal'); Online.uploadSave(true).catch(() => {});
         toast(`{i:friends} Friends can now take ${nm} exploring!`); openParty();
       } });
       if (!isMain) acts.push({ label: 'Move to PC Box', cls: 'alt', fn: () => { Game.partyToBox(i); openParty(); } });
-      acts.push({ label: 'Close', cls: 'alt', fn: () => openParty() });
-      const notes = [isMain ? 'Your main — the one you care for.' : 'Resting in your party.', isHelper(m) ? '{i:friends} Your friends can take it exploring.' : ''].filter(Boolean).join(' ');
-      dialog(`${m.shiny ? '{i:sparkle} ' : ''}${nm}`, `${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)}<br><span class="muted">${notes}</span>`, acts);
+      const note = isMain ? 'Your main Pokémon' : isHelper(m) ? 'Resting · your friends can take it exploring' : 'Resting in your party';
+      monMenu({ m, meta: `${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)}`, note, actions: acts, onClose: openParty });
     }));
     const sortSel = sheet.querySelector('#boxSortSel');
     if (sortSel) sortSel.addEventListener('change', () => {
@@ -1285,17 +1301,18 @@ if (!code) {
       const s = SPECIES_BY_ID[m.sp];
       if (m.locked) { toast(`${memberName(m)} is in a trade right now.`); return; }
       const nm = esc(memberName(m));
-      dialog(`${m.fav ? '{i:star} ' : ''}${m.shiny ? '{i:sparkle} ' : ''}${nm}`, `Lv ${Game.memberLevel(m)} · ${ELEMENTS[s.el].label}. It's resting in your PC Box.`, [
-        { label: '{i:pokeball} Add to party', cls: 'green', fn: () => { if (!roomInParty) { toast('Your party is full.'); return openParty(); } Game.boxToParty(i); openParty(); } },
-        { label: m.fav ? '{i:star} Remove from favorites' : '{i:star} Add to favorites', cls: 'gold', fn: () => {
-          m.fav = !m.fav; Game.save(); Sound.play(m.fav ? 'medal' : 'tap'); toast(m.fav ? `{i:star} ${nm} is a favorite!` : `${nm} is no longer a favorite.`); openParty();
-        } },
-        { label: 'Release', cls: 'red', fn: () => dialog(`Release ${nm}?`, `Are you sure you want to release ${nm}?${m.fav ? ' It\'s one of your favorites!' : ''} It goes back to the wild and can't be undone.`, [
-          { label: 'Cancel', cls: 'alt', fn: () => openParty() },
-          { label: 'Yes, release', cls: 'red', fn: () => { Game.releaseBox(i); toast(`${nm} went back to the wild.`); openParty(); } },
+      Sound.play('tap');
+      const show = () => monMenu({
+        m, meta: `${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)}`, note: 'Resting in your PC Box',
+        actions: [{ label: '{i:pokeball} Add to party', cls: 'red', fn: () => { if (!roomInParty) { toast('Your party is full.'); return openParty(); } Game.boxToParty(i); Sound.play('tap'); openParty(); } }],
+        fav: { on: !!m.fav, fn: () => { m.fav = !m.fav; Game.save(); Sound.play(m.fav ? 'medal' : 'tap'); show(); } },
+        danger: { label: 'Release', fn: () => dialog(`Release ${nm}?`, `${m.fav ? 'It\'s one of your favorites! ' : ''}${nm} goes back to the wild. This can't be undone.`, [
+          { label: 'Cancel', cls: 'alt', fn: show },
+          { label: 'Release', cls: 'red', fn: () => { Game.releaseBox(i); toast(`${nm} went back to the wild.`); openParty(); } },
         ]) },
-        { label: 'Close', cls: 'alt', fn: () => openParty() },
-      ]);
+        onClose: openParty,
+      });
+      show();
     }));
     sheet.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', () => {   // stays on the Party tab
       const pp = Game.pet();

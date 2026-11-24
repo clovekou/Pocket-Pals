@@ -650,3 +650,75 @@ details.more[open] > summary::before { content: '▾ '; }
 #epMsg small { display: block; margin-top: 3px; font-size: 13px; font-weight: 600; color: var(--muted); line-height: 1.4; }
 .mapsub { opacity: 1; color: var(--muted); font-weight: 600; }
 .teamh small { font-family: var(--font); }
+
+/* ---- one-Pokémon menu (Party / PC Box) ---- */
+.mm { position: relative; }
+.mm-x { position: absolute; top: -4px; right: -4px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: #efece3; color: var(--muted); font-size: 14px; font-weight: 900; }
+.mm-top { display: flex; align-items: center; gap: 14px; padding-right: 30px; }
+.mm-face, .mm-top canvas { width: 72px; height: 72px; flex: none; border-radius: 18px; background: #eef4ff; image-rendering: pixelated; }
+.mm-id { min-width: 0; }
+.mm-id h2 { margin: 0; font-size: 24px; line-height: 1.1; display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-id small { display: block; margin-top: 4px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.mm-id span { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.mm-acts { display: flex; gap: 8px; margin-top: 18px; align-items: stretch; }
+.mm-main { flex: 1; display: grid; gap: 8px; }
+.mm-fav { flex: none; width: 52px; border: 0; border-radius: 14px; background: #efece3; display: grid; place-items: center; }
+.mm-fav .ic { width: 26px; height: 26px; margin: 0; filter: grayscale(1) opacity(.45); transition: filter .2s, transform .2s; }
+.mm-fav.on { background: #fff3c4; }
+.mm-fav.on .ic { filter: none; transform: scale(1.08); }
+.mm-danger { display: block; margin: 14px auto 0; border: 0; background: none; color: #c8401f; font-family: var(--font); font-weight: 700; font-size: 14px; padding: 6px 12px; }
+
+/* =====================================================================
+   Minimal layout: lighter borders, softer shadows, more breathing room.
+   Icons are untouched — this only changes boxes, spacing and buttons.
+   ===================================================================== */
+:root { --edge: #e6e1d3; --fill: #f3f1ea; --lift: 0 1px 2px rgba(30, 40, 70, .06), 0 4px 14px rgba(30, 40, 70, .06); }
+
+/* sheets & dialogs */
+#sheet { background: #fbfaf6; border: 0; box-shadow: 0 -10px 30px rgba(10, 15, 40, .25); padding-left: 18px; padding-right: 18px; }
+#sheet.dialog { border: 0; border-radius: 24px; padding: 22px 20px 20px; box-shadow: 0 20px 50px rgba(10, 15, 40, .35); }
+#scrim { background: rgba(12, 16, 38, .5); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.sh-head { margin: 0 -18px 16px; padding: 16px 18px 14px; background: #fbfaf6; border-bottom: 1px solid var(--edge); box-shadow: none; }
+.sh-head h2 { color: var(--ink); text-shadow: none; font-size: 22px; }
+.sh-head::before { width: 14px; height: 14px; border-width: 2px; box-shadow: 0 0 0 1.5px var(--line); }
+.x { border: 0; background: var(--fill); color: var(--muted); border-radius: 50%; width: 34px; height: 34px; }
+
+/* buttons: flat and rounded, a thin darker base instead of a heavy outline */
+.btn { border: 0; border-radius: 14px; padding: 13px 16px; box-shadow: inset 0 -3px 0 var(--red-d); }
+.btn:active { transform: translateY(1px); box-shadow: inset 0 -1px 0 var(--red-d); }
+.btn.alt { background: var(--fill); color: var(--ink); box-shadow: none; }
+.btn.alt:active { background: #e9e5da; }
+.btn.green { box-shadow: inset 0 -3px 0 #2f8a3a; }
+.btn.gold { box-shadow: inset 0 -3px 0 #d9a800; }
+.btns { gap: 10px; margin-top: 18px; }
+
+/* segmented tabs */
+.tabs, .seg { background: var(--fill); padding: 4px; border-radius: 14px; }
+.tabs button, .seg button { color: var(--muted); }
+.tabs button.on, .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(30, 40, 70, .15); }
+
+/* cards and rows: hairline edge + soft lift */
+.food, .dexcell, .itemrow, .fcard, .boxtile, .itemtile, .mcard, .bgcard, .stat, .rows, .dexmore, .mail details, .prow:not(.main):not(.empty) {
+  border: 1.5px solid var(--edge); box-shadow: var(--lift); }
+.food:active, .dexcell:active, .boxtile:active, .mcard:active { transform: scale(.98); box-shadow: none; }
+.row { border-bottom: 1px solid var(--edge); }
+.row:nth-child(odd) { background: transparent; }
+.dexcell img.face, .fcard img.face, .fcard canvas, .boxtile img.face, .boxtile canvas, .teamcard img.face, .teamcard canvas { border: 0; border-radius: 12px; }
+.hero img.portrait, .hero canvas { border: 0; border-radius: 20px; box-shadow: var(--lift); }
+.mapcard { border: 0; box-shadow: 0 6px 18px rgba(20, 15, 45, .28); }
+.mchips button { border: 1.5px solid var(--edge); }
+.itemrow button, .fcard .acts button, .itemtile button, .searchrow button, .renamer button { border: 0; border-radius: 12px; }
+.searchrow input, .renamer input, .boxsortsel select { border: 1.5px solid var(--edge); border-radius: 12px; }
+.searchrow input:focus, .renamer input:focus { outline: 2px solid var(--blue); outline-offset: 0; }
+.teamcard { border-width: 2px; box-shadow: var(--lift); }
+.teamcard:not(.lead):not(.sub):not(.friend) { border-color: var(--edge); }
+
+/* toasts: a clean floating pill */
+.toast { background: #fff; border: 0; border-radius: 999px; padding: 9px 16px; box-shadow: 0 6px 20px rgba(10, 15, 40, .25); }
+
+/* explore: the message panel under the dungeon */
+#arenaPanel { background: #fbfaf6; border: 0; border-radius: 20px; box-shadow: 0 8px 24px rgba(10, 15, 40, .3); padding: 14px 16px; }
+
+/* mail */
+.mail details { background: #fff; padding: 12px 14px; }
+.mail details.dev { border-color: #f2d58a; }
