@@ -12,9 +12,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <script>/* keep the browser's install prompt for the "Add to Home Screen" bar (ui.js) */
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__ppInstall = e; });</script>
-<link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
-<link rel="apple-touch-icon" href="icons/icon-180.png" sizes="180x180">
+<link rel="icon" href="icons/favicon-32.png?v=2" type="image/png" sizes="32x32">
+<link rel="icon" href="icons/icon-192.png?v=2" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-180.png?v=2" sizes="180x180">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- web fonts load without holding up the first screen (system fonts show until they arrive) -->
@@ -140,6 +140,7 @@ if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: sta
 </div>
 
 <script>window.PP_PREVIEW = /[?&]preview\b/.test(location.search); // ?preview = sample team, offline, separate save</script>
+<script src="version.js"></script>
 <script src="items.js"></script>
 <script src="evodata.js"></script>
 <script src="species.js"></script>

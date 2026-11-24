@@ -1344,7 +1344,8 @@ if (!code) {
       <label class="toggle"><span><b>Music volume</b><small id="musicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Sound</b><small>Retro beeps</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:widget} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCredits">{i:credits} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
-      <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>`);
+      <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>
+      <p class="muted" style="margin-top:6px;text-align:center;font-size:12px;opacity:.75">Pocket Pals · Version ${esc(String(window.APP_VERSION || '?'))}${window.APP_BUILD ? ' · ' + esc(window.APP_BUILD) : ''}</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
     $('#setMusic').addEventListener('change', e => { S.settings.music = e.target.checked; Game.save(); });
     $('#setMusicVol').addEventListener('input', e => { S.settings.musicVol = +e.target.value; $('#musicVolTxt').textContent = e.target.value + '%'; if (+e.target.value > 0 && S.settings.music === false) { S.settings.music = true; $('#setMusic').checked = true; } Game.save(); });
@@ -1494,11 +1495,15 @@ if (!code) {
   }
 
   // ---------- admin announcement: shown once per new message ----------
+  // Broadcasts (Admin → Announcement) pop up live; if a window is open, it waits until it's closed.
+  let newsTimer = null;
   function showAnnouncement() {
-    const msg = Game.config.announcement; if (!msg || !ST().player.starterPicked) return;
-    if (ST().settings.seenNews === msg || !sheet.classList.contains('hidden')) return;
-    ST().settings.seenNews = msg; Game.save();
-    dialog(icons('{i:sparkle} News'), esc(msg).replace(/\n/g, '<br>'), [{ label: 'OK', cls: 'gold' }]);
+    clearTimeout(newsTimer);
+    const n = Game.config.news; if (!n || !ST().player.starterPicked || ST().settings.seenNewsId === n.id) return;
+    if (!sheet.classList.contains('hidden')) { newsTimer = setTimeout(showAnnouncement, 4000); return; }
+    ST().settings.seenNewsId = n.id; Game.save();
+    Sound.play('medal');
+    dialog(icons('{i:sparkle} News'), esc(n.text).replace(/\n/g, '<br>'), [{ label: 'OK', cls: 'gold' }]);
   }
 
   function openManual() {
@@ -3170,12 +3175,32 @@ if (!code) {
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     const hadController = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.register('sw.js').then(reg => reg.update()).catch(() => {});
-    // a new version took over: reload once so every file is the new version
+    // the player tapped Refresh and the new version took over: reload once so every file is the new version
     let reloading = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!hadController || reloading) return;
       reloading = true; Game.save(); location.reload();
     });
+    // A new version was published: offer a Refresh bar (checked every minute and whenever the game comes back into view).
+    let updateBar = null;
+    const offerUpdate = w => {
+      if (!w || !navigator.serviceWorker.controller || updateBar) return;
+      updateBar = document.createElement('div'); updateBar.id = 'updateBar';
+      updateBar.innerHTML = icons(`<img src="icons/icon-192.png?v=2" alt=""><div class="ib"><b>A new version of Pocket Pals is ready</b><small>Refresh to update. Your progress is saved.</small></div>
+        <button class="ibgo">Refresh</button><button class="ibx" aria-label="Later">✕</button>`);
+      updateBar.querySelector('.ibgo').addEventListener('click', () => { Game.save(); w.postMessage('skipWaiting'); setTimeout(() => location.reload(), 3000); });
+      updateBar.querySelector('.ibx').addEventListener('click', () => { updateBar.remove(); });
+      document.body.appendChild(updateBar);
+    };
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      if (reg.waiting) offerUpdate(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const w = reg.installing; if (!w) return;
+        w.addEventListener('statechange', () => { if (w.state === 'installed') offerUpdate(w); });
+      });
+      const check = () => reg.update().catch(() => {});
+      check(); setInterval(check, 60000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    }).catch(() => {});
   }
 })();

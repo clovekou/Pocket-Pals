@@ -4,8 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2b2438">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pocket Pal Admin">
 <title>Pocket Pal Admin</title>
-<link rel="icon" href="icons/favicon-32.png" type="image/png">
+<link rel="manifest" href="admin.webmanifest">
+<link rel="icon" href="icons/favicon-32.png?v=2" type="image/png" sizes="32x32">
+<link rel="icon" href="icons/icon-192.png?v=2" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-180.png?v=2" sizes="180x180">
 <style>
   :root { --bg: #f4efe4; --panel: #fffdf8; --ink: #2b2438; --muted: #776f86; --line: #e4dccb; --accent: #7b61ff; --red: #e8503a; --ok: #3e9a5a; --gold: #f2b51d; --chip: #efe8da; }
   * { box-sizing: border-box; }
@@ -102,6 +108,7 @@
 
   <nav class="tabs" id="tabs" hidden>
     <button data-tab="settings" class="on">Game settings</button>
+    <button data-tab="news">Announcement</button>
     <button data-tab="codes">Gift codes</button>
     <button data-tab="players">Players</button>
     <button data-tab="evos">Evolutions</button>
@@ -118,8 +125,6 @@
       <label class="chk"><input type="checkbox" data-feat="codes"> Gift codes in Options</label>
       <label class="chk"><input type="checkbox" data-feat="shop"> Shop (Bag → Shop)</label>
     </div>
-    <h3>Announcement</h3>
-    <textarea id="cfgNews" maxlength="400" placeholder="Shown once to every player when it changes, e.g. “Mew event this weekend! Code: MEW2026”. Leave empty for none."></textarea>
     <h3>Explore</h3>
     <div class="set">
       <label>Floors per dungeon<input type="number" data-cfg="exploreFloors" min="3" max="50" step="1"><small>Default 10. The boss waits on the last floor.</small></label>
@@ -142,6 +147,19 @@
       <button class="btn alt" id="cfgReset">Reset to defaults</button>
       <span class="note" id="cfgNote"></span>
     </div>
+  </section>
+
+  <section class="card" id="newsCard" hidden>
+    <h2>Announcement</h2>
+    <p class="sub">Type a message and press <b>Broadcast</b>. It pops up straight away for everyone playing right now, and for everyone else the next time they open the game. Each player sees each broadcast once.</p>
+    <textarea id="newsText" maxlength="400" rows="4" placeholder="e.g. Mew event this weekend! Redeem code MEW2026 in Options."></textarea>
+    <div class="row" style="margin-top:6px;justify-content:space-between"><span class="note" id="newsCount">0 / 400</span></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="newsSend">Broadcast to everyone</button>
+      <button class="btn alt" id="newsClear">Stop showing</button>
+    </div>
+    <h3 style="margin-top:22px">Live now</h3>
+    <div id="newsLive"><p class="note">Loading…</p></div>
   </section>
 
   <section class="card" id="codesCard" hidden>
@@ -329,7 +347,7 @@ async function onUser(u) {
     $('#copyUid').onclick = () => navigator.clipboard.writeText(u.uid).then(() => toast('UID copied'));
     return;
   }
-  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadBanned(); loadConfig(); loadCodes(); loadEvos();
+  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadBanned(); loadConfig(); loadNews(); loadCodes(); loadEvos();
 }
 
 // ---------------- tabs ----------------
@@ -337,7 +355,7 @@ let tab = 'settings';
 function showTab(t) {
   tab = t;
   $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  $('#settingsCard').hidden = t !== 'settings'; $('#codesCard').hidden = t !== 'codes';
+  $('#settingsCard').hidden = t !== 'settings'; $('#codesCard').hidden = t !== 'codes'; $('#newsCard').hidden = t !== 'news';
   $('#playersCard').hidden = t !== 'players'; $('#editCard').hidden = t !== 'players' || !cur;
   $('#evoCard').hidden = t !== 'evos'; $('#bgCard').hidden = t !== 'bgs';
   if (t === 'bgs') loadBgs();
@@ -478,7 +496,6 @@ function fillConfig(c) {
   c = Object.assign({}, CFG_DEFAULT, c || {}); const f = Object.assign({}, CFG_DEFAULT.features, c.features || {});
   document.querySelectorAll('[data-cfg]').forEach(el => { el.value = c[el.dataset.cfg]; });
   document.querySelectorAll('[data-feat]').forEach(el => { el.checked = f[el.dataset.feat] !== false; });
-  $('#cfgNews').value = c.announcement || '';
   const b = Object.assign({}, CFG_DEFAULT.shopBuy, c.shopBuy || {}), sl = Object.assign({}, CFG_DEFAULT.shopSell, c.shopSell || {});
   document.querySelectorAll('[data-buy]').forEach(el => { el.value = b[el.dataset.buy] || 0; });
   document.querySelectorAll('[data-sell]').forEach(el => { el.value = sl[el.dataset.sell] || 0; });
@@ -491,7 +508,7 @@ async function loadConfig() {
   } catch (e) { $('#cfgNote').textContent = "Couldn't load settings: " + e.message; fillConfig(null); }
 }
 $('#cfgSave').onclick = async () => {
-  const c = { features: {}, announcement: $('#cfgNews').value.trim().slice(0, 400) };
+  const c = { features: {} };
   for (const el of document.querySelectorAll('[data-cfg]')) {
     const v = Number(el.value), lo = Number(el.min), hi = Number(el.max);
     if (!Number.isFinite(v) || el.value === '') { toast('Fill in every number'); el.focus(); return; }
@@ -506,6 +523,31 @@ $('#cfgSave').onclick = async () => {
     await db.collection('config').doc('game').set({ ...c, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: auth.currentUser.uid });
     toast('Settings saved — live for every player'); loadConfig();
   } catch (e) { toast("Couldn't save: " + e.message, 5000); }
+};
+// ---------------- announcement (config/news): broadcast live to every player ----------------
+function newsRef() { return db.collection('config').doc('news'); }
+async function loadNews() {
+  try {
+    const d = await newsRef().get(), n = d.exists ? d.data() : null;
+    $('#newsLive').innerHTML = n && n.text
+      ? `<div class="gc" style="white-space:pre-wrap">${esc(n.text)}</div><p class="note">Sent ${n.at ? esc(n.at.toDate().toLocaleString()) : ''}</p>`
+      : '<p class="note">Nothing is being shown.</p>';
+  } catch (e) { $('#newsLive').innerHTML = `<p class="note">Couldn't load: ${esc(e.message)}</p>`; }
+}
+$('#newsText').addEventListener('input', () => { $('#newsCount').textContent = $('#newsText').value.length + ' / 400'; });
+$('#newsSend').onclick = async () => {
+  const text = $('#newsText').value.trim().slice(0, 400);
+  if (!text) { toast('Type a message first'); $('#newsText').focus(); return; }
+  if (!confirm('Broadcast this to every player now?\n\n' + text)) return;
+  try {
+    await newsRef().set({ text, id: Date.now().toString(36), at: firebase.firestore.FieldValue.serverTimestamp(), by: auth.currentUser.uid });
+    toast('Broadcast sent to every player'); $('#newsText').value = ''; $('#newsCount').textContent = '0 / 400'; loadNews();
+  } catch (e) { toast("Couldn't send: " + e.message, 5000); }
+};
+$('#newsClear').onclick = async () => {
+  if (!confirm('Stop showing the current announcement? (Players who already saw it are not affected.)')) return;
+  try { await newsRef().set({ text: '', id: '', at: firebase.firestore.FieldValue.serverTimestamp(), by: auth.currentUser.uid }); toast('Announcement cleared'); loadNews(); }
+  catch (e) { toast("Couldn't clear: " + e.message, 5000); }
 };
 $('#cfgReset').onclick = () => { fillConfig(null); toast('Defaults filled in — press Save to apply'); };
 

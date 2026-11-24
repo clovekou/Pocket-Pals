@@ -154,3 +154,16 @@ python3 tools/import_dex.py      # add data for new Pokémon (keeps the ones you
 ```
 Folders without `sprite/AnimData.xml` (SpriteCollab doesn't have animations for some newer
 Pokémon yet) are skipped.
+
+## Announcements
+On the Admin page, open **Announcement**, type a message and press **Broadcast to everyone**. It pops up
+straight away for everyone playing, and for everyone else the next time they open the game (each player sees
+each broadcast once). **Stop showing** clears it. Broadcasts are stored in Firestore at `config/news`.
+
+## Versions and updates
+The game's version number is in `version.js` and shows at the bottom of **Options**. A git hook bumps it (and
+the cache name in `sw.js`) on every commit that changes game files, so after you push, anyone playing gets a
+**"A new version of Pocket Pals is ready — Refresh"** bar within about a minute. Turn the hook on once per clone:
+```bash
+git config core.hooksPath tools/hooks
+```

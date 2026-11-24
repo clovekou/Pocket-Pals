@@ -1,0 +1,16 @@
+#!/bin/sh
+# Pocket Pals: bump the game version whenever game files are committed.
+# The new number goes into version.js (shown in Options) and sw.js (the cache name). A changed sw.js is
+# what tells players' browsers a new version exists, so anyone playing gets the "Refresh" bar.
+# Turned on with:  git config core.hooksPath tools/hooks
+cd "$(git rev-parse --show-toplevel)" || exit 0
+game=$(git diff --cached --name-only | grep -vE '^(mac/|tools/|admin\.html$|dashboard\.html$|firestore\.rules$|version\.js$|.*\.md$)')
+[ -z "$game" ] && exit 0
+cur=$(perl -ne 'print $1 if /^window\.APP_VERSION = (\d+);/' version.js)
+[ -z "$cur" ] && { echo "pre-commit: couldn't read APP_VERSION in version.js" >&2; exit 1; }
+next=$((cur + 1))
+today=$(date +%Y-%m-%d)
+perl -pi -e "s/^window\.APP_VERSION = \d+;/window.APP_VERSION = $next;/; s/^window\.APP_BUILD = '.*';/window.APP_BUILD = '$today';/" version.js
+perl -pi -e "s/const CACHE = 'pocketpal-v\d+';/const CACHE = 'pocketpal-v$next';/" sw.js
+git add version.js sw.js
+echo "Pocket Pals version $next"

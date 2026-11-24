@@ -106,6 +106,11 @@ const Online = (() => {
       try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch (e) {}
       emit();
     }, () => {});
+    // broadcasts from Admin → Announcement arrive live, while people are playing
+    db.collection('config').doc('news').onSnapshot(d => {
+      const n = d.exists ? d.data() : null;
+      Game.applyNews(n && n.text ? { id: n.id, text: n.text } : null);
+    }, () => {});
   }
 
   // ---------------- gift codes (made by the admin, entered in Options) ----------------

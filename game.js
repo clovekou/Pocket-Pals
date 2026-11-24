@@ -59,6 +59,11 @@ const Game = (() => {
     CFG.shopBuy = prices(CFG_DEFAULT.shopBuy, c.shopBuy); CFG.shopSell = prices(CFG_DEFAULT.shopSell, c.shopSell);
     emit('config');
   }
+  // the admin's broadcast message (config/news): { id, text }; each new id is shown once
+  function applyNews(n) {
+    CFG.news = n && n.text ? { id: String(n.id || n.text), text: String(n.text).slice(0, 400) } : null;
+    emit('config');
+  }
   const feature = k => CFG.features[k] !== false;
   const oneIn = (n, mult) => Math.random() * Math.max(1, n / mult) < 1;   // a "1 in n" chance, boosted by mult
 
@@ -939,7 +944,7 @@ const Game = (() => {
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
     ITEMS, EXPLORE_MAPS, ENDURE_BOND, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
-    applyConfig, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem, ownsBackground, buyBackground, useBackground,
+    applyConfig, applyNews, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem, ownsBackground, buyBackground, useBackground,
     useEvoItem, giveHeld, takeHeld, evoTarget, evoUsers, heldEvo, evoMethods,
     /** admin edits to evolutions (Firestore config/evolutions) */
     applyEvolutions(o) { if (EV) { EV.setOverrides(o); emit('config'); } }, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
