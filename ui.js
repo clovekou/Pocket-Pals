@@ -1011,6 +1011,7 @@ if (!code) {
       <div class="starters">${STARTERS.map(id => { const s = SPECIES_BY_ID[id]; return `<button data-st="${id}">${miniCanvas(id, { px: 96 })}${esc(s.name)}<small>${ELEMENTS[s.el].label}</small></button>`; }).join('')}</div>`, { dialog: true, locked: true });
     sheet.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => {
       Game.pickStarter(+b.dataset.st); closeSheet(); Sound.play('hatch');
+      Install.suggestAfterStarter(SPECIES_BY_ID[+b.dataset.st].name);
       toast('Your egg is here! Tap it 3 times to hatch.', 3500);
       setTimeout(() => toast('{i:egg_legend_0} Bonus: a Mystery Egg is in your Bag → Items! Hatch your starter first, then use it.', 5500), 1800);
       setTimeout(() => toast('Tip: swipe ← → for the Dex, ↑ for its card, ↓ for settings.', 4500), 3800);
@@ -1394,11 +1395,11 @@ if (!code) {
   // ---------- add to the home screen ----------
   // Browsers never install a website without the player's tap, so the game offers it: on Android / Chrome / Edge
   // the Install button opens the browser's own install prompt; on iPhone / iPad (no prompt there) it shows the
-  // Share → "Add to Home Screen" steps. The bar appears by itself a few seconds after the game opens, unless the game
-  // is already running from the home screen or the player closed the bar in the last 3 days.
+  // Share → "Add to Home Screen" steps. The bar appears after a starter is chosen (or shortly after opening for
+  // returning players), unless the game is already running from the home screen or the player recently closed it.
   const Install = (() => {
     const KEY = 'pp-install-dismissed', SNOOZE = 3 * 864e5;
-    let evt = window.__ppInstall || null, bar = null;
+    let evt = window.__ppInstall || null, bar = null, partner = '';
     const standalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const snoozed = () => { try { return Date.now() - (+localStorage.getItem(KEY) || 0) < SNOOZE; } catch (e) { return false; } };
@@ -1430,16 +1431,19 @@ if (!code) {
     function show() {
       if (bar || !available()) return;
       bar = document.createElement('div'); bar.id = 'installBar';
-      bar.innerHTML = icons(`<img src="icons/icon-192.png" alt=""><div class="ib"><b>Add Pocket Pals to your Home Screen</b><small>Play it like an app, full screen</small></div>
+      bar.innerHTML = icons(`<img src="icons/icon-192.png" alt=""><div class="ib"><b>${partner ? 'Keep ' + esc(partner) + ' on your Home Screen' : 'Add Pocket Pals to your Home Screen'}</b><small>Play it like an app, full screen</small></div>
         <button class="ibgo">${ios ? 'How?' : 'Install'}</button><button class="ibx" aria-label="Close">✕</button>`);
       bar.querySelector('.ibgo').addEventListener('click', () => start());
       bar.querySelector('.ibx').addEventListener('click', dismiss);
       document.body.appendChild(bar);
     }
     let timer = null;
-    function autoShow() { if (snoozed() || standalone()) return; clearTimeout(timer); timer = setTimeout(show, 3500); }
+    function autoShow() {
+      if (!ST().player.starterPicked || snoozed() || standalone()) return;
+      clearTimeout(timer); timer = setTimeout(show, 3500);
+    }
     autoShow();
-    return { available, start, show };
+    return { available, start, show, suggestAfterStarter: name => { partner = name || ''; autoShow(); } };
   })();
 
   // ---------- credits ----------
