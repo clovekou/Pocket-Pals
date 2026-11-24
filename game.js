@@ -172,9 +172,11 @@ const Game = (() => {
     if (n > OFFLINE_CAP) { S.lastTick = now - OFFLINE_CAP * mpm; n = OFFLINE_CAP; }
     const before = n > 0 ? snapshot() : null;
     if (n > 0) {                       // time away is spent asleep, so energy recharges
-      quiet = n > 3;
-      for (let i = 0; i < n && !S.ceremony; i++) { S.lastTick += mpm; tick(); }
+      quiet = n > 3; restMins = 0;
+      const eggAway = n > 3 && S.pet && S.pet.egg;   // an egg can't sleep, but the rest of the team still rests while you're away
+      for (let i = 0; i < n && !S.ceremony; i++) { S.lastTick += mpm; tick(); if (eggAway && S.pet && S.pet.egg) restMins++; }
       quiet = false;
+      restTeam(restMins); restMins = 0;
     }
     // back in the app: a Pokémon that has slept enough (energy over WAKE_ENERGY) is already up; otherwise it keeps sleeping
     let woke = false;
@@ -197,6 +199,16 @@ const Game = (() => {
     return { egg: !!p.egg, sp: p.sp, level: level(), food: p.food, joy: p.joy, ene: p.ene, hyg: p.hyg, poops: p.poops };
   }
 
+  // while your main sleeps (and the game counts time away as sleep), the rest of your Pokémon rest too
+  let restMins = 0;
+  function restTeam(mins) {
+    if (mins <= 0) return;
+    [...(S.player.party || []), ...(S.player.box || [])].forEach(m => {
+      if (!m || m.egg) return;
+      m.ene = clamp((m.ene || 0) + 6 * mins);
+      if (m.asleep && m.ene > WAKE_ENERGY) m.asleep = false;
+    });
+  }
   function tick() {
     const p = S.pet; if (!p) return;
     p.ageMin++;
@@ -204,7 +216,7 @@ const Game = (() => {
     const levelUp = p.ageMin % MIN_PER_LEVEL === 0;
 
     if (p.asleep) {
-      p.ene = clamp(p.ene + 6);
+      p.ene = clamp(p.ene + 6); restMins++;
       if (p.weight > 0 && p.ageMin % 3 === 0) p.weight--;
       if (p.ageMin % 2 === 0) { p.food = dropTo(p.food, 1, 30); p.joy = dropTo(p.joy, 1, 35); }
       if (p.ageMin % 3 === 0) p.hyg = dropTo(p.hyg, 1, 45);
