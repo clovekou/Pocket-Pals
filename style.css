@@ -357,6 +357,9 @@ p { line-height: 1.55; margin: 6px 0; }
 .fcard .fi { flex: 1; min-width: 0; }
 .fcard .fi b { font-family: var(--pixel); font-size: 16px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fcard .fi small { color: var(--muted); font-size: 12px; display: block; }
+.pdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #a9a9b3; margin-right: 6px; vertical-align: middle; position: relative; top: -1px; flex: none; }
+.pdot.on { background: #2fbf5b; box-shadow: 0 0 0 2px #2fbf5b33; }
+.fcard .fi small.seen { color: var(--muted); } .fcard .fi small.seen.on { color: #1f9a46; font-weight: 700; }
 .fcard .acts { display: flex; flex-direction: column; gap: 5px; }
 .fcard .acts button { border: 2px solid var(--line); border-radius: 10px; padding: 5px 10px; font-family: var(--pixel); font-weight: 700; font-size: 13px; background: var(--red); color: #fff; box-shadow: inset 0 -3px 0 var(--red-d); white-space: nowrap; }
 .fcard .acts button.alt { background: #fff; color: var(--ink); box-shadow: inset 0 -3px 0 var(--soft); }
@@ -797,3 +800,18 @@ details.more[open] > summary::before { content: '▾ '; }
 .scard button.gold { background: var(--yellow); color: var(--ink); box-shadow: inset 0 -3px 0 #d9a800; }
 .scard button:disabled { opacity: .5; }
 .scard .sstate { margin-top: 8px; width: 100%; border-radius: 10px; padding: 7px 0; background: #eef0f4; color: var(--muted); font-weight: 800; font-size: 13px; }
+
+/* Options → Evolution guide: families stacked top-to-bottom, branches indented */
+.eg-fam { background: #fff; border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 10px; margin-bottom: 8px; }
+.eg-mon { display: flex; align-items: center; gap: 10px; padding: 3px 6px 3px 3px; border-radius: 12px; }
+.eg-mon.hit { background: #fff6cf; box-shadow: 0 0 0 2px var(--yellow) inset; }
+.eg-mon img { width: 44px; height: 44px; border-radius: 10px; background: #e6f2ff; image-rendering: pixelated; flex: none; object-fit: cover; }
+.eg-mon b { display: block; font-size: 15px; } .eg-mon small { color: var(--muted); font-size: 12px; }
+.eg-got { color: #1f9a46; font-weight: 700; }
+.eg-next { margin-left: 24px; padding-left: 10px; border-left: 2px dashed var(--line); }
+.eg-step + .eg-step { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.eg-req { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 4px 0 2px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.eg-chip { display: inline-flex; align-items: center; gap: 4px; background: #eef1f7; color: var(--ink); border-radius: 999px; padding: 2px 9px; }
+.eg-chip.item { background: #efe8ff; padding-left: 3px; }
+.eg-chip img.ic { width: 20px; height: 20px; image-rendering: pixelated; }
+.eg-when { font-weight: 600; }

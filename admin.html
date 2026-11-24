@@ -37,7 +37,10 @@
   .players { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 10px; }
   .pl { text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 10px 12px; cursor: pointer; }
   .pl.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
-  .pl b { display: block; } .pl small { color: var(--muted); }
+  .pl b { display: block; } .pl small { color: var(--muted); display: block; }
+  .pdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #a9a9b3; margin-right: 6px; vertical-align: middle; position: relative; top: -1px; }
+  .pdot.on { background: #2fbf5b; box-shadow: 0 0 0 2px #2fbf5b33; }
+  .pl small.seen.on { color: #1f9a46; font-weight: 700; }
   .mons { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
   .mon { border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
   .mon.main { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; }
@@ -399,7 +402,11 @@
   <section class="card" id="playersCard" hidden>
     <h2>Players</h2>
     <p class="sub">Pick a player to view and edit their Pokécoins and Pokémon. Changes reach the player's game straight away if it's open, or the next time they open it.</p>
-    <div class="row"><input type="search" id="q" placeholder="Search username or player ID…" style="flex:1"><button class="btn alt" id="reload">Refresh</button></div>
+    <div class="row"><input type="search" id="q" placeholder="Search username or player ID…" style="flex:1">
+      <select id="sort" style="width:auto"><option value="new">Newest registered</option><option value="seen">Online / last seen</option><option value="name">Name A–Z</option></select>
+      <label class="chk"><input type="checkbox" id="onlyOn"> Online only</label>
+      <button class="btn alt" id="reload">Refresh</button></div>
+    <p class="note" id="plCount" style="margin:8px 0 0"></p>
     <div class="players" id="players"></div>
     <h3 style="margin-top:22px">Banned accounts</h3>
     <p class="sub" style="margin-bottom:8px">Players you deleted with “ban” ticked. They can't play until you unban them; then they start over as new players.</p>
@@ -989,24 +996,50 @@ function drawCodes() {
   });
 }
 
-async function loadUsers() {
-  $('#players').innerHTML = '<p class="note">Loading players…</p>';
+async function loadUsers(quiet) {
+  if (!quiet) $('#players').innerHTML = '<p class="note">Loading players…</p>';
   try {
     const q = await db.collection('users').limit(500).get();
-    users = q.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => String(a.username).localeCompare(String(b.username)));
+    users = q.docs.map(d => ({ uid: d.id, ...d.data() }));
     drawUsers();
-  } catch (e) { $('#players').innerHTML = `<p class="note">Couldn't load players: ${esc(e.message)}</p>`; }
+  } catch (e) { if (!quiet) $('#players').innerHTML = `<p class="note">Couldn't load players: ${esc(e.message)}</p>`; }
 }
+// ---- presence: the game stamps users/{uid}.lastSeen every minute while it's on screen (online: true),
+// and online: false when it's hidden or closed. Not seen for 3 minutes = offline.
+const tsMs = t => !t ? 0 : typeof t === 'number' ? t : t.toMillis ? t.toMillis() : t.seconds ? t.seconds * 1000 : 0;
+const isOn = u => !!(u.online && tsMs(u.lastSeen) && Date.now() - tsMs(u.lastSeen) < 3 * 60000);
+function ago(ms) {
+  if (!ms) return 'never';
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  if (s < 60) return 'just now'; if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago'; if (s < 7 * 86400) return Math.floor(s / 86400) + 'd ago';
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+const fmtDate = ms => ms ? new Date(ms).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'unknown';
 function drawUsers() {
-  const q = $('#q').value.trim().toLowerCase();
-  const list = users.filter(u => !q || String(u.username).toLowerCase().includes(q) || String(u.code).toLowerCase().includes(q));
+  const q = $('#q').value.trim().toLowerCase(), sort = $('#sort').value, only = $('#onlyOn').checked;
+  const sorters = {
+    new: (a, b) => tsMs(b.createdAt) - tsMs(a.createdAt),
+    seen: (a, b) => (isOn(b) - isOn(a)) || (tsMs(b.lastSeen) - tsMs(a.lastSeen)),
+    name: (a, b) => String(a.username).localeCompare(String(b.username)),
+  };
+  const list = users.filter(u => (!q || String(u.username).toLowerCase().includes(q) || String(u.code).toLowerCase().includes(q)) && (!only || isOn(u)))
+    .sort((a, b) => sorters[sort](a, b) || String(a.username).localeCompare(String(b.username)));
+  const nOn = users.filter(isOn).length;
+  $('#plCount').innerHTML = `<i class="pdot${nOn ? ' on' : ''}"></i><b>${nOn}</b> online now · ${users.length} player${users.length === 1 ? '' : 's'} registered`;
   $('#players').innerHTML = list.map(u => {
-    const m = u.showcase && u.showcase.main;
-    return `<button class="pl ${cur && cur.uid === u.uid ? 'on' : ''}" data-uid="${esc(u.uid)}"><b>${esc(u.username)}</b><small>${esc(u.code)} · Dex ${(u.showcase && u.showcase.dex) || 0}${m ? ` · ${esc(spName(m.sp))}` : ''}</small></button>`;
-  }).join('') || '<p class="note">No players found.</p>';
+    const m = u.showcase && u.showcase.main, on = isOn(u);
+    return `<button class="pl ${cur && cur.uid === u.uid ? 'on' : ''}" data-uid="${esc(u.uid)}"><b><i class="pdot${on ? ' on' : ''}" title="${on ? 'Online' : 'Offline'}"></i>${esc(u.username)}</b>
+      <small class="seen${on ? ' on' : ''}">${on ? 'Online now' : 'Last seen ' + esc(ago(tsMs(u.lastSeen)))}</small>
+      <small title="${esc(fmtDate(tsMs(u.createdAt)))}">Joined ${esc(ago(tsMs(u.createdAt)))}</small>
+      <small>${esc(u.code)} · Dex ${(u.showcase && u.showcase.dex) || 0}${m ? ` · ${esc(spName(m.sp))}` : ''}</small></button>`;
+  }).join('') || `<p class="note">${only ? 'Nobody is online right now.' : 'No players found.'}</p>`;
   $('#players').querySelectorAll('[data-uid]').forEach(b => b.onclick = () => openPlayer(b.dataset.uid));
 }
-$('#q').oninput = drawUsers; $('#reload').onclick = () => { loadUsers(); loadBanned(); };
+$('#q').oninput = drawUsers; $('#sort').onchange = $('#onlyOn').onchange = drawUsers;
+$('#reload').onclick = () => { loadUsers(); loadBanned(); };
+// keep online dots and "last seen" fresh while the Players tab is open
+setInterval(() => { if (!$('#playersCard').hidden && !document.hidden) loadUsers(true); }, 60000);
 
 // ---- delete a player: their cloud data goes, and a note at removed/{uid} makes their game wipe its copy too ----
 async function deletePlayer() {

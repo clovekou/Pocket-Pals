@@ -186,10 +186,10 @@ const Online = (() => {
       throw new Error(friendly(e));
     }
   }
-  async function signOut() { await uploadSave(true).catch(() => {}); return auth && auth.signOut(); }
+  async function signOut() { await uploadSave(true).catch(() => {}); await beat(false); return auth && auth.signOut(); }
 
   async function onUser(user) {
-    unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer); clearInterval(widgetTimer);
+    unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer); clearInterval(widgetTimer); clearInterval(presenceTimer); clearInterval(friendTimer);
     Object.assign(st, { user, profile: null, needsUsername: false, incoming: [], outgoing: [], friends: [], trades: [], battles: [] });
     cloudChecked = false; st.cloudChecked = false;
     if (!user) { Game.setTrainer(null); emit(); return; }
@@ -208,7 +208,7 @@ const Online = (() => {
   let removing = false;
   async function accountRemoved(user, note) {
     if (removing) return; removing = true;
-    unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer); clearInterval(widgetTimer);
+    unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer); clearInterval(widgetTimer); clearInterval(presenceTimer); clearInterval(friendTimer);
     st.profile = null; cloudChecked = false; st.cloudChecked = false; lastSynced = '';
     try { ['pocketpal.syncRev.', 'pocketpal.adminRev.'].forEach(k => localStorage.removeItem(k + user.uid)); } catch (e) {}
     Game.reset();
@@ -228,7 +228,53 @@ const Online = (() => {
     syncTimer = setInterval(() => uploadSave(false), 20000);
     // the home-screen widget and desktop apps: publish your main's stats every 10 s (only when they've changed)
     widgetTimer = setInterval(() => syncWidget(false).catch(() => {}), 10000);
+    beat(!document.hidden);
+    presenceTimer = setInterval(() => { if (!document.hidden) beat(true); }, PRESENCE_MS);
+    friendTimer = setInterval(() => { if (!document.hidden) refreshFriends(); }, PRESENCE_MS);
   }
+
+  // ---------------- presence: online dot + last seen ----------------
+  // While the game is on screen we stamp users/{uid}.lastSeen every minute with online: true; hiding or closing
+  // the game writes online: false. Anyone not seen for 3 minutes counts as offline (a phone that died mid-game).
+  const PRESENCE_MS = 60000, STALE_MS = 3 * 60000;
+  let presenceTimer = null, friendTimer = null;
+  function beat(on) {
+    if (!db || !me() || !st.profile) return Promise.resolve();
+    return db.collection('users').doc(me()).update({ online: !!on, lastSeen: now() }).catch(() => {});
+  }
+  const tsMs = t => !t ? 0 : typeof t === 'number' ? t : t.toMillis ? t.toMillis() : t.seconds ? t.seconds * 1000 : 0;
+  /** { online, lastSeen (ms, 0 = never) } for a users/{uid} document */
+  function presence(u) {
+    const last = tsMs(u && u.lastSeen);
+    return { online: !!(u && u.online && last && Date.now() - last < STALE_MS), lastSeen: last };
+  }
+  /** "Online", "Last seen 5m ago", "Last seen 3 Nov" … */
+  function seenText(u) {
+    const p = presence(u);
+    if (p.online) return 'Online';
+    if (!p.lastSeen) return 'Last seen: a while ago';
+    const s = Math.max(0, (Date.now() - p.lastSeen) / 1000);
+    if (s < 60) return 'Last seen just now';
+    if (s < 3600) return `Last seen ${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `Last seen ${Math.floor(s / 3600)}h ago`;
+    if (s < 7 * 86400) return `Last seen ${Math.floor(s / 86400)}d ago`;
+    return 'Last seen ' + new Date(p.lastSeen).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: new Date(p.lastSeen).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  }
+  /** re-read friends' profiles (their online status, main, etc.); emits only when something changed */
+  async function refreshFriends() {
+    if (!db || !me() || !st.friends.length) return;
+    const fresh = await Promise.all(st.friends.map(f => db.collection('users').doc(f.uid).get().then(p => p.exists ? { ...f, ...p.data() } : f).catch(() => f)));
+    const sig = l => JSON.stringify(l.map(f => [f.uid, presence(f), f.showcase && f.showcase.main]));
+    const changed = sig(fresh) !== sig(st.friends);
+    st.friends = fresh;
+    if (changed) emit();
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!st.profile) return;
+    if (document.hidden) beat(false);
+    else { beat(true); refreshFriends(); }
+  });
+  addEventListener('pagehide', () => beat(false));
 
   // ---------------- unique username + UID ----------------
   const NAME_RE = /^[A-Za-z0-9_]{3,16}$/;
@@ -481,6 +527,6 @@ const Online = (() => {
   return {
     get state() { return st; }, on: f => subs.push(f), init, signIn, signOut, createProfile, usernameFree, NAME_RE,
     resolveConflict, uploadSave, syncWidget, findUser, addFriend, respond, cancelRequest, removeFriend,
-    suggestUsers, offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending, redeemCode, backgroundImage, clearRemovedMsg,
+    suggestUsers, presence, seenText, refreshFriends, offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending, redeemCode, backgroundImage, clearRemovedMsg,
   };
 })();

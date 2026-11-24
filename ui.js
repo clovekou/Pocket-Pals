@@ -1485,7 +1485,7 @@ if (!code) {
       <label class="toggle"><span><b>Music volume</b><small id="setMusicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Sound effects</b><small>Retro beeps and battle sounds</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Sound effects volume</b><small id="setSfxVolTxt">${S.settings.sfxVol == null ? 80 : S.settings.sfxVol}%</small></span><input type="range" id="setSfxVol" min="0" max="100" step="5" value="${S.settings.sfxVol == null ? 80 : S.settings.sfxVol}" style="width:150px;accent-color:#e3350d"></label>
-      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:widget} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="openTour">{i:map} Tutorial</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openCredits">{i:credits} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
+      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:widget} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="openTour">{i:map} Tutorial</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openEvoGuide">{i:sparkle} Evolution guide</button><button class="btn alt" id="openCredits">{i:credits} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>
       <p class="muted" style="margin-top:6px;text-align:center;font-size:12px;opacity:.75">Pocket Pals · Version ${esc(String(window.APP_VERSION || '?'))}${window.APP_BUILD ? ' · ' + esc(window.APP_BUILD) : ''}</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
@@ -1499,6 +1499,7 @@ if (!code) {
     $('#howTo').addEventListener('click', openManual);
     $('#openTour').addEventListener('click', () => { closeSheet(); Tour.start(); });
     $('#openCredits').addEventListener('click', openCredits);
+    $('#openEvoGuide').addEventListener('click', openEvoGuide);
     if ($('#openInstall')) $('#openInstall').addEventListener('click', () => Install.start(openSettings));
     if ($('#openCode')) $('#openCode').addEventListener('click', openRedeem);
     $('#openOnline').addEventListener('click', () => openOnline());
@@ -1622,6 +1623,57 @@ if (!code) {
     S.seenPatch = latestPatch(); S.seenDevAt = latestDev(); Game.save(); updateMailDot();
   }
 
+  // ---------- evolution guide (Options → Evolution guide): every family and what each step needs ----------
+  // Uses the live rules (built-in + Admin → Evolutions edits), laid out top-to-bottom for phones.
+  function openEvoGuide() {
+    const SP = SPECIES_BY_ID, IT = Game.ITEMS;
+    const steps = id => Game.evoMethods(id);
+    const from = {};
+    Object.keys(SP).forEach(id => steps(+id).forEach(m => { if (!from[m.to]) from[m.to] = +id; }));
+    const roots = Object.keys(SP).map(Number).filter(id => !from[id] && steps(id).length).sort((a, b) => a - b);
+    const members = root => { const out = [], walk = id => { if (out.includes(id)) return; out.push(id); steps(id).forEach(m => walk(m.to)); }; walk(root); return out; };
+    const dexNo = id => '#' + String(SP[id].of || id).padStart(4, '0');
+    const nameOf = id => SP[id].name;
+    const fam = roots.map(r => { const mem = members(r); return { r, mem, st: mem.flatMap(steps), text: mem.map(id => nameOf(id).toLowerCase() + ' ' + (SP[id].of || id)).join(' ') }; });
+    const reqHtml = m => {
+      const t = m.time ? ` <span class="eg-when">· ${esc(Evolution.SHORT[m.time])}</span>` : '';
+      if (m.item && IT[m.item]) return `<span class="eg-chip item">${ic(IT[m.item].icon)}${esc(IT[m.item].name)}</span><span class="eg-when">${IT[m.item].how === 'hold' ? 'hold + level up' : 'use item'}</span>${t}`;
+      if (m.bond != null) return `<span class="eg-chip">{i:heart} Bond ${m.bond}</span><span class="eg-when">friendship</span>${t}`;
+      return `<span class="eg-chip">Lv ${m.lv || '?'}</span><span class="eg-when">level up</span>${t}`;
+    };
+    const monHtml = (id, hit) => {
+      const f = portraitUrl(id, false, 'Normal'), got = Game.registered(id);
+      return `<div class="eg-mon${hit ? ' hit' : ''}">${f ? `<img loading="lazy" src="${f}" alt="" onerror="this.style.visibility='hidden'">` : `<img src="${PX.url('egg_common_0')}" alt="">`}
+        <div><b>${esc(nameOf(id))}</b><small>${dexNo(id)}${SP[id].tier === 'legend' ? ' · legendary' : ''}${got ? ' · <span class="eg-got">✓ in your Dex</span>' : ''}</small></div></div>`;
+    };
+    const chain = (id, hit, seen = []) => {
+      const st = seen.includes(id) ? [] : steps(id);          // guard against a loop made by an edit
+      return monHtml(id, hit(id)) + (st.length ? `<div class="eg-next">${st.map(m => `<div class="eg-step"><div class="eg-req">↓ ${reqHtml(m)}</div>${chain(m.to, hit, seen.concat(id))}</div>`).join('')}</div>` : '');
+    };
+    openSheet(head('{i:sparkle} Evolution guide') + `
+      <p class="muted" style="margin-top:0">How every Pokémon evolves: the level, item, friendship or time of day each step needs. Morning 5:00–11:59 · afternoon 12:00–17:59 · night 18:00–4:59.</p>
+      <div class="searchrow"><input type="search" id="egQ" placeholder="Search a Pokémon, number or item…" autocomplete="off"></div>
+      <label class="toggle" style="margin-bottom:8px"><span><b>Item evolutions only</b><small>Stones and held items</small></span><span class="sw"><input type="checkbox" id="egItems"><i></i></span></label>
+      <p class="muted" id="egCount" style="margin:0 0 8px"></p>
+      <div id="egList"></div>
+      <div class="btns" style="margin-top:12px"><button class="btn alt" id="egBack">Back to Options</button></div>`);
+    sheet.classList.add('full');
+    const draw = () => {
+      const q = $('#egQ').value.trim().toLowerCase(), onlyItems = $('#egItems').checked, qn = q.replace(/^#?0*/, '');
+      const hit = id => !!q && (nameOf(id).toLowerCase().includes(q) || String(SP[id].of || id) === qn);
+      const list = fam.filter(f => (!onlyItems || f.st.some(m => m.item))
+        && (!q || f.text.includes(q) || f.mem.some(hit) || f.st.some(m => m.item && IT[m.item] && IT[m.item].name.toLowerCase().includes(q))));
+      $('#egCount').textContent = `${list.length} of ${fam.length} evolution families`;
+      $('#egList').innerHTML = icons(list.slice(0, 120).map(f => `<div class="eg-fam">${chain(f.r, hit)}</div>`).join('')
+        + (list.length > 120 ? `<p class="muted" style="text-align:center">Showing the first 120 — search to find the rest.</p>` : '')
+        || '<p class="muted">No evolution families match.</p>');
+    };
+    let tm = null;
+    $('#egQ').addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(draw, 150); });
+    $('#egItems').addEventListener('change', draw);
+    $('#egBack').addEventListener('click', openSettings);
+    draw();
+  }
   function openCredits() {
     const link = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
     openSheet(head('Credits') + `
@@ -3445,9 +3497,14 @@ if (!code) {
     const S2 = ON(), uid = S2.user.uid;
     if (tab === 'friends') {
       if (!S2.friends.length) return '<p class="muted">No friends yet. Use <b>Add</b> to search for a username.</p>';
-      return S2.friends.map((f, i) => {
+      const nOn = S2.friends.filter(f => Online.presence(f).online).length;
+      return `<p class="muted" style="margin:0 0 8px"><i class="pdot${nOn ? ' on' : ''}"></i>${nOn} of ${S2.friends.length} online</p>` + S2.friends.map((f, i) => ({ f, i })).sort((a, b) => {
+        const pa = Online.presence(a.f), pb = Online.presence(b.f);
+        return (pb.online - pa.online) || (pb.lastSeen - pa.lastSeen);
+      }).map(({ f, i }) => {
         const m = f.showcase && f.showcase.main;
-        return `<div class="fcard">${m ? monFace(m.sp, m.shiny) : `<img class="face" src="${PX.url('egg_common_0')}" alt="">`}<div class="fi"><b>${esc(f.username)}</b><small>${esc(f.code || '')}</small><small>Main: ${m ? monLine(m) : 'none yet'}</small></div>
+        const on = Online.presence(f).online;
+        return `<div class="fcard">${m ? monFace(m.sp, m.shiny) : `<img class="face" src="${PX.url('egg_common_0')}" alt="">`}<div class="fi"><b><i class="pdot${on ? ' on' : ''}" title="${on ? 'Online' : 'Offline'}"></i>${esc(f.username)}</b><small class="seen${on ? ' on' : ''}">${esc(Online.seenText(f))}</small><small>${esc(f.code || '')}</small><small>Main: ${m ? monLine(m) : 'none yet'}</small></div>
           <div class="acts"><button data-fb="${i}">{i:sword} Battle</button><button class="gold" data-ft="${i}">{i:trade} Trade</button></div></div>`;
       }).join('') + '<p class="muted" style="margin-top:10px">Battles use your friend\'s current main. Trades never include your main.</p>';
     }
@@ -3590,9 +3647,9 @@ if (!code) {
     }
     if (s.conflict && !onlineOpen) openOnline();
     // refresh the friends screen if it's open (but not while typing)
-    if (onlineOpen && !sheet.classList.contains('hidden') && sheet.querySelector('.trainer, #onSignIn, #unIn, [data-cf]') && !sheet.contains(document.activeElement && document.activeElement.tagName === 'INPUT' ? document.activeElement : null)) openOnline();
+    if (onlineOpen && !sheet.classList.contains('hidden') && sheet.querySelector('.trainer, #onSignIn, #unIn, [data-cf]') && !sheet.contains(document.activeElement && document.activeElement.tagName === 'INPUT' ? document.activeElement : null)) { const y = sheet.scrollTop; openOnline(); sheet.scrollTop = y; }
   });
-  $('#friendsBtn').addEventListener('click', () => { if (!gateOpen) openOnline(); });
+  $('#friendsBtn').addEventListener('click', () => { if (!gateOpen) { openOnline(); Online.refreshFriends().catch(() => {}); } });
 
   // ---------- friend battle (uses your friend's current main) ----------
   function startFriendBattle(friend, theirs) {
