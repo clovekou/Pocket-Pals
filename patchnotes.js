@@ -3,6 +3,17 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 102, date: '2026-11-24', title: 'Four new places to explore',
+    notes: [
+      'Deep Forest: Grass, Bug and Poison Pokémon. Celebi is rare, but turns up more often than other legendaries.',
+      'Desert Ruins: Ground, Rock and Fire Pokémon. No legendaries live here.',
+      'Abandoned Building: Ghost, Dark and Normal Pokémon. Rare boss: Darkrai!',
+      'Abandoned Lab: Psychic, Steel and Electric Pokémon. Mewtwo is rare, but turns up more often than other legendaries.',
+      'Crystal Cave now hides its own rare legendary: Diancie!',
+      'All menus, titles, buttons and battle text now use the easy-to-read font. Your Pokémon still chats in its pixel font.',
+    ],
+  },
+  {
     version: 101, date: '2026-11-24', title: 'A cleaner look',
     notes: [
       'Menus, cards and buttons have a lighter, cleaner design with more room to breathe.',

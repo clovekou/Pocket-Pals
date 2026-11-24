@@ -631,7 +631,10 @@ const Game = (() => {
     const pool = SPECIES.filter(s => !s.prev && !isSpecial(s.id));
     return pool[rnd(pool.length)].id;
   }
-  function rollLegend() {
+  function rollLegend(map) {
+    const m = map && EXPLORE_MAPS[map];
+    if (m && m.noLegend) return null;                                   // this map has no legendaries
+    if (m && m.beast && SPECIES_BY_ID[m.beast]) return { sp: m.beast, level: Math.max(5, level()), shiny: rnd(100) === 0, legend: true };   // only its own
     const pool = SPECIES.filter(s => isSpecial(s.id));
     if (!pool.length) return null;
     const s = pool[rnd(pool.length)];
@@ -655,9 +658,10 @@ const Game = (() => {
     return p.ene >= 8;
   }
   /** what happens on a floor: 'none' | 'wild' | 'treasure' | 'egg' */
-  function rollFloor(floor) {
-    const r = Math.random();
-    const legend = (.0008 + floor * .0002) * CFG.legendMult, eggChance = Math.min(.4, (.002 + floor * .0003) * CFG.eggMult),   // Mystery Eggs in the grass: very rare
+  function rollFloor(floor, map) {
+    const r = Math.random(), m = EXPLORE_MAPS[map] || {};
+    // a wandering legendary is very rare; maps whose legendary is "more likely" (beastChance 4) double it, the desert has none
+    const legend = m.noLegend ? 0 : (.0008 + floor * .0002) * CFG.legendMult * (m.beastChance >= 4 ? 2 : 1), eggChance = Math.min(.4, (.002 + floor * .0003) * CFG.eggMult),   // Mystery Eggs in the grass: very rare
       treasure = Math.min(.55, (.2 + floor * .015) * CFG.treasureMult), wild = .3;
     if (Math.random() < legend && SPECIES.some(s => isSpecial(s.id))) return 'legend';
     if (r < eggChance) return 'egg';
@@ -681,7 +685,11 @@ const Game = (() => {
   // Explore maps. The plain Crystal Cave has every kind of Pokémon; the others favour types that fit the place
   // (weights pick a type first), and their floor boss has a small chance (beastChance %) to be that map's legendary beast.
   const EXPLORE_MAPS = {
-    cave:    { types: null },
+    cave:     { types: null, beast: 719, beastChance: 2 },                                              // Diancie (a jewel in the crystals)
+    forest:   { types: { grass: 6, bug: 5, poison: 2, fairy: 1, normal: 1 }, beast: 251, beastChance: 4 },   // Celebi — a bit more likely
+    desert:   { types: { ground: 6, rock: 5, fire: 2, fighting: 1 }, noLegend: true },                     // no legendaries here
+    building: { types: { ghost: 5, dark: 4, normal: 2, poison: 1, bug: 1 }, beast: 491, beastChance: 2 },   // Darkrai
+    lab:      { types: { psychic: 5, steel: 4, electric: 3, poison: 2 }, beast: 150, beastChance: 4 },      // Mewtwo — a bit more likely
     thunder: { types: { electric: 6, flying: 2, rock: 2 }, beast: 243, beastChance: 2 },   // Raikou
     sea:     { types: { water: 1 }, beast: 245, beastChance: 2 },                         // Suicune
     volcano: { types: { fire: 6, rock: 2, ground: 2 }, beast: 244, beastChance: 2 },       // Entei
@@ -717,7 +725,7 @@ const Game = (() => {
     const r = Math.random() * 100;
     const normal = mapPool(map, SPECIES.filter(s => !isSpecial(s.id)));
     const pools = [
-      ['legend', m.beast ? 0 : .5, SPECIES.filter(s => isSpecial(s.id))],   // themed maps: only their own beast
+      ['legend', m.beast || m.noLegend ? 0 : .5, SPECIES.filter(s => isSpecial(s.id))],   // themed maps: only their own beast (or none)
       ['final', 3.5, normal.filter(s => s.stage >= 2 && !s.next.length)],
       ['stage2', 15.5, normal.filter(s => s.stage === 2 && s.next.length)],
     ];

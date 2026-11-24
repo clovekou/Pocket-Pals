@@ -775,7 +775,7 @@
       if (Math.random() < .2) V.fx.push({ kind: 'crumb', x: bx, y: by, vx: (Math.random() - .5) * 60, vy: -30, life: .5, age: 0, col: V.eatColor });
     }
     if (p.asleep) {
-      cx.fillStyle = '#fff'; cx.font = `800 ${Math.round(size * .35)}px "PP Digits", "Pixelify Sans", system-ui`;
+      cx.fillStyle = '#fff'; cx.font = `800 ${Math.round(size * .35)}px "Nunito", system-ui, sans-serif`;
       for (let i = 0; i < 3; i++) {
         const ph = (t * .35 + i / 3) % 1;
         cx.globalAlpha = 1 - ph;
@@ -875,7 +875,7 @@
     const hop = (A.type !== 'farewell' && e > .25) ? Math.abs(Math.sin(t * 8)) * size * .1 : 0;
     drawCreature(cx, p.sp, { x, y: fy - lift, size, t, maxH: H * .42, shiny: p.shiny, mood, flip, alpha, hop });
     const msg = { farewell: `Goodbye, ${petName()}… thank you!`, release: `${petName()} returns to the wild.`, runaway: `${petName()} felt alone and left…` }[A.type];
-    cx.fillStyle = '#fff'; cx.textAlign = 'center'; cx.font = '800 17px "PP Digits", "Pixelify Sans", system-ui';
+    cx.fillStyle = '#fff'; cx.textAlign = 'center'; cx.font = '800 17px "Nunito", system-ui, sans-serif';
     cx.globalAlpha = Math.min(1, e * 3); cx.fillText(msg, W / 2, H * .22); cx.globalAlpha = 1; cx.textAlign = 'left';
     if (e >= 1) {
       V.anim = null; V.x = .5;
@@ -1815,7 +1815,11 @@ if (!code) {
   }
   // ---------- Explore: pick a map (which Pokémon live on each is in game.js EXPLORE_MAPS) ----------
   const EXPLORE_MAP_UI = [
-    { id: 'cave', name: 'Crystal Cave', desc: 'Every kind of Pokémon lives here.', thumb: 'backgrounds/explore/thumb/cave.jpg' },
+    { id: 'cave', name: 'Crystal Cave', desc: 'Every kind of Pokémon lives here. Rare boss: Diancie!', thumb: 'backgrounds/explore/thumb/cave.jpg' },
+    { id: 'forest', name: 'Deep Forest', desc: 'Grass, Bug and Poison Pokémon. Rare boss: Celebi!', src: 'backgrounds/explore/forest.jpg', thumb: 'backgrounds/explore/thumb/forest.jpg' },
+    { id: 'desert', name: 'Desert Ruins', desc: 'Ground, Rock and Fire Pokémon. No legendaries here.', src: 'backgrounds/explore/desert.jpg', thumb: 'backgrounds/explore/thumb/desert.jpg' },
+    { id: 'building', name: 'Abandoned Building', desc: 'Ghost, Dark and Normal Pokémon. Rare boss: Darkrai!', src: 'backgrounds/explore/building.jpg', thumb: 'backgrounds/explore/thumb/building.jpg' },
+    { id: 'lab', name: 'Abandoned Lab', desc: 'Psychic, Steel and Electric Pokémon. Rare boss: Mewtwo!', src: 'backgrounds/explore/lab.jpg', thumb: 'backgrounds/explore/thumb/lab.jpg' },
     { id: 'thunder', name: 'Thunder Plains', desc: 'Electric, Flying and Rock Pokémon. Rare boss: Raikou!', src: 'backgrounds/explore/thunder.jpg', thumb: 'backgrounds/explore/thumb/thunder.jpg' },
     { id: 'sea', name: 'Undersea Cave', desc: 'Water Pokémon. Rare boss: Suicune!', src: 'backgrounds/explore/sea.jpg', thumb: 'backgrounds/explore/thumb/sea.jpg' },
     { id: 'volcano', name: 'Volcano Cave', desc: 'Fire, Rock and Ground Pokémon. Rare boss: Entei!', src: 'backgrounds/explore/volcano.jpg', thumb: 'backgrounds/explore/thumb/volcano.jpg' },
@@ -1829,7 +1833,7 @@ if (!code) {
       const beast = def.beast && SPECIES_BY_ID[def.beast];
       return `<button class="mapcard" data-map="${m.id}">
         <span class="mapimg" style="background-image:url('${m.thumb}')"></span><span class="mapshade"></span>
-        <span class="mapboss">{i:sparkle} ${beast ? `Rare boss: ${beast.name}` : 'Any legendary'}</span>
+        <span class="mapboss">${def.noLegend ? 'No legendaries' : `{i:sparkle} ${beast ? `Rare boss: ${beast.name}` : 'Any legendary'}`}</span>
         <span class="mapinfo"><b class="mapname">${m.name}</b><span class="mapchips">${chips}</span></span></button>`;
     };
     openSheet(head('Choose a map') + `
@@ -2000,16 +2004,16 @@ if (!code) {
       for (let i = 0; i < 30; i++) { ac.fillStyle = 'rgba(255,255,255,.5)'; ac.fillRect(rng(i) * AW, rng(i + 9) * AH, 2, 2); }
       ac.fillStyle = '#6a5fb0'; ac.fillRect(0, AH - size * .35, AW, size * .35);
       for (const it of G.items) PX.draw(ac, it.kind || 'pokeball', it.x * AW, it.y * AH, Math.max(32, Math.round(size * .9 / 16) * 16), { rot: Math.sin(it.rot) * .3 });
-      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = 1 - pp.age * 2; ac.fillStyle = '#fff'; ac.font = '800 18px "PP Digits", "Pixelify Sans", system-ui'; ac.fillText('+1', pp.x - 8, pp.y - pp.age * 60); ac.globalAlpha = 1; return pp.age < .5; });
+      G.pops = G.pops.filter(pp => { pp.age += dt; ac.globalAlpha = 1 - pp.age * 2; ac.fillStyle = '#fff'; ac.font = '800 18px "Nunito", system-ui, sans-serif'; ac.fillText('+1', pp.x - 8, pp.y - pp.age * 60); ac.globalAlpha = 1; return pp.age < .5; });
       drawCreature(ac, p.sp, { x: dispX * AW, y: AH - size * .35, size, t, maxH: AH * .25, shiny: p.shiny, flip: d < -.002, walking: Math.abs(d) > .01, dir: Math.abs(d) > .01 ? undefined : 'front' });
       $('#arenaInfo').innerHTML = icons(`{i:pokeball}${G.score} &nbsp;${'{i:heart}'.repeat(Math.max(0, G.lives))}${'{i:heartEmpty}'.repeat(3 - Math.max(0, G.lives))} &nbsp;${Math.ceil(left / 1000)}s`);
       if (G.over) {
         ac.fillStyle = 'rgba(0,0,0,.45)'; ac.fillRect(0, 0, AW, AH);
-        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '800 28px "PP Digits", "Pixelify Sans", system-ui';
+        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '800 28px "Nunito", system-ui, sans-serif';
         ac.fillText(`${G.score} caught!`, AW / 2, AH * .42);
-        ac.font = '700 16px "PP Digits", "Pixelify Sans", system-ui'; ac.fillText(`Speed training +${(G.result && G.result.spd) || 0}`, AW / 2, AH * .42 + 30); ac.textAlign = 'left';
+        ac.font = '800 16px \"Nunito\", system-ui, sans-serif'; ac.fillText(`Speed training +${(G.result && G.result.spd) || 0}`, AW / 2, AH * .42 + 30); ac.textAlign = 'left';
       } else if (ms - G.t0 < 1800) {
-        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '700 16px "PP Digits", "Pixelify Sans", system-ui';
+        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '800 16px \"Nunito\", system-ui, sans-serif';
         ac.fillText('Drag to catch the falling Poké Balls!', AW / 2, AH * .35); ac.textAlign = 'left';
       }
       requestAnimationFrame(G.loop);
@@ -2090,7 +2094,7 @@ if (!code) {
   }
   /** text with a thick dark outline, centred */
   function outlined(txt, x, y, px, fill = '#fff') {
-    ac.font = `800 ${px}px "PP Digits", "Pixelify Sans", system-ui`; ac.textAlign = 'center'; ac.fillStyle = '#1d1530';
+    ac.font = `800 ${px}px "Nunito", system-ui, sans-serif`; ac.textAlign = 'center'; ac.fillStyle = '#1d1530';
     for (const [dx, dy] of [[-3, 0], [3, 0], [0, -3], [0, 3], [-2, -2], [2, 2], [-2, 2], [2, -2]]) ac.fillText(txt, x + dx, y + dy);
     ac.fillStyle = fill; ac.fillText(txt, x, y); ac.textAlign = 'left';
   }
@@ -2633,10 +2637,10 @@ if (!code) {
       ac.beginPath(); ac.moveTo(-10, by + 8); ac.lineTo(AW + 10, by - 8); ac.lineTo(AW + 10, by + bh - 8); ac.lineTo(-10, by + bh + 8); ac.closePath();
       const bg = ac.createLinearGradient(0, 0, AW, 0); bg.addColorStop(0, 'rgba(120,20,30,.92)'); bg.addColorStop(.5, 'rgba(30,10,40,.95)'); bg.addColorStop(1, 'rgba(120,20,30,.92)');
       ac.fillStyle = bg; ac.fill(); ac.lineWidth = 3; ac.strokeStyle = '#ffcb05'; ac.stroke();
-      ac.textAlign = 'center'; ac.fillStyle = '#ffcb05'; ac.font = '700 15px "PP Digits", "Pixelify Sans", system-ui';
+      ac.textAlign = 'center'; ac.fillStyle = '#ffcb05'; ac.font = '800 15px \"Nunito\", system-ui, sans-serif';
       ac.fillText('★  L E G E N D A R Y  ★', AW / 2, by + 24);
       const nameTxt = G.wild ? G.wild.name.toUpperCase() : '';
-      ac.font = `800 ${Math.min(36, AW / Math.max(6, nameTxt.length) * 1.3)}px "PP Digits", "Pixelify Sans", system-ui`;
+      ac.font = `800 ${Math.min(36, AW / Math.max(6, nameTxt.length) * 1.3)}px "Nunito", system-ui, sans-serif`;
       ac.lineWidth = 5; ac.strokeStyle = '#1a0610'; ac.strokeText(nameTxt, AW / 2, by + 60);
       ac.fillStyle = Math.floor(f / 90) % 2 && f < 700 ? '#fff6c8' : '#ffffff'; ac.fillText(nameTxt, AW / 2, by + 60);
       ac.textAlign = 'left'; ac.restore();
@@ -2720,14 +2724,14 @@ if (!code) {
   function hpBox(g, x, y, w, name, lv, hp, max, showNums) {
     const h = showNums ? 58 : 46;
     roundRect(g, x, y, w, h, 10); g.fillStyle = '#fbf9ef'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#2f3448'; g.stroke();
-    g.fillStyle = '#2b2d42'; g.font = '700 16px "PP Digits", "Pixelify Sans", system-ui'; g.textAlign = 'left';
-    g.fillText(name, x + 10, y + 20); g.textAlign = 'right'; g.font = '700 14px "PP Digits", "Pixelify Sans", system-ui'; g.fillText('Lv' + lv, x + w - 10, y + 20); g.textAlign = 'left';
+    g.fillStyle = '#2b2d42'; g.font = '800 16px \"Nunito\", system-ui, sans-serif'; g.textAlign = 'left';
+    g.fillText(name, x + 10, y + 20); g.textAlign = 'right'; g.font = '800 14px \"Nunito\", system-ui, sans-serif'; g.fillText('Lv' + lv, x + w - 10, y + 20); g.textAlign = 'left';
     const bx = x + 34, by = y + 28, bw = w - 44, k = Math.max(0, hp / max);
     g.fillStyle = '#2f3448'; roundRect(g, x + 8, by - 1, 24, 12, 4); g.fill();
-    g.fillStyle = '#ffcb05'; g.font = '700 10px "PP Digits", "Pixelify Sans", system-ui'; g.fillText('HP', x + 12, by + 9);
+    g.fillStyle = '#ffcb05'; g.font = '800 10px \"Nunito\", system-ui, sans-serif'; g.fillText('HP', x + 12, by + 9);
     roundRect(g, bx, by, bw, 10, 5); g.fillStyle = '#4a4e66'; g.fill(); g.strokeStyle = '#2f3448'; g.lineWidth = 2; g.stroke();
     if (k > 0) { roundRect(g, bx + 2, by + 2, (bw - 4) * k, 6, 3); g.fillStyle = k > .5 ? '#48d048' : k > .2 ? '#f8c030' : '#f85838'; g.fill(); }
-    if (showNums) { g.fillStyle = '#2b2d42'; g.font = '700 13px "PP Digits", "Pixelify Sans", system-ui'; g.textAlign = 'right'; g.fillText(`${Math.max(0, Math.ceil(hp))}/${max}`, x + w - 10, y + 52); g.textAlign = 'left'; }
+    if (showNums) { g.fillStyle = '#2b2d42'; g.font = '800 13px \"Nunito\", system-ui, sans-serif'; g.textAlign = 'right'; g.fillText(`${Math.max(0, Math.ceil(hp))}/${max}`, x + w - 10, y + 52); g.textAlign = 'left'; }
   }
 
   function startExplore(opts = {}) {
@@ -2767,9 +2771,9 @@ if (!code) {
     }
     function resolveFloor() {
       if (G.floor >= Game.EXPLORE_MAX_FLOOR) return encounter(Game.rollBoss(G.map));   // the end of the map: floor boss
-      const ev = Game.rollFloor(G.floor);
+      const ev = Game.rollFloor(G.floor, G.map);
       if (ev === 'wild') return encounter();
-      if (ev === 'legend') return encounter(Game.rollLegend());
+      if (ev === 'legend') { const L = Game.rollLegend(G.map); return encounter(L || undefined); }
       if (ev === 'treasure') {
         G.state = 'chest'; G.chest = { open: false, item: null }; G.at = now();
         say('A treasure chest!'); Sound.play('tap');
@@ -3238,12 +3242,12 @@ if (!code) {
       if (walking) {
         const k = Math.min(1, (ms - G.at) / 400);
         ac.globalAlpha = k; ac.fillStyle = 'rgba(15,20,45,.6)'; ac.fillRect(0, AH * .14, AW, 54);
-        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '700 30px "PP Digits", "Pixelify Sans", system-ui';
+        ac.fillStyle = '#fff'; ac.textAlign = 'center'; ac.font = '800 30px \"Nunito\", system-ui, sans-serif';
         ac.fillText(`${G.caveName}  B${G.floor}F`, AW / 2, AH * .14 + 38); ac.textAlign = 'left'; ac.globalAlpha = 1;
       }
     };
     arenaGame = G; requestAnimationFrame(G.loop);
-    if (opts.demo === 'legend') { G.floor = 3; info(); encounter(Game.rollLegend()); return; }
+    if (opts.demo === 'legend') { G.floor = 3; info(); encounter(Game.rollLegend(G.map) || undefined); return; }
     if (opts.demo === 'swap' && G.team[1]) { G.floor = 2; info(); encounter(Game.rollWild(G.map)); G.state = 'battle'; buttons([]); G.meHp = 0; swapIn(); return; }
     if (opts.demo === 'chest') {
       G.floor = 2; info(); const k = Game.rollTreasure(2);

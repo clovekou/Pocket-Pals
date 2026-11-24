@@ -25,10 +25,10 @@
   --hp-hi: #48d048; --hp-mid: #f8c030; --hp-lo: #f85838;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
-  /* sentences and descriptions use a rounded, easy-to-read font; titles, names, buttons and numbers keep
-     the pixel font for the game look; the Pokémon's chat box keeps its own pixel font (--chat) */
+  /* every menu, title, button and number uses a rounded, easy-to-read font;
+     only the Pokémon's chat box keeps the pixel font (--chat) */
   --font: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --pixel: "PP Digits", "Pixelify Sans", "Nunito", ui-rounded, system-ui, sans-serif;
+  --pixel: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;   /* titles, names, buttons: now the readable font too */
   --chat: "PP Digits", "Pixelify Sans", "Nunito", ui-rounded, system-ui, -apple-system, sans-serif;
   /* kept for inline styles used by the game code */
   --card: #ffffff; --card2: #f1eedf; --glass-hi: #ece8d8; --accent: #e3350d; --gold: #ffcb05;
@@ -296,7 +296,7 @@ p { line-height: 1.55; margin: 6px 0; }
 .tk-box { position: relative; background: linear-gradient(#22348a, #141f5e); border: 3px solid #fff; border-radius: 12px;
   box-shadow: 0 0 0 2px #0c1440, inset 0 0 0 2px #3c52b8, 0 6px 18px rgba(0, 0, 0, .4);
   color: #fff; padding: 10px 14px 14px; min-height: 86px; font-size: 16px; font-weight: 700; line-height: 1.4; text-shadow: 0 1px 0 #0a1040; }
-.tk-name { color: #ffd94a; font-family: var(--pixel); font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+.tk-name { color: #ffd94a; font-family: var(--chat); font-size: 18px; font-weight: 700; margin-bottom: 2px; }
 .tk-text { white-space: pre-wrap; }
 .tk-next { position: absolute; right: 12px; bottom: 4px; font-size: 12px; color: #ffd94a; animation: tkb .8s steps(2) infinite; }
 @keyframes tkb { 50% { opacity: 0; } }
@@ -722,3 +722,9 @@ details.more[open] > summary::before { content: '▾ '; }
 /* mail */
 .mail details { background: #fff; padding: 12px 14px; }
 .mail details.dev { border-color: #f2d58a; }
+
+/* readable font everywhere (except the chat box): a touch heavier for titles, names and buttons */
+#sheet h2, .sh-head h2, .btn, .tabs button, .seg button, .nm b, .chip, #arenaTitle, #arenaInfo, .mapcard .mapname, .hero h3,
+.food b, .itemrow .ii b, .fcard .fi b, .boxtile b, .itemtile b, .mcard b, .prow .pi b, .teamcard b, .mm-id h2 { font-weight: 800; letter-spacing: 0; }
+.lv::first-letter { font-size: inherit; }
+#talk, #talk * { font-family: var(--chat); }
