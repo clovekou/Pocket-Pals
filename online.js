@@ -378,6 +378,17 @@ const Online = (() => {
     const p = await db.collection('users').doc(n.data().uid).get();
     return p.exists ? { uid: n.data().uid, ...p.data() } : null;
   }
+  /** trainers you might add: the most recently active players, minus you and your friends (up to `max`) */
+  async function suggestUsers(max = 40) {
+    const uid = me(); if (!db || !uid) return [];
+    let q;
+    try { q = await db.collection('users').orderBy('showcase.updatedAt', 'desc').limit(max * 2 + 10).get(); }
+    catch (e) { q = await db.collection('users').limit(max * 2 + 10).get(); }    // no index yet: any players
+    const friends = new Set(st.friends.map(f => f.uid));
+    return q.docs.map(d => ({ uid: d.id, ...d.data() }))
+      .filter(u => u.uid !== uid && !friends.has(u.uid) && u.username)
+      .slice(0, max);
+  }
   const pairId = (a, b) => [a, b].sort().join('_');
   async function addFriend(user) {
     const uid = me();
@@ -470,6 +481,6 @@ const Online = (() => {
   return {
     get state() { return st; }, on: f => subs.push(f), init, signIn, signOut, createProfile, usernameFree, NAME_RE,
     resolveConflict, uploadSave, syncWidget, findUser, addFriend, respond, cancelRequest, removeFriend,
-    offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending, redeemCode, backgroundImage, clearRemovedMsg,
+    suggestUsers, offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending, redeemCode, backgroundImage, clearRemovedMsg,
   };
 })();

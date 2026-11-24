@@ -778,3 +778,22 @@ details.more[open] > summary::before { content: '▾ '; }
 .stp > i { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--red); color: #fff; font-style: normal; font-weight: 800; display: grid; place-items: center; font-family: var(--font); }
 .stp b { display: block; font-family: var(--pixel); font-size: 16px; }
 .stp small { display: block; color: var(--muted); font-size: 13px; line-height: 1.4; margin-top: 2px; }
+
+/* ---- Friends: full-screen sheet ---- */
+#sheet.full { top: 0; max-height: none; height: 100dvh; border-radius: 0; padding-top: var(--safe-t); }
+#sheet.full .sh-head { margin-top: 0; }
+/* Add tab: suggested trainers */
+.shead { display: flex; align-items: center; gap: 8px; margin: 18px 0 4px; }
+.shead h4 { flex: 1; margin: 0; font-family: var(--pixel); font-size: 17px; display: flex; align-items: center; gap: 6px; }
+.shead h4 .ic { width: 22px; height: 22px; margin: 0; }
+.shead button { border: 0; background: var(--fill, #f3f1ea); color: var(--ink); border-radius: 10px; padding: 6px 12px; font-family: var(--font); font-weight: 700; font-size: 13px; }
+.sgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.scard { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; background: #fff; border: 1.5px solid var(--edge, #e6e1d3); border-radius: 16px; padding: 12px 8px 10px; min-width: 0; }
+.scard img.face, .scard canvas { width: 56px; height: 56px; border-radius: 14px; background: #eef4ff; image-rendering: pixelated; margin-bottom: 4px; }
+.scard b { font-family: var(--pixel); font-size: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scard small { color: var(--muted); font-size: 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scard small .ic { width: 14px; height: 14px; vertical-align: -2px; margin: 0; }
+.scard button { margin-top: 8px; width: 100%; border: 0; border-radius: 10px; padding: 7px 0; background: var(--red); color: #fff; font-family: var(--font); font-weight: 800; font-size: 14px; box-shadow: inset 0 -3px 0 var(--red-d); }
+.scard button.gold { background: var(--yellow); color: var(--ink); box-shadow: inset 0 -3px 0 #d9a800; }
+.scard button:disabled { opacity: .5; }
+.scard .sstate { margin-top: 8px; width: 100%; border-radius: 10px; padding: 7px 0; background: #eef0f4; color: var(--muted); font-weight: 800; font-size: 13px; }

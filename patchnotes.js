@@ -3,6 +3,13 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 109, date: '2026-11-24', title: 'Find new friends',
+    notes: [
+      'The Friends screen now opens full screen.',
+      'The Add tab suggests up to 40 trainers who played recently. Tap Add to send a friend request!',
+    ],
+  },
+  {
     version: 108, date: '2026-11-24', title: 'Fresh new icons',
     notes: [
       'New icons for Friends, Options, Bag, Care, Explore, Party and the Pokédex. Bolder and easier to tell apart.',

@@ -3390,6 +3390,7 @@ if (!code) {
   // ======================= online: account, friends, trades, battles =======================
   const ON = () => Online.state;
   let onlineTab = 'friends', onlineOpen = false, searchResult = null, searchMsg = '';
+  let suggested = null, suggestBusy = false, suggestErr = '';   // Add tab: up to 40 trainers you might know
   const fmtTrainer = t => t ? `${esc(t.name)}${t.code ? ` <span class="muted">(${esc(t.code)})</span>` : ''}` : '—';
   function monFace(sp, shiny) { const f = portraitUrl(sp, shiny, 'Normal'); return f ? `<img class="face" src="${f}" alt="">` : miniCanvas(sp, { px: 52, shiny }); }
   /** your current main Pokémon's face, in a Poké Ball ring (egg picture while it's still an egg) */
@@ -3437,6 +3438,7 @@ if (!code) {
         <div class="tabs">${tabs.map(([k, l]) => `<button data-ot="${k}" class="${onlineTab === k ? 'on' : ''}">${l}</button>`).join('')}</div>` + onlineTabBody(onlineTab);
     }
     openSheet(head('Friends') + body);
+    sheet.classList.add('full');                          // the Friends screen fills the screen
     wireOnline();
   }
   function onlineTabBody(tab) {
@@ -3479,10 +3481,30 @@ if (!code) {
     }
     // add
     const r = searchResult;
+    if (!suggested && !suggestBusy) loadSuggested();
+    const out = new Set(S2.outgoing.map(x => x.to)), inc = new Set(S2.incoming.map(x => x.from));
+    const sugg = !suggested ? `<p class="muted">${suggestErr ? esc(suggestErr) : 'Finding trainers…'}</p>`
+      : !suggested.filter(u => !S2.friends.some(f => f.uid === u.uid)).length ? '<p class="muted">No other trainers yet. Share your username with friends!</p>'
+      : `<div class="sgrid">${suggested.filter(u => !S2.friends.some(f => f.uid === u.uid)).map(u => {
+          const m = u.showcase && u.showcase.main, state = out.has(u.uid) ? 'sent' : inc.has(u.uid) ? 'inc' : '';
+          return `<div class="scard">${m ? monFace(m.sp, m.shiny) : `<img class="face" src="${PX.url('friends')}" alt="">`}
+            <b>${esc(u.username)}</b><small>${m ? monLine(m) : 'New trainer'}</small><small>Pokédex ${(u.showcase && u.showcase.dex) || 0}</small>
+            ${state === 'sent' ? '<span class="sstate">Requested</span>' : `<button data-sug="${esc(u.uid)}" class="${state === 'inc' ? 'gold' : ''}">${state === 'inc' ? 'Accept' : '+ Add'}</button>`}</div>`;
+        }).join('')}</div>`;
     return `<div class="searchrow"><input id="srIn" placeholder="Exact username" autocapitalize="off" autocomplete="off"><button id="srGo">Search</button></div>
       ${r ? `<div class="fcard">${r.showcase && r.showcase.main ? monFace(r.showcase.main.sp, r.showcase.main.shiny) : `<img class="face" src="${PX.url('friends')}" alt="">`}<div class="fi"><b>${esc(r.username)}</b><small>${esc(r.code || '')}</small><small>Pokédex ${(r.showcase && r.showcase.dex) || 0}</small></div>
         <div class="acts"><button id="srAdd">Add friend</button></div></div>` : ''}
-      <p class="muted" id="srMsg">${esc(searchMsg || 'Usernames are unique, so search for the exact name your friend chose.')}</p>`;
+      <p class="muted" id="srMsg">${esc(searchMsg || 'Usernames are unique, so search for the exact name your friend chose.')}</p>
+      <div class="shead"><h4>{i:friends} Suggested trainers</h4><button id="sgRefresh" class="alt">Refresh</button></div>
+      <p class="muted" style="margin-top:0">Players who were online recently. Tap <b>Add</b> to send a friend request.</p>
+      ${sugg}`;
+  }
+  async function loadSuggested() {
+    suggestBusy = true; suggestErr = '';
+    try { suggested = await Online.suggestUsers(40); }
+    catch (e) { suggested = null; suggestErr = 'Couldn\'t load trainers right now. Try Refresh.'; }
+    suggestBusy = false;
+    if (onlineOpen && onlineTab === 'add' && sheet.querySelector('#srIn')) { const y = sheet.scrollTop; openOnline('add'); sheet.scrollTop = y; }
   }
   function wireOnline() {
     const on = (sel, ev, fn) => sheet.querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn));
@@ -3505,6 +3527,13 @@ if (!code) {
     on('#srGo', 'click', safe(async () => {
       const v = $('#srIn').value; searchResult = await Online.findUser(v);
       searchMsg = searchResult ? '' : `No trainer called "${v}".`; openOnline('add');
+    }));
+    on('#sgRefresh', 'click', () => { suggested = null; suggestErr = ''; openOnline('add'); });
+    on('[data-sug]', 'click', safe(async e => {
+      const b = e.currentTarget, u = suggested && suggested.find(x => x.uid === b.dataset.sug); if (!u) return;
+      b.disabled = true; await Online.addFriend(u);
+      toast(ON().friends.some(f => f.uid === u.uid) ? `You and ${u.username} are now friends!` : `Friend request sent to ${u.username}!`);
+      const y = sheet.scrollTop; openOnline('add'); sheet.scrollTop = y;
     }));
     on('#srAdd', 'click', safe(async () => { await Online.addFriend(searchResult); searchMsg = `Friend request sent to ${searchResult.username}!`; searchResult = null; openOnline('add'); }));
     const req = id => ON().incoming.find(r => r.id === id) || ON().outgoing.find(r => r.id === id);
