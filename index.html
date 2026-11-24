@@ -61,6 +61,13 @@ if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: sta
 
   <main id="stage">
     <canvas id="scene"></canvas>
+    <button id="mailBtn" aria-label="Developer mail: patch notes"><svg class="dk" viewBox="0 0 48 48" aria-hidden="true">
+      <rect x="6" y="12" width="36" height="26" rx="4" fill="#fbf7ea" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M7.5 36l12-11M40.5 36l-12-11" fill="none" stroke="#2b2f45" stroke-width="2" stroke-linecap="round" stroke-opacity=".55"/>
+      <path d="M7 14l17 13 17-13" fill="#efe6cf" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="24" cy="26.5" r="4.6" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2"/>
+      <path d="M22.4 26.5h3.2" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-opacity=".9"/>
+    </svg><i id="mailDot" class="hidden"></i></button>
     <div id="cerBtns"></div>
     <div id="toasts" aria-live="polite"></div>
     <div id="hint"></div>
@@ -141,6 +148,7 @@ if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: sta
 
 <script>window.PP_PREVIEW = /[?&]preview\b/.test(location.search); // ?preview = sample team, offline, separate save</script>
 <script src="version.js"></script>
+<script src="patchnotes.js"></script>
 <script src="items.js"></script>
 <script src="evodata.js"></script>
 <script src="species.js"></script>

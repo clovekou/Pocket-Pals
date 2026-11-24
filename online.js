@@ -60,6 +60,8 @@ const Online = (() => {
   // Applied from the last-known copy straight away (works offline), then refreshed live from Firestore.
   const CFG_KEY = 'pocketpal.gameConfig';
   try { const c = localStorage.getItem(CFG_KEY); if (c) Game.applyConfig(JSON.parse(c)); } catch (e) {}
+  const DEVMAIL_KEY = 'pocketpal.devmail';
+  try { const c = localStorage.getItem(DEVMAIL_KEY); if (c) Game.applyDevMail(JSON.parse(c)); } catch (e) {}
   // admin edits to evolutions (Admin → Evolutions), same caching as the game settings
   const EVO_KEY = 'pocketpal.evolutions';
   try { const c = localStorage.getItem(EVO_KEY); if (c) Game.applyEvolutions(JSON.parse(c)); } catch (e) {}
@@ -110,6 +112,12 @@ const Online = (() => {
     db.collection('config').doc('news').onSnapshot(d => {
       const n = d.exists ? d.data() : null;
       Game.applyNews(n && n.text ? { id: n.id, text: n.text } : null);
+    }, () => {});
+    // messages from Admin → Developer mail, shown in the mail box on the home screen
+    db.collection('config').doc('devmail').onSnapshot(d => {
+      const posts = d.exists ? d.data().posts : [];
+      Game.applyDevMail(posts);
+      try { localStorage.setItem(DEVMAIL_KEY, JSON.stringify(posts || [])); } catch (e) {}
     }, () => {});
   }
 

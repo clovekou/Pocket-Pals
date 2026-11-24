@@ -64,6 +64,11 @@ const Game = (() => {
     CFG.news = n && n.text ? { id: String(n.id || n.text), text: String(n.text).slice(0, 400) } : null;
     emit('config');
   }
+  // the developer's mail posts (config/devmail): [{ id, text, at }], shown in the mail box
+  function applyDevMail(list) {
+    CFG.devmail = (Array.isArray(list) ? list : []).filter(p => p && p.text).map(p => ({ id: String(p.id || p.at), text: String(p.text).slice(0, 2000), at: Number(p.at) || 0 }));
+    emit('config');
+  }
   const feature = k => CFG.features[k] !== false;
   const oneIn = (n, mult) => Math.random() * Math.max(1, n / mult) < 1;   // a "1 in n" chance, boosted by mult
 
@@ -944,7 +949,7 @@ const Game = (() => {
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
     ITEMS, EXPLORE_MAPS, ENDURE_BOND, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
-    applyConfig, applyNews, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem, ownsBackground, buyBackground, useBackground,
+    applyConfig, applyNews, applyDevMail, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem, ownsBackground, buyBackground, useBackground,
     useEvoItem, giveHeld, takeHeld, evoTarget, evoUsers, heldEvo, evoMethods,
     /** admin edits to evolutions (Firestore config/evolutions) */
     applyEvolutions(o) { if (EV) { EV.setOverrides(o); emit('config'); } }, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,

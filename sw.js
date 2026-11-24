@@ -1,6 +1,6 @@
 // Offline cache for Pocket Pal
-const CACHE = 'pocketpal-v92';
-const FILES = ['./', './index.html', './style.css', './assets/fonts/Jersey15-Regular.ttf', './items.js', './evodata.js', './evolution.js', './pixelart.js', './backgrounds.js', './sprites.js', './species.js', './creatures.js', './game.js', './version.js', './online-config.js', './online.js', './talk.js', './ui.js', './icon.svg', './assets/egg.png', ...['oran','rareCandy','pearl','starPiece','nugget','pokeball','greatball','ultraball','masterball','pecha','aspear','cheri','chest','map','coin','shop','cart'].map(n => './assets/ui/' + n + '.png'), './manifest.webmanifest'];
+const CACHE = 'pocketpal-v93';
+const FILES = ['./', './index.html', './style.css', './assets/fonts/Jersey15-Regular.ttf', './items.js', './evodata.js', './evolution.js', './pixelart.js', './backgrounds.js', './sprites.js', './species.js', './creatures.js', './game.js', './version.js', './patchnotes.js', './online-config.js', './online.js', './talk.js', './ui.js', './icon.svg', './assets/egg.png', ...['oran','rareCandy','pearl','starPiece','nugget','pokeball','greatball','ultraball','masterball','pecha','aspear','cheri','chest','map','coin','shop','cart'].map(n => './assets/ui/' + n + '.png'), './manifest.webmanifest'];
 // install: fetch every file fresh (skipping the browser's HTTP cache), so a new version never mixes in old files
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))); });
 // a new version waits until the player taps "Refresh" on the update bar (ui.js), so it never swaps mid-game

@@ -109,6 +109,7 @@
   <nav class="tabs" id="tabs" hidden>
     <button data-tab="settings" class="on">Game settings</button>
     <button data-tab="news">Announcement</button>
+    <button data-tab="devmail">Developer mail</button>
     <button data-tab="codes">Gift codes</button>
     <button data-tab="players">Players</button>
     <button data-tab="evos">Evolutions</button>
@@ -160,6 +161,16 @@
     </div>
     <h3 style="margin-top:22px">Live now</h3>
     <div id="newsLive"><p class="note">Loading…</p></div>
+  </section>
+
+  <section class="card" id="devmailCard" hidden>
+    <h2>Developer mail</h2>
+    <p class="sub">Post a message to the mail box on every player's home screen. It shows as a letter from <b>Game developer</b>, alongside the patch notes, with a red dot until they read it. Good for dev logs, plans and thank-yous.</p>
+    <textarea id="dmText" maxlength="2000" rows="6" placeholder="e.g. Hi trainers! This week I'm working on trading improvements. Thanks for all the feedback!"></textarea>
+    <div class="row" style="margin-top:6px"><span class="note" id="dmCount">0 / 2000</span></div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="dmPost">Post to Developer mail</button></div>
+    <h3 style="margin-top:22px">Posted</h3>
+    <div id="dmList"><p class="note">Loading…</p></div>
   </section>
 
   <section class="card" id="codesCard" hidden>
@@ -347,7 +358,7 @@ async function onUser(u) {
     $('#copyUid').onclick = () => navigator.clipboard.writeText(u.uid).then(() => toast('UID copied'));
     return;
   }
-  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadBanned(); loadConfig(); loadNews(); loadCodes(); loadEvos();
+  status(''); $('#tabs').hidden = false; showTab(tab); loadUsers(); loadBanned(); loadConfig(); loadNews(); loadDevMail(); loadCodes(); loadEvos();
 }
 
 // ---------------- tabs ----------------
@@ -355,7 +366,7 @@ let tab = 'settings';
 function showTab(t) {
   tab = t;
   $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  $('#settingsCard').hidden = t !== 'settings'; $('#codesCard').hidden = t !== 'codes'; $('#newsCard').hidden = t !== 'news';
+  $('#settingsCard').hidden = t !== 'settings'; $('#codesCard').hidden = t !== 'codes'; $('#newsCard').hidden = t !== 'news'; $('#devmailCard').hidden = t !== 'devmail';
   $('#playersCard').hidden = t !== 'players'; $('#editCard').hidden = t !== 'players' || !cur;
   $('#evoCard').hidden = t !== 'evos'; $('#bgCard').hidden = t !== 'bgs';
   if (t === 'bgs') loadBgs();
@@ -548,6 +559,41 @@ $('#newsClear').onclick = async () => {
   if (!confirm('Stop showing the current announcement? (Players who already saw it are not affected.)')) return;
   try { await newsRef().set({ text: '', id: '', at: firebase.firestore.FieldValue.serverTimestamp(), by: auth.currentUser.uid }); toast('Announcement cleared'); loadNews(); }
   catch (e) { toast("Couldn't clear: " + e.message, 5000); }
+};
+// ---------------- developer mail (config/devmail: { posts: [{ id, text, at }] }, newest first) ----------------
+const dmRef = () => db.collection('config').doc('devmail');
+async function loadDevMail() {
+  try {
+    const d = await dmRef().get(), posts = (d.exists && d.data().posts) || [];
+    $('#dmList').innerHTML = posts.length ? posts.map(p => `<div class="gc" style="margin-bottom:10px">
+        <div class="row" style="justify-content:space-between"><b>Game developer</b><span class="note">${esc(new Date(p.at).toLocaleString())}</span></div>
+        <div style="white-space:pre-wrap;margin:6px 0 8px">${esc(p.text)}</div>
+        <button class="btn red sm" data-dmdel="${esc(p.id)}">Delete</button></div>`).join('')
+      : '<p class="note">Nothing posted yet.</p>';
+    document.querySelectorAll('[data-dmdel]').forEach(b => b.onclick = async () => {
+      if (!confirm('Delete this post from everyone\'s mail?')) return;
+      try {
+        await db.runTransaction(async tx => {
+          const d2 = await tx.get(dmRef()), list = ((d2.exists && d2.data().posts) || []).filter(x => x.id !== b.dataset.dmdel);
+          tx.set(dmRef(), { posts: list, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        });
+        toast('Post deleted'); loadDevMail();
+      } catch (e) { toast("Couldn't delete: " + e.message, 5000); }
+    });
+  } catch (e) { $('#dmList').innerHTML = `<p class="note">Couldn't load: ${esc(e.message)}</p>`; }
+}
+$('#dmText').addEventListener('input', () => { $('#dmCount').textContent = $('#dmText').value.length + ' / 2000'; });
+$('#dmPost').onclick = async () => {
+  const text = $('#dmText').value.trim().slice(0, 2000);
+  if (!text) { toast('Write a message first'); $('#dmText').focus(); return; }
+  try {
+    await db.runTransaction(async tx => {
+      const d = await tx.get(dmRef()), list = (d.exists && d.data().posts) || [];
+      const at = Date.now();
+      tx.set(dmRef(), { posts: [{ id: at.toString(36), text, at, by: auth.currentUser.uid }].concat(list).slice(0, 50), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    });
+    toast('Posted to every player\'s mail'); $('#dmText').value = ''; $('#dmCount').textContent = '0 / 2000'; loadDevMail();
+  } catch (e) { toast("Couldn't post: " + e.message, 5000); }
 };
 $('#cfgReset').onclick = () => { fillConfig(null); toast('Defaults filled in — press Save to apply'); };
 

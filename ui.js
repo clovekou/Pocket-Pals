@@ -1448,6 +1448,32 @@ if (!code) {
   })();
 
   // ---------- credits ----------
+  // ---------- developer mail: patch notes (patchnotes.js) + messages from the developer (Admin → Developer mail) ----------
+  const PATCHES = (typeof window.PATCH_NOTES !== 'undefined' ? window.PATCH_NOTES : []).slice().sort((a, b) => b.version - a.version);
+  const latestPatch = () => (PATCHES[0] ? PATCHES[0].version : 0);
+  const devPosts = () => (Game.config.devmail || []);
+  const latestDev = () => devPosts().reduce((m, p) => Math.max(m, p.at), 0);
+  const mailUnread = () => {
+    const S = ST().settings;
+    return (latestPatch() > (S.seenPatch || 0)) || (latestDev() > (S.seenDevAt || 0));
+  };
+  function updateMailDot() { const d = $('#mailDot'); if (d) d.classList.toggle('hidden', !mailUnread()); }
+  function openMail() {
+    const S = ST().settings, seenP = S.seenPatch || 0, seenD = S.seenDevAt || 0;
+    const day = s => { const d = new Date(s + 'T00:00:00'); return isNaN(d) ? 0 : d.getTime(); };   // start of the day, so same-day developer posts sort above
+    const fmt = ms => ms ? new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    const items = PATCHES.map(p => ({ t: day(p.date), isNew: p.version > seenP, title: p.title || 'Update', meta: `v${p.version} · ${fmt(day(p.date))}`,
+        body: `<ul>${(p.notes || []).map(n => `<li>${esc(n)}</li>`).join('')}</ul>` }))
+      .concat(devPosts().map(p => ({ t: p.at, isNew: p.at > seenD, title: 'Game developer', dev: true, meta: fmt(p.at),
+        body: `<p class="devmsg">${esc(p.text).replace(/\n/g, '<br>')}</p>` })))
+      .sort((a, b) => b.t - a.t);
+    openSheet(head('Developer mail') + `<div class="mail">${items.length ? items.map((m, i) => `
+      <details class="${m.dev ? 'dev' : ''}" ${i === 0 || m.isNew ? 'open' : ''}><summary><b>${m.dev ? '✉️ ' : ''}${esc(m.title)}</b>${m.isNew ? '<span class="new">NEW</span>' : ''}<small>${esc(m.meta)}</small></summary>${m.body}</details>`).join('')
+      : '<p class="muted">No mail yet.</p>'}
+      <p class="muted" style="text-align:center;font-size:12px">You're on version ${esc(String(window.APP_VERSION || '?'))}.</p></div>`);
+    S.seenPatch = latestPatch(); S.seenDevAt = latestDev(); Game.save(); updateMailDot();
+  }
+
   function openCredits() {
     const link = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
     openSheet(head('Credits') + `
@@ -1527,7 +1553,7 @@ if (!code) {
   }
   let pressTimer = null;
   stage.addEventListener('pointerdown', e => {
-    if (e.target.closest('#cerBtns button')) return;
+    if (e.target.closest('#cerBtns button, #mailBtn')) return;
     const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     const onPet = hitPet(x, y);
     const p = Game.pet();
@@ -1667,6 +1693,8 @@ if (!code) {
   }
   $('#nameBtn').addEventListener('click', () => openCard());
   $('#settingsBtn').addEventListener('click', openSettings);
+  $('#mailBtn').addEventListener('click', () => { Sound.play('tap'); openMail(); });
+  updateMailDot();
 
   // ======================= minigames =======================
   const arena = $('#arena'), acv = $('#arenaCanvas'), ac = acv.getContext('2d');
@@ -3048,7 +3076,7 @@ if (!code) {
 
   // ======================= game events =======================
   Game.on((ev, d) => {
-    if (ev === 'config') { setTimeout(showAnnouncement, 1500); return; }
+    if (ev === 'config') { setTimeout(showAnnouncement, 1500); updateMailDot(); return; }
     if (ev === 'level') { toast(`{i:up} Level up! Lv ${d}`); Sound.play('level'); if (!Game.pet().asleep) Talk.say('level', { vars: { lv: d } }); }
     else if (ev === 'medal') { toast(`New medal: {i:${d.icon}} ${d.label}`, 3500); Sound.play('medal'); if (!Game.pet().asleep) Talk.say('medal', { vars: { medal: d.label } }); }
     else if (ev === 'milestone') { toast(`{i:flame} ${d}-day streak! Your eggs are getting luckier.`, 4000); Sound.play('medal'); Talk.say('milestone', { vars: { n: d }, prio: 2 }); }

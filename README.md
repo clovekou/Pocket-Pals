@@ -160,6 +160,15 @@ On the Admin page, open **Announcement**, type a message and press **Broadcast t
 straight away for everyone playing, and for everyone else the next time they open the game (each player sees
 each broadcast once). **Stop showing** clears it. Broadcasts are stored in Firestore at `config/news`.
 
+## Developer mail
+The envelope in the corner of the home screen opens **Developer mail**, with two kinds of letters (newest first):
+- **Patch notes** from `patchnotes.js`. Add an entry at the top when you push an update worth telling players
+  about, using the version the commit will get (the number in `version.js` plus 1).
+- **Messages from the game developer**, posted on the Admin page under **Developer mail** (stored at
+  `config/devmail`). They arrive live, and you can delete them there.
+
+A red dot shows until the player has read everything.
+
 ## Versions and updates
 The game's version number is in `version.js` and shows at the bottom of **Options**. A git hook bumps it (and
 the cache name in `sw.js`) on every commit that changes game files, so after you push, anyone playing gets a
