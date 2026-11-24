@@ -476,7 +476,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         status.button?.image = pokeballIcon()
         status.button?.toolTip = "Pocket Pals Dock"
         let menu = NSMenu(); menu.delegate = self; status.menu = menu
-        widget = DesktopWidget()
+        widget = DesktopWidget { [weak self] in self?.openGame() }
 
         let anim = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in self?.tick() }
         RunLoop.main.add(anim, forMode: .common)
@@ -597,9 +597,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func widgetEmotion() -> String {
         guard let i = info else { return "Normal" }
         let low = min(i.food, i.joy, i.ene, i.hyg), avg = Double(i.food + i.joy + i.ene + i.hyg) / 4
-        if low < 15 { return "Sad" }
-        if low < 30 { return i.ene == low ? "Sigh" : i.food == low ? "Worried" : "Sad" }
-        return avg >= 65 ? "Happy" : "Normal"
+        // same rules as the game's home-screen widget
+        if i.egg || i.asleep { return "Normal" }
+        return low < 15 ? "Crying" : low < 30 ? "Sad" : avg >= 85 ? "Joyous" : avg >= 65 ? "Happy" : "Normal"
     }
 
     func react(_ p: Pet, _ event: String) {
@@ -671,8 +671,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let sb = NSMenuItem(title: "Show portrait reactions", action: #selector(togglePortrait), keyEquivalent: "")
         sb.state = portrait.enabled ? .on : .off; sb.target = self; menu.addItem(sb)
 
-        let wd = NSMenuItem(title: "Show desktop widget", action: #selector(toggleWidget), keyEquivalent: "")
-        wd.state = widget.enabled ? .on : .off; wd.target = self; menu.addItem(wd)
+        let wd = NSMenuItem(title: "Show stats widget", action: #selector(toggleWidget), keyEquivalent: "")
+        wd.state = widget.stats.enabled ? .on : .off; wd.target = self; menu.addItem(wd)
+        let wf = NSMenuItem(title: "Show portrait widget", action: #selector(toggleFaceWidget), keyEquivalent: "")
+        wf.state = widget.face.enabled ? .on : .off; wf.target = self; menu.addItem(wf)
 
         let ct = NSMenuItem(title: "Click-through (ignore the mouse)", action: #selector(toggleClickThrough), keyEquivalent: "")
         ct.state = clickThrough ? .on : .off; ct.target = self; menu.addItem(ct)
@@ -701,7 +703,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             alert("Couldn't change Open at login", "Move Pocket Pals Dock into your Applications folder and try again.\n\n\(error.localizedDescription)")
         }
     }
-    @objc func toggleWidget() { widget.setEnabled(!widget.enabled) }
+    @objc func toggleWidget() { widget.stats.setEnabled(!widget.stats.enabled) }
+    @objc func toggleFaceWidget() { widget.face.setEnabled(!widget.face.enabled) }
     @objc func openGame() { NSWorkspace.shared.open(GAME_URL) }
     @objc func syncNow() { sync() }
     @objc func changeKey() { askToken() }

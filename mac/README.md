@@ -36,8 +36,12 @@ To preview without an account: `"Pocket Pals Dock.app/Contents/MacOS/PocketPalsD
 
 Sprites are from the PMD SpriteCollab project and are cached in `~/Library/Caches/PocketPalsDock`.
 
-## Desktop widget
-A small glass card on your desktop, in the style of the macOS Batteries widget: your main Pokémon's portrait
-(the ring is its overall wellbeing, the label its level), then rings for **Food, Happy, Energy and Clean**.
-A ring turns red under 20%, and a moon sits on the first ring while your Pokémon is asleep.
-Drag it anywhere (it remembers where). Turn it on or off with **Show desktop widget** in the menu bar.
+## Desktop widgets
+Two widgets that sit on your desktop and line up with the macOS ones:
+- **Stats** (medium size): rings for **Food, Happy, Energy and Clean**, like the Batteries widget. A ring turns
+  red under 20%, and a moon sits on the Energy ring while your Pokémon is asleep.
+- **Portrait** (small size): your main Pokémon's face, matching how it feels right now (the same expression as
+  the phone widget), with its name, level and mood.
+
+Drag either one anywhere; when you let go it snaps onto the macOS widget grid. Click one to open the game.
+Turn each on or off in the menu bar (**Show stats widget**, **Show portrait widget**).
