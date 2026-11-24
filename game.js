@@ -733,6 +733,13 @@ const Game = (() => {
     const def = st('def');
     return { id, level: lv, atk: st('atk'), def, spd: st('spd'), maxHp: Math.round(22 + lv * 2.2 + def * .25) };
   }
+  /** battle numbers for one of your party Pokémon (the explore backup): its own genes, training and level */
+  function memberBattler(m) {
+    const s = SPECIES_BY_ID[m.sp], lv = memberLevel(m), g = m.genes || {}, tr = m.tr || {};
+    const st = k => Math.floor(s.base[{ atk: 0, def: 1, spd: 2 }[k]] * (g[k] || 100) / 100) + lv + (tr[k] || 0);
+    const def = st('def');
+    return { id: m.sp, level: lv, atk: st('atk'), def, spd: st('spd'), maxHp: Math.round(22 + lv * 2.2 + def * .25) };
+  }
   function addItem(k, n = 1) { S.player.bag[k] = (S.player.bag[k] || 0) + n; save(); }
   function itemCount(k) { return S.player.bag[k] || 0; }
 
@@ -954,7 +961,7 @@ const Game = (() => {
     /** admin edits to evolutions (Firestore config/evolutions) */
     applyEvolutions(o) { if (EV) { EV.setOverrides(o); emit('config'); } }, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
-    setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, addItem, itemCount, useItem, useHeal, exploreEnd,
+    setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, memberBattler, addItem, itemCount, useItem, useHeal, exploreEnd,
     resume, canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
     stat, registered, registeredCount, shinyCount, careBonus, isFinal,
     LEGEND_UNLOCK, FAREWELL_AGE,

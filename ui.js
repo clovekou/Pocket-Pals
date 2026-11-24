@@ -98,7 +98,49 @@
         }
       } catch (e) {}
     }
-    return { unlock, play, attack, damage, ctx: () => ac };
+    /** a legendary's entrance: a deep rumble that swells, a rising whoosh, then a huge impact and a heroic chord */
+    function legendIntro() {
+      try {
+        if (!ST().settings.sound || sfxVol() <= 0 || !ac || ac.state === 'closed') return;
+        const t = ac.currentTime + .02, R = 2.7, dst = out();
+        const nb = ac.createBuffer(1, ac.sampleRate * 4, ac.sampleRate), d = nb.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        // rumble: low filtered noise that builds up until the reveal
+        const rn = ac.createBufferSource(), rf = ac.createBiquadFilter(), rg = ac.createGain();
+        rn.buffer = nb; rf.type = 'lowpass'; rf.frequency.setValueAtTime(90, t); rf.frequency.linearRampToValueAtTime(260, t + R);
+        rg.gain.setValueAtTime(.0001, t); rg.gain.exponentialRampToValueAtTime(.9, t + R - .1); rg.gain.exponentialRampToValueAtTime(.0001, t + R + .1);
+        rn.connect(rf); rf.connect(rg); rg.connect(dst); rn.start(t); rn.stop(t + R + .2);
+        // a heartbeat-like low drum, getting faster
+        for (let k = 0, x = .2; x < R - .2; k++, x += Math.max(.18, .6 - k * .06)) {
+          const o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'sine'; o.frequency.setValueAtTime(80, t + x); o.frequency.exponentialRampToValueAtTime(38, t + x + .2);
+          g.gain.setValueAtTime(.25 + x / R * .25, t + x); g.gain.exponentialRampToValueAtTime(.0001, t + x + .25);
+          o.connect(g); g.connect(dst); o.start(t + x); o.stop(t + x + .3);
+        }
+        // a rising sweep
+        const so = ac.createOscillator(), sg = ac.createGain();
+        so.type = 'sawtooth'; so.frequency.setValueAtTime(90, t + .8); so.frequency.exponentialRampToValueAtTime(1400, t + R);
+        sg.gain.setValueAtTime(.0001, t + .8); sg.gain.exponentialRampToValueAtTime(.035, t + R - .05); sg.gain.exponentialRampToValueAtTime(.0001, t + R + .05);
+        so.connect(sg); sg.connect(dst); so.start(t + .8); so.stop(t + R + .1);
+        // the impact: a boom and a crash
+        const bo = ac.createOscillator(), bg = ac.createGain();
+        bo.type = 'sine'; bo.frequency.setValueAtTime(120, t + R); bo.frequency.exponentialRampToValueAtTime(30, t + R + .8);
+        bg.gain.setValueAtTime(.7, t + R); bg.gain.exponentialRampToValueAtTime(.0001, t + R + 1);
+        bo.connect(bg); bg.connect(dst); bo.start(t + R); bo.stop(t + R + 1.1);
+        const cn = ac.createBufferSource(), cf = ac.createBiquadFilter(), cg = ac.createGain();
+        cn.buffer = nb; cf.type = 'highpass'; cf.frequency.value = 2500;
+        cg.gain.setValueAtTime(.3, t + R); cg.gain.exponentialRampToValueAtTime(.0001, t + R + 1.4);
+        cn.connect(cf); cf.connect(cg); cg.connect(dst); cn.start(t + R, 1); cn.stop(t + R + 1.5);
+        // a bold brass-like chord (D major) that rings out over the name banner
+        [146.8, 220, 293.7, 370, 440].forEach((f, i) => {
+          const o = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter();
+          o.type = 'sawtooth'; o.frequency.value = f; lp.type = 'lowpass'; lp.frequency.setValueAtTime(3000, t + R + .05); lp.frequency.exponentialRampToValueAtTime(700, t + R + 1.6);
+          g.gain.setValueAtTime(.0001, t + R + .05); g.gain.exponentialRampToValueAtTime(.03, t + R + .1); g.gain.exponentialRampToValueAtTime(.0001, t + R + 1.8 + i * .05);
+          o.connect(lp); lp.connect(g); g.connect(dst); o.start(t + R + .05); o.stop(t + R + 2);
+        });
+      } catch (e) { /* audio hiccup */ }
+    }
+    return { unlock, play, attack, damage, legendIntro, ctx: () => ac };
   })();
   document.addEventListener('pointerdown', Sound.unlock, { capture: true });
 
@@ -157,6 +199,25 @@
     ];
     const B_BARS = ['E2', 'E2', 'C2', 'D2', 'E2', 'D2', 'A1', 'B1'];
     const B8 = 60 / 148 / 2;
+
+    // ---- Legendary: an epic, heroic battle anthem in D minor — power-chord stabs, timpani, snare rolls
+    //      and a soaring brass lead (16 bars at 156 bpm, ~25 s) ----
+    const L_CH = {
+      Dm: ['D2', ['D4', 'F4', 'A4']], Bb: ['A#1', ['A#3', 'D4', 'F4']], C: ['C2', ['C4', 'E4', 'G4']],
+      Gm: ['G1', ['G3', 'A#3', 'D4']], A: ['A1', ['A3', 'C#4', 'E4']], F: ['F1', ['F3', 'A3', 'C4']],
+    };
+    const L_BARS = ['Dm', 'Dm', 'Bb', 'C', 'Dm', 'Dm', 'Gm', 'A', 'Bb', 'C', 'Dm', 'F', 'Gm', 'Bb', 'A', 'A'];
+    const L_MEL = [
+      ['D5', 3], ['A4', 1], ['D5', 2], ['E5', 2],   ['F5', 4], ['E5', 2], ['D5', 2],
+      ['F5', 3], ['G5', 1], ['F5', 2], ['D5', 2],   ['E5', 6], ['C5', 2],
+      ['D5', 2], ['F5', 2], ['A5', 4],              ['G5', 2], ['F5', 2], ['E5', 2], ['F5', 2],
+      ['G5', 3], ['A#5', 1], ['A5', 2], ['G5', 2],  ['A5', 4], ['G5', 2], ['E5', 2],
+      ['F5', 3], ['D5', 1], ['A#4', 2], ['D5', 2],  ['E5', 3], ['C5', 1], ['G5', 4],
+      ['A5', 3], ['F5', 1], ['D5', 2], ['A5', 2],   ['C6', 4], ['A5', 2], ['F5', 2],
+      ['A#5', 3], ['A5', 1], ['G5', 2], ['D5', 2],  ['F5', 3], ['G5', 1], ['A#5', 4],
+      ['A5', 4], ['C#6', 2], ['E6', 2],             ['D6', 6], [null, 2],
+    ];
+    const L8 = 60 / 156 / 2;
 
     let track = 'town', cur = 'town', switching = 0;
     let master = null, filt = null, timer = null, next = 0, step = 0, melIdx = 0, melLeft = 0;
@@ -272,6 +333,31 @@
       if (beat === 0) tone('square', root * 4, next, B8 * 7, .012, filt);                   // tense high drone
       next += B8; step = (step + 1) % (B_BARS.length * 8);
     }
+    /** a brassy lead: two detuned saws through a filter that opens on the attack */
+    function brass(ac, f, t, d, v, dest) {
+      const lp = ac.createBiquadFilter(), g = ac.createGain();
+      lp.type = 'lowpass'; lp.Q.value = 2; lp.frequency.setValueAtTime(600, t); lp.frequency.exponentialRampToValueAtTime(2800, t + .06); lp.frequency.exponentialRampToValueAtTime(1300, t + Math.max(.1, d));
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .03); g.gain.setValueAtTime(v * .8, t + Math.max(.04, d - .08)); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      lp.connect(g); g.connect(dest);
+      for (const det of [-7, 7]) { const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det; o.connect(lp); o.start(t); o.stop(t + d + .05); }
+    }
+    function stepLegend(ac) {
+      const bar = Math.floor(step / 8) % L_BARS.length, beat = step % 8, [root, tri] = L_CH[L_BARS[bar]], t = next, R0 = NOTE(root);
+      if (melLeft <= 0) {
+        const [n, len] = L_MEL[melIdx]; melIdx = (melIdx + 1) % L_MEL.length; melLeft = len;
+        if (n) { brass(ac, NOTE(n), t, len * L8 * .95, .05, filt); tone('square', NOTE(n) / 2, t, len * L8 * .9, .012, filt); }
+      }
+      melLeft--;
+      tone('sawtooth', R0 * (beat % 2 ? 2 : 1), t, L8 * .7, .055, filt);                          // galloping bass
+      if (beat === 0 || beat === 3 || beat === 6) tri.forEach(n => tone('sawtooth', NOTE(n), t, L8 * (beat === 0 ? 1.6 : .8), .018, filt));   // power-chord stabs
+      tone('sine', NOTE(tri[[0, 1, 2, 1][beat % 4]]) * 4, t, L8 * .6, .012, filt);                 // glittering arpeggio
+      if (beat === 0 || beat === 4) { kick(t, filt, .3); tone('sine', R0 * 2, t, .35, .12, filt); } // timpani
+      if (beat === 2 || beat === 6) noiseHit(ac, t, .12, .09, 'bandpass', 1800, master, 1.2);       // snare
+      if (bar % 4 === 3 && beat >= 6) noiseHit(ac, t + L8 / 2, .08, .06, 'bandpass', 2000, master, 1.2);   // snare roll into the next phrase
+      if (beat % 2) noiseHit(ac, t, .04, .012, 'highpass', 7000, master);                           // hi-hat
+      if (bar % 8 === 0 && beat === 0) noiseHit(ac, t, 1.4, .05, 'highpass', 4500, master);         // cymbal crash
+      next += L8; step = (step + 1) % (L_BARS.length * 8);
+    }
     function schedule() {
       const ac = Sound.ctx();
       if (!ac || ac.state !== 'running') return;
@@ -286,15 +372,16 @@
         if (ac.currentTime < switching) return;
         cur = track; switching = 0; step = 0; melIdx = 0; melLeft = 0; next = ac.currentTime + .05;
       } else switching = 0;
+      if (cur === 'silent') { master.gain.setTargetAtTime(0, ac.currentTime, .15); return; }   // a hush before a legendary appears
       const P = Game.pet(), quiet = cur === 'town' && P && P.asleep;
-      filt.frequency.setTargetAtTime(cur === 'dungeon' ? 1500 : cur === 'boss' ? 3200 : 2600, ac.currentTime, .2);   // home: warm but clear
-      master.gain.setTargetAtTime(vol() * (quiet ? .5 : cur === 'boss' ? 1.1 : 1.2), ac.currentTime, .15);
+      filt.frequency.setTargetAtTime(cur === 'dungeon' ? 1500 : cur === 'boss' ? 3200 : cur === 'legend' ? 4200 : 2600, ac.currentTime, .2);   // home: warm but clear
+      master.gain.setTargetAtTime(vol() * (quiet ? .5 : cur === 'boss' || cur === 'legend' ? 1.1 : 1.2), ac.currentTime, .15);
       if (next < ac.currentTime) next = ac.currentTime + .1;
-      const fn = cur === 'dungeon' ? stepDungeon : cur === 'boss' ? stepBoss : stepHome;
+      const fn = cur === 'dungeon' ? stepDungeon : cur === 'boss' ? stepBoss : cur === 'legend' ? stepLegend : stepHome;
       while (next < ac.currentTime + .35) fn(ac);
     }
     function start() { if (!timer) timer = setInterval(() => { try { schedule(); } catch (e) { /* audio hiccup */ } }, 90); }
-    /** pick the tune: 'town' (home), 'dungeon' (exploring) or 'boss' (floor boss fight) */
+    /** pick the tune: 'town' (home), 'dungeon' (exploring), 'boss' (floor boss fight), 'legend' (legendary battle) or 'silent' */
     function set(name) { track = name; }
     return { start, set };
   })();
@@ -1706,7 +1793,50 @@ if (!code) {
       <div class="maplist">${EXPLORE_MAP_UI.map(card).join('')}</div>
       <div class="btns"><button class="btn alt" id="mapBack">← Back</button></div>`);
     $('#mapBack').addEventListener('click', openAdventure);
-    sheet.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { closeSheet(); startExplore({ map: b.dataset.map }); }));
+    sheet.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => openTeam(b.dataset.map)));
+  }
+  // ---------- Explore: pick a team of two — a Main that explores and a Backup that takes over if it faints ----------
+  function openTeam(mapId) {
+    const main = Game.pet();
+    const pool = [{ m: main, i: -1 }, ...Game.party().map((m, i) => ({ m, i }))].filter(x => x.m && !x.m.egg && !x.m.locked && SPECIES_BY_ID[x.m.sp]);
+    if (pool.length < 2) { closeSheet(); return startExplore({ map: mapId }); }   // nobody to bring along
+    const nm = x => x.m.name || SPECIES_BY_ID[x.m.sp].name;
+    const lv = x => x.i < 0 ? Game.level() : Game.memberLevel(x.m);
+    const cfg = Game.config || {};
+    const whyNot = x => x.m.asleep ? 'Asleep' : x.m.ene < (cfg.exploreEnergy || 0) ? 'Too tired' : x.m.food < 20 ? 'Too hungry' : '';
+    let lead = 0, sub = 1, role = 'sub';
+    const render = () => {
+      const card = (x, k) => {
+        const tag = k === lead ? '<em class="tl">MAIN</em>' : k === sub ? '<em class="ts">BACKUP</em>' : '', no = whyNot(x);
+        return `<button class="teamcard${k === lead ? ' lead' : k === sub ? ' sub' : ''}" data-k="${k}">${tag}${monFace(x.m.sp, x.m.shiny)}
+          <b>${x.m.shiny ? '{i:sparkle}' : ''}${esc(nm(x))}</b><small>Lv ${lv(x)}${no ? ` · ${no}` : ''}</small></button>`;
+      };
+      openSheet(head('Choose your team') + `
+        <p class="mapsub">Pick a <b>Main</b> to explore and a <b>Backup</b> who jumps in if the Main faints.</p>
+        <div class="tabs"><button data-role="lead" class="${role === 'lead' ? 'on' : ''}">Main: ${esc(nm(pool[lead]))}</button><button data-role="sub" class="${role === 'sub' ? 'on' : ''}">Backup: ${sub == null ? 'none' : esc(nm(pool[sub]))}</button></div>
+        <div class="teamgrid">${pool.map(card).join('')}</div>
+        <p class="muted">Tap a tab, then tap a Pokémon. Tap the Backup again to go without one.${pool[lead].i >= 0 ? ' Your Main becomes the Pokémon you look after at home.' : ''}</p>
+        <div class="btns two"><button class="btn alt" id="teamBack">← Back</button><button class="btn red" id="teamGo">{i:map} Explore!</button></div>`);
+      sheet.querySelectorAll('[data-role]').forEach(b => b.addEventListener('click', () => { role = b.dataset.role; Sound.play('tap'); render(); }));
+      sheet.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => {
+        const k = +b.dataset.k; Sound.play('tap');
+        if (role === 'lead') {
+          if (whyNot(pool[k])) { toast(`${esc(nm(pool[k]))} can't lead: ${whyNot(pool[k]).toLowerCase()}.`); Sound.play('no'); return; }
+          if (k === sub) sub = lead;
+          lead = k; role = 'sub';
+        } else if (k === sub) sub = null;
+        else if (k === lead) { if (sub == null || whyNot(pool[sub])) { toast('Pick a different Pokémon as the Backup.'); return; } [lead, sub] = [sub, lead]; }
+        else sub = k;
+        render();
+      }));
+      $('#teamBack').addEventListener('click', openMaps);
+      $('#teamGo').addEventListener('click', () => {
+        const L = pool[lead], subM = sub == null ? null : pool[sub].m;
+        if (L.i >= 0 && !Game.switchMain(Game.party().indexOf(L.m))) { toast('Couldn\'t switch your Main right now.'); Sound.play('no'); return; }
+        closeSheet(); startExplore({ map: mapId, sub: subM });
+      });
+    };
+    render();
   }
   $('#nameBtn').addEventListener('click', () => openCard());
   $('#settingsBtn').addEventListener('click', openSettings);
@@ -2345,11 +2475,82 @@ if (!code) {
   // an uploaded "Explore & battles" picture replaces the built-in cave
   let exploreImg = null;
   const WALK_MS = 1700;   // how long the walk to each new floor takes
+  const LEGEND_INTRO_MS = 4600, LEGEND_REVEAL_MS = 2700;   // the legendary entrance, and when it bursts into colour
+  const SWAP_OUT_MS = 900, SWAP_IN_MS = 1300;             // the fainted Main fades out, then the Backup is thrown in
+  /** a cinematic overlay for a legendary's entrance: darkness, rumble, light beams, a flash and a name banner */
+  function drawLegendIntro(G, ms, wx, wy, size, layer) {
+    const e = ms - G.intro.at, R = LEGEND_REVEAL_MS, D = LEGEND_INTRO_MS;
+    if (e > D + 600) return;
+    const cy = wy - size * 1.1;
+    if (layer === 'back') {
+    // darkness that closes in, then lifts after the reveal
+    const dark = e < R ? Math.min(.82, e / 900 * .82) : Math.max(0, .82 * (1 - (e - R) / 500));
+    if (dark > 0) { ac.fillStyle = `rgba(6,2,18,${dark})`; ac.fillRect(-20, -20, AW + 40, AH + 40); }
+    // a golden aura that pulses faster and faster around the shadow
+    if (e < R + 400) {
+      const k = Math.min(1, e / R), pulse = .5 + .5 * Math.sin(e / (140 - k * 90));
+      const gr = ac.createRadialGradient(wx, cy, 4, wx, cy, size * (1.6 + k * 1.6));
+      gr.addColorStop(0, `rgba(255,214,90,${(.25 + .45 * k) * (.6 + .4 * pulse)})`); gr.addColorStop(1, 'rgba(255,214,90,0)');
+      ac.fillStyle = gr; ac.fillRect(wx - size * 4, cy - size * 4, size * 8, size * 8);
+    }
+    // light beams sweeping out from the Pokémon, growing until the flash
+    if (e > 700 && e < R + 900) {
+      const k = Math.min(1, (e - 700) / (R - 700)), fade = e > R ? 1 - (e - R) / 900 : 1, n = 12;
+      ac.save(); ac.translate(wx, cy); ac.rotate(e / 900); ac.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < n; i++) {
+        const a = i / n * Math.PI * 2, L = Math.max(AW, AH) * (.3 + k * .9), wd = .05 + .04 * Math.sin(e / 200 + i);
+        ac.beginPath(); ac.moveTo(0, 0); ac.lineTo(Math.cos(a - wd) * L, Math.sin(a - wd) * L); ac.lineTo(Math.cos(a + wd) * L, Math.sin(a + wd) * L); ac.closePath();
+        ac.fillStyle = `rgba(255,${200 + (i % 2) * 40},${120 + (i % 3) * 40},${.22 * k * fade})`; ac.fill();
+      }
+      ac.restore();
+    }
+    // sparks sucked inward before the reveal
+    if (e < R) for (let i = 0; i < 26; i++) {
+      const life = ((e / 900 + rng(i * 7)) % 1), a = rng(i * 3) * Math.PI * 2, r = (1 - life) * size * 4;
+      PX.draw(ac, 'sparkle', wx + Math.cos(a) * r, cy + Math.sin(a) * r * .7, 12 + Math.round(rng(i) * 8), { alpha: Math.min(1, life * 2) * Math.min(1, e / 600) });
+    }
+    return;
+    }
+    // ---- front layer (over the Pokémon) ----
+    // the reveal: a white flash, a shockwave ring and a burst of stars
+    if (e >= R) {
+      const f = e - R;
+      if (f < 500) { ac.fillStyle = `rgba(255,255,255,${1 - f / 500})`; ac.fillRect(-20, -20, AW + 40, AH + 40); }
+      for (let ring = 0; ring < 2; ring++) {
+        const rk = (f - ring * 180) / 900; if (rk <= 0 || rk >= 1) continue;
+        ac.beginPath(); ac.ellipse(wx, wy - size * .3, rk * AW * .7, rk * AW * .25, 0, 0, Math.PI * 2);
+        ac.lineWidth = 8 * (1 - rk); ac.strokeStyle = `rgba(255,230,140,${1 - rk})`; ac.stroke();
+      }
+      if (f < 1400) for (let i = 0; i < 18; i++) {
+        const a = i / 18 * Math.PI * 2 + rng(i) * .3, r = f / 1400 * size * (3 + rng(i + 4) * 2.5);
+        PX.draw(ac, 'sparkle', wx + Math.cos(a) * r, cy + Math.sin(a) * r * .8, 18, { alpha: 1 - f / 1400 });
+      }
+    }
+    // cinematic letterbox bars
+    const bar = AH * .11 * (e < 400 ? e / 400 : e > D ? Math.max(0, 1 - (e - D) / 500) : 1);
+    ac.fillStyle = '#05030d'; ac.fillRect(-20, -20, AW + 40, bar + 20); ac.fillRect(-20, AH - bar, AW + 40, bar + 20);
+    // the name banner slams in from the right after the reveal
+    if (e > R + 150) {
+      const f = e - R - 150, inK = Math.min(1, f / 280), outK = e > D - 300 ? Math.min(1, (e - (D - 300)) / 500) : 0;
+      const by = AH * .36, bh = 74, x = (1 - inK) * AW * 1.2 - outK * AW * 1.2;
+      ac.save(); ac.translate(x, 0);
+      ac.beginPath(); ac.moveTo(-10, by + 8); ac.lineTo(AW + 10, by - 8); ac.lineTo(AW + 10, by + bh - 8); ac.lineTo(-10, by + bh + 8); ac.closePath();
+      const bg = ac.createLinearGradient(0, 0, AW, 0); bg.addColorStop(0, 'rgba(120,20,30,.92)'); bg.addColorStop(.5, 'rgba(30,10,40,.95)'); bg.addColorStop(1, 'rgba(120,20,30,.92)');
+      ac.fillStyle = bg; ac.fill(); ac.lineWidth = 3; ac.strokeStyle = '#ffcb05'; ac.stroke();
+      ac.textAlign = 'center'; ac.fillStyle = '#ffcb05'; ac.font = '700 15px "PP Digits", "Pixelify Sans", system-ui';
+      ac.fillText('★  L E G E N D A R Y  ★', AW / 2, by + 24);
+      const nameTxt = G.wild ? G.wild.name.toUpperCase() : '';
+      ac.font = `800 ${Math.min(36, AW / Math.max(6, nameTxt.length) * 1.3)}px "PP Digits", "Pixelify Sans", system-ui`;
+      ac.lineWidth = 5; ac.strokeStyle = '#1a0610'; ac.strokeText(nameTxt, AW / 2, by + 60);
+      ac.fillStyle = Math.floor(f / 90) % 2 && f < 700 ? '#fff6c8' : '#ffffff'; ac.fillText(nameTxt, AW / 2, by + 60);
+      ac.textAlign = 'left'; ac.restore();
+    }
+  }
   // where the Pokémon stand in a battle (share of the arena height): both on the floor of the picture
   const WILD_Y = .7, ME_Y = .86;
   /** a strong bond (Game.ENDURE_BOND) lets your Pokémon hold on with 1% HP instead of fainting, once per battle */
   function bondEndure(G, maxHp) {
-    const p = Game.pet();
+    const p = G.team ? G.team[G.cur].mon : Game.pet();   // exploring: whoever is fighting right now
     if (G.meHp > 0 || G.endured || !p || p.egg || (p.bond || 0) < Game.ENDURE_BOND) return false;
     G.endured = true; G.meHp = Math.max(1, Math.round(maxHp * .01)); G.endureAt = now();
     setTimeout(() => Sound.play('pet'), 250);
@@ -2448,16 +2649,23 @@ if (!code) {
       act: null, actAt: 0, hurt: null, hurtAt: 0, chest: null, over: false, seedInt: 1 + Math.floor(Math.random() * 100000), scroll: 0,
       map: map.id, bgSrc: map.src || null,
     };
+    // the team: [0] the Main (your home Pokémon), [1] the Backup that takes over if the Main faints
+    const subM = opts.sub && !opts.sub.egg && opts.sub !== p && SPECIES_BY_ID[opts.sub.sp] ? opts.sub : null;
+    G.team = [{ mon: p, sp: p.sp, shiny: p.shiny, nm: () => petName() }];
+    if (subM) G.team.push({ mon: subM, sp: subM.sp, shiny: subM.shiny, nm: () => subM.name || SPECIES_BY_ID[subM.sp].name, battler: Game.memberBattler(subM) });
+    G.cur = 0;
     preloadSpecies(p.sp, p.shiny);
+    if (subM) preloadSpecies(subM.sp, subM.shiny);
     Sound.play('wake'); Talk.say('exploreGo');
-    const name = () => petName();
+    const name = () => G.team[G.cur].nm();
     const info = () => { $('#arenaInfo').innerHTML = icons(`B${G.floor}F &nbsp;{i:energy}${Math.round(Game.pet().ene)}`); };
 
     function nextFloor() {
       G.floor++; G.state = 'walk'; G.at = now(); G.wild = null; G.chest = null;
       G.meHp = Math.min(G.me.maxHp, G.meHp + Math.round(G.me.maxHp * .15));  // catches its breath between floors
       G.tired = !Game.exploreStep();
-      info(); say(`B${G.floor}F — ${esc(name())} explores…`); buttons([]);
+      const pal = G.team[1] && G.cur === 0 ? ` and ${esc(G.team[1].nm())}` : '';
+      info(); say(`B${G.floor}F — ${esc(name())}${pal} explore${pal ? '' : 's'}…`); buttons([]);
       setTimeout(() => { if (arenaGame === G) resolveFloor(); }, WALK_MS);
     }
     function resolveFloor() {
@@ -2496,8 +2704,23 @@ if (!code) {
         G.wild.maxHp = Math.round(G.wild.maxHp * 1.8);
         G.wild.atk = Math.round(G.wild.atk * 1.15); G.wild.def = Math.round(G.wild.def * 1.15);
       }
-      G.wildHp = G.wild.maxHp; G.state = 'encounter'; G.at = now(); G.legendAt = w.legend || w.boss ? now() : 0; G.throw = null; G.wheel = null;
-      preloadSpecies(w.sp, w.shiny); Sound.play(w.legend || w.boss ? 'evolve' : 'sad');
+      G.wildHp = G.wild.maxHp; G.state = 'encounter'; G.at = now(); G.legendAt = w.boss && !w.legend ? now() : 0; G.throw = null; G.wheel = null;
+      preloadSpecies(w.sp, w.shiny);
+      G.wildFirst = false;
+      if (w.legend) {                                   // legendary: a cinematic entrance before the fight
+        G.intro = { at: now(), dur: LEGEND_INTRO_MS };
+        Sound.legendIntro();
+        say('{i:sparkle} The ground is shaking…', 'Something incredibly powerful is coming!');
+        buttons([]);
+        setTimeout(() => { if (arenaGame === G && G.state === 'encounter') { announce(w, ws); encounterButtons(); } }, LEGEND_INTRO_MS);
+        return;
+      }
+      G.intro = null;
+      Sound.play(w.boss ? 'evolve' : 'sad');
+      announce(w, ws);
+      encounterButtons();
+    }
+    function announce(w, ws) {
       const frag = Game.state.player.fragments[w.sp] || 0;
       if (w.boss && w.legend) say(`{i:sparkle} The floor boss is a <b>LEGENDARY</b> Pokémon — ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
         `An extremely rare boss! Win the battle to spin the catch wheel.${frag ? ` You have ${frag}/${Game.FRAGMENTS_TO_SUMMON} of its fragments.` : ''}`);
@@ -2506,8 +2729,6 @@ if (!code) {
       else if (w.boss) say(`{i:sword} The <b>floor boss</b> blocks the way! It's a mighty ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
         (w.bossTier === 'final' ? '{i:sparkle} A very rare fully evolved boss! ' : w.bossTier === 'stage2' ? 'A rare evolved boss! ' : '') + 'It\'s much stronger than usual. Beat it to spin the catch wheel!');
       else say(`A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · ${esc(name())} is Lv ${G.me.level}`);
-      G.wildFirst = false;
-      encounterButtons();
     }
     function encounterButtons() {
       buttons([
@@ -2537,7 +2758,7 @@ if (!code) {
           G.hurt = turn === 'me' ? 'wild' : 'me'; G.hurtAt = now(); Sound.damage(crit);
           say(`${an} attacks!${crit ? ' A critical hit!' : ''}${endured ? ` {i:heart} ${esc(name())} endured the hit for you!` : ''}`, endured ? `${dmg} damage · its bond with you kept it standing at 1% HP` : `${dmg} damage`);
           if (G.wildHp <= 0) return setTimeout(win, 700);
-          if (G.meHp <= 0) return setTimeout(lose, 700);
+          if (G.meHp <= 0) return setTimeout(G.cur === 0 && G.team[1] ? swapIn : lose, 700);
           turn = turn === 'me' ? 'wild' : 'me';
           setTimeout(step, 750);
         }, 380);
@@ -2552,9 +2773,29 @@ if (!code) {
       say(`The wild ${esc(G.wild.name)} fainted! ${esc(name())} won!`, sub);
       afterFloor();
     }
+    /** the Main fainted: it's recalled and the Backup jumps into the battle at full HP */
+    function swapIn() {
+      if (arenaGame !== G) return;
+      const out = G.team[0], bk = G.team[1];
+      out.fainted = true; G.swapAt = now(); Sound.play('sad');
+      say(`${esc(out.nm())} fainted!`, `Hang in there… ${esc(bk.nm())}, it's your turn!`);
+      setTimeout(() => {
+        if (arenaGame !== G) return;
+        G.cur = 1; G.me = bk.battler; G.meHp = bk.battler.maxHp; G.endured = false; G.hurt = null; G.act = null;
+        Sound.play('wake');
+      }, SWAP_OUT_MS + 350);
+      setTimeout(() => {
+        if (arenaGame !== G) return;
+        Sound.play('level');
+        say(`Go, <b>${esc(bk.nm())}</b>! Your backup jumps in!`, `Lv ${bk.battler.level} · full HP · the battle goes on`);
+        G.state = 'encounter'; G.wildFirst = false;
+        encounterButtons();
+      }, SWAP_OUT_MS + SWAP_IN_MS);
+    }
     function lose() {
       G.state = 'lost'; G.at = now(); Sound.play('sad');
-      say(`${esc(name())} is out of strength…`, 'It heads back home to rest.');
+      if (G.team[1]) say(`${esc(G.team[1].nm())} is out of strength too…`, `${esc(G.team[0].nm())} and ${esc(G.team[1].nm())} head back home to rest.`);
+      else say(`${esc(name())} is out of strength…`, 'It heads back home to rest.');
       buttons([{ label: '{i:map} Return home', cls: 'red', fn: () => finish(true, true) }]);
     }
     // ---- Ga-Olé style catch wheel: one spin, one throw ----
@@ -2768,7 +3009,8 @@ if (!code) {
       } else if (kind === 'rareCandy') {
         const ratio = Math.max(0, G.meHp) / G.me.maxHp, r = Game.useItem('rareCandy');
         if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return showItems(); }
-        const p = Game.pet(); G.me = Game.battler(p.sp, Game.level(), true); G.meHp = Math.round(G.me.maxHp * ratio);
+        const p = Game.pet();
+        if (G.cur === 0) { G.me = Game.battler(p.sp, Game.level(), true); G.meHp = Math.round(G.me.maxHp * ratio); }   // the candy levels your Main
         Sound.play('level'); msg = `${nm} grew to Lv ${Game.level()}! {i:sparkle} <small>Its battle stats went up</small>`;
       }
       G.tired = Game.pet().ene < 8;
@@ -2797,39 +3039,98 @@ if (!code) {
       requestAnimationFrame(G.loop);
       const ms = now(), t = ms / 1000;
       const P = Game.pet(); if (!P) return;
-      Music.set(G.wild && G.wild.boss && G.state !== 'fled' && G.state !== 'caught' ? 'boss' : 'dungeon');
+      const live = G.wild && G.state !== 'fled' && G.state !== 'caught';
+      const intro = G.intro && G.wild ? ms - G.intro.at : -1, introOn = intro >= 0 && intro < LEGEND_INTRO_MS + 600;
+      Music.set(introOn && intro < LEGEND_REVEAL_MS ? 'silent' : live && G.wild.legend ? 'legend' : live && G.wild.boss ? 'boss' : 'dungeon');
       const walking = G.state === 'walk';
       if (walking) G.scroll = (G.scroll || 0) + 70 * Math.min(.05, (ms - last2) / 1000);
       last2 = ms;
+      // the ground rumbles as a legendary approaches, and jolts when it appears
+      let shx = 0, shy = 0;
+      if (introOn) {
+        const amp = intro < LEGEND_REVEAL_MS ? 1 + intro / LEGEND_REVEAL_MS * 4 : Math.max(0, 10 * (1 - (intro - LEGEND_REVEAL_MS) / 700));
+        shx = (Math.random() - .5) * amp * 2; shy = (Math.random() - .5) * amp * 2;
+      }
+      ac.save(); ac.translate(Math.round(shx), Math.round(shy));
       drawCave(G, ms, walking);
       const size = Math.min(AW, AH) * .11, meX = (G.wild || G.state === 'won') ? AW * .28 : AW * .4, meY = Math.round(AH * ME_Y);
+      const wx = AW * .72, wy = AH * WILD_Y;
       // the wild Pokémon (top-right) and its HP box
-      if (G.state === 'caught' && ms - G.at < 2500 && G.throw) {   // celebration stars over the ball
-        drawBall(ac, G.throw.kind, AW * .72, AH * WILD_Y - 14, 16);
-        for (let i = 0; i < 3; i++) PX.draw(ac, 'sparkle', AW * .72 + Math.cos(ms / 200 + i * 2) * 30, AH * WILD_Y - 40 + Math.sin(ms / 200 + i * 2) * 12, 18);
-      }
-      const throwing = G.state === 'throw' ? drawThrowState(ms) : null;
-      if ((G.wild && G.state !== 'won' && throwing !== 'hide') || (G.state === 'won' && ms - G.at < 900)) {
-        const wx = AW * .72, wy = AH * WILD_Y;
+      const drawWild = () => {
+        if (G.state === 'caught' && ms - G.at < 2500 && G.throw) {   // celebration stars over the ball
+          drawBall(ac, G.throw.kind, wx, wy - 14, 16);
+          for (let i = 0; i < 3; i++) PX.draw(ac, 'sparkle', wx + Math.cos(ms / 200 + i * 2) * 30, wy - 40 + Math.sin(ms / 200 + i * 2) * 12, 18);
+        }
+        const throwing = G.state === 'throw' ? drawThrowState(ms) : null;
+        if (!((G.wild && G.state !== 'won' && throwing !== 'hide') || (G.state === 'won' && ms - G.at < 900))) return;
         const hurt = G.hurt === 'wild' && ms - G.hurtAt < 450, att = G.act === 'wild' && ms - G.actAt < 600;
         const fade = G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : G.state === 'fled' ? Math.max(0, 1 - (ms - G.at) / 900) : 1;
-        if (G.wild.boss && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,90,70,.4)'); gr.addColorStop(1, 'rgba(255,90,70,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
-        if (G.wild.legend && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,220,120,.45)'); gr.addColorStop(1, 'rgba(255,220,120,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
+        const shadow = introOn && intro < LEGEND_REVEAL_MS;                      // still a dark shape before the reveal
+        const pop = introOn && intro >= LEGEND_REVEAL_MS ? 1 + .18 * Math.max(0, 1 - (intro - LEGEND_REVEAL_MS) / 450) : 1;
+        if (G.wild.boss && !G.wild.legend && G.state !== 'fled') { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,90,70,.4)'); gr.addColorStop(1, 'rgba(255,90,70,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
+        if (G.wild.legend && G.state !== 'fled' && !shadow) { const gr = ac.createRadialGradient(wx, wy - size, 4, wx, wy - size, size * 2.4); gr.addColorStop(0, 'rgba(255,220,120,.45)'); gr.addColorStop(1, 'rgba(255,220,120,0)'); ac.fillStyle = gr; ac.fillRect(wx - size * 3, wy - size * 3.5, size * 6, size * 6); }
         const fled = G.state === 'fled', runX = fled ? Math.pow((ms - G.at) / 900, 1.4) * AW * .4 : 0;   // dashes off to the right
         pixelShadow(ac, wx + runX, wy, size * .8, size * .18, .22 * fade, size / 10);
-        drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0) + runX, y: wy, size: size * (G.wild.boss ? 1.25 : .95), silhouette: throwing === 'flash' ? '#ffffff' : false, t, maxH: AH * .26, shiny: G.wild.shiny, dir: fled ? 'right' : 'downleft', walking: fled,
-          anim: hurt ? 'Hurt' : att ? 'Attack' : undefined, animT: hurt ? (ms - G.hurtAt) / 1000 : att ? (ms - G.actAt) / 1000 : undefined, alpha: (hurt && Math.floor(ms / 80) % 2 ? .4 : 1) * fade });
-        if (!['wheel', 'throw', 'fled'].includes(G.state)) hpBox(ac, 10, 10, Math.min(250, AW * .62), (G.wild.legend ? '★ ' : G.wild.boss ? 'BOSS ' : '') + G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
-      }
-      // your Pokémon
-      const hurtMe = G.hurt === 'me' && ms - G.hurtAt < 450, attMe = G.act === 'me' && ms - G.actAt < 600;
-      pixelShadow(ac, meX, meY, size * .9, size * .2, .22, size / 10);
-      drawCreature(ac, P.sp, { x: meX + (attMe ? size * .4 : 0), y: meY, size, t, maxH: AH * .3, shiny: P.shiny, dir: walking ? 'right' : G.wild || G.state === 'won' || G.state === 'lost' ? 'upright' : 'downright', walking,
-        anim: G.state === 'lost' ? 'Hurt' : hurtMe ? 'Hurt' : attMe ? 'Attack' : (G.state === 'won' || (G.state === 'chest' && G.chest && G.chest.open)) ? 'Hop' : undefined,
-        animT: hurtMe ? (ms - G.hurtAt) / 1000 : attMe ? (ms - G.actAt) / 1000 : (G.state === 'won' || G.state === 'chest') ? ((ms - G.at) / 1000) % Math.max(.4, animLength(P.sp, 'Hop') + .3) : undefined,
-        alpha: hurtMe && Math.floor(ms / 80) % 2 ? .4 : 1 });
-      drawEndure(G, ms, meX, meY - size * 2.2);
-      if (G.wild || G.state === 'won' || G.state === 'lost') hpBox(ac, AW - Math.min(250, AW * .62) - 10, AH - 70, Math.min(250, AW * .62), petName(), G.me.level, G.meHp, G.me.maxHp, true);
+        drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0) + runX, y: wy, size: size * (G.wild.boss ? 1.25 : .95) * pop, silhouette: throwing === 'flash' ? '#ffffff' : shadow ? '#0d0820' : false, t, maxH: AH * .26 * pop, shiny: G.wild.shiny, dir: fled ? 'right' : 'downleft', walking: fled,
+          anim: hurt ? 'Hurt' : att ? 'Attack' : undefined, animT: hurt ? (ms - G.hurtAt) / 1000 : att ? (ms - G.actAt) / 1000 : undefined, alpha: (hurt && Math.floor(ms / 80) % 2 ? .4 : 1) * fade * (shadow ? Math.min(1, intro / 900) : 1) });
+        if (!['wheel', 'throw', 'fled'].includes(G.state) && !introOn) hpBox(ac, 10, 10, Math.min(250, AW * .62), (G.wild.legend ? '★ ' : G.wild.boss ? 'BOSS ' : '') + G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
+      };
+      // your team: the fighter in front, the Backup following along behind while exploring
+      const A = G.team[G.cur], bk = G.cur === 0 ? G.team[1] : null;
+      const celebrate = (G.state === 'chest' && G.chest && G.chest.open) || G.state === 'egg', ce = ms - G.at;
+      const jumpH = celebrate && ce < 2600 ? Math.abs(Math.sin(ce / 1000 * Math.PI * 2.3)) * size * .7 : 0;   // happy jumps, facing you
+      const hopT = ((ms - G.at) / 1000) % Math.max(.4, animLength(A.sp, 'Hop') + .3);
+      const drawMember = (M, x, sc, extra) => {
+        const hopY = extra.hop || 0, k = Math.max(.35, 1 - hopY / (size * 1.6));
+        if (extra.alpha !== 0) pixelShadow(ac, x, meY, size * .9 * sc * k, size * .2 * sc * k, .22 * (extra.alpha == null ? 1 : extra.alpha), size / 10);
+        return drawCreature(ac, M.sp, Object.assign({ x, y: meY, size: size * sc, t, maxH: AH * .3 * sc, shiny: M.shiny }, extra));
+      };
+      const drawMe = () => {
+        const hurtMe = G.hurt === 'me' && ms - G.hurtAt < 450, attMe = G.act === 'me' && ms - G.actAt < 600;
+        const baseDir = walking ? 'right' : celebrate ? 'front' : G.wild || G.state === 'won' || G.state === 'lost' ? 'upright' : 'downright';
+        // the Backup tags along a step behind (it's resting in its ball during battles)
+        if (bk && !G.wild && G.state !== 'lost') {
+          drawMember(bk, meX - size * 1.35, .9, { dir: baseDir, walking, hop: jumpH ? Math.abs(Math.sin(ce / 1000 * Math.PI * 2.3 - .9)) * size * .6 : 0,
+            anim: celebrate || G.state === 'won' ? 'Hop' : undefined, animT: celebrate || G.state === 'won' ? hopT : undefined });
+        }
+        const sw = G.swapAt ? ms - G.swapAt : -1;
+        if (sw >= 0 && sw < SWAP_OUT_MS + SWAP_IN_MS) {
+          if (sw < SWAP_OUT_MS + 350) {             // the Main faints: slumps, flickers and fades away
+            const k = Math.min(1, sw / SWAP_OUT_MS);
+            drawMember(G.team[0], meX, 1, { dir: 'upright', anim: 'Hurt', animT: Math.min(.6, sw / 1000), alpha: (1 - k) * (Math.floor(sw / 90) % 2 ? .5 : 1), hop: -k * size * .15 });
+          }
+          if (sw >= SWAP_OUT_MS) {                  // a Poké Ball arcs in and the Backup bursts out of it
+            const f = sw - SWAP_OUT_MS, bx = AW * .02, by = AH * .92;
+            if (f < 450) { const k = f / 450; drawBall(ac, 'poke', bx + (meX - bx) * k, by + (meY - size * .6 - by) * k - Math.sin(k * Math.PI) * AH * .18, 14, k * 14); }
+            else {
+              const g2 = f - 450, k = Math.min(1, g2 / 350);
+              if (g2 < 400) { const gr = ac.createRadialGradient(meX, meY - size * .7, 2, meX, meY - size * .7, size * 2.2); gr.addColorStop(0, `rgba(255,255,255,${.9 * (1 - g2 / 400)})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); ac.fillStyle = gr; ac.fillRect(meX - size * 2.5, meY - size * 3, size * 5, size * 5); }
+              drawMember(G.team[1], meX, .3 + .7 * k, { dir: 'upright', silhouette: k < 1 ? '#ffffff' : false, alpha: 1 });
+              for (let i = 0; i < 6; i++) PX.draw(ac, 'sparkle', meX + Math.cos(i + g2 / 300) * size * (.6 + k), meY - size * .8 + Math.sin(i * 1.7 + g2 / 300) * size * .7, 14, { alpha: 1 - Math.min(1, g2 / 850) });
+            }
+          }
+        } else {
+          drawMember(A, meX + (attMe ? size * .4 : 0), 1, { dir: baseDir, walking, hop: jumpH,
+            anim: G.state === 'lost' ? 'Hurt' : hurtMe ? 'Hurt' : attMe ? 'Attack' : (G.state === 'won' || celebrate) ? 'Hop' : undefined,
+            animT: hurtMe ? (ms - G.hurtAt) / 1000 : attMe ? (ms - G.actAt) / 1000 : (G.state === 'won' || celebrate) ? hopT : undefined,
+            alpha: hurtMe && Math.floor(ms / 80) % 2 ? .4 : 1 });
+          if (celebrate && ce < 3000) for (let i = 0; i < 3; i++) {   // little hearts float up while it jumps for joy
+            const hk = ((ce / 1000 + i * .33) % 1);
+            PX.draw(ac, 'heart', meX + (i - 1) * size * .55, meY - size * 1.9 - jumpH - hk * size * .9, 18, { alpha: Math.min(1, (1 - hk) * 2) * Math.min(1, (3000 - ce) / 400) });
+          }
+        }
+        drawEndure(G, ms, meX, meY - size * 2.2);
+        if ((G.wild || G.state === 'won' || G.state === 'lost') && !introOn) {
+          const bw = Math.min(250, AW * .62), bxp = AW - bw - 10;
+          hpBox(ac, bxp, AH - 70, bw, A.nm(), G.me.level, G.meHp, G.me.maxHp, true);
+          if (G.team[1]) G.team.forEach((M, i) => {   // one ball per team member; a fainted one is dimmed
+            ac.globalAlpha = M.fainted ? .3 : 1; drawBall(ac, 'poke', bxp + 14 + i * 20, AH - 80, 7); ac.globalAlpha = 1;
+          });
+        }
+      };
+      if (introOn) {            // legendary entrance: you, then the darkness and beams, then its shadow, then the flash and banner
+        drawMe(); drawLegendIntro(G, ms, wx, wy, size, 'back'); drawWild(); drawLegendIntro(G, ms, wx, wy, size, 'front');
+      } else { drawWild(); drawMe(); }
       if (G.legendAt && ms - G.legendAt < 1200) { ac.fillStyle = `rgba(255,240,190,${.75 * (1 - (ms - G.legendAt) / 1200)})`; ac.fillRect(0, 0, AW, AH); }
       if (G.state === 'wheel') drawWheel(ms);
       // treasure / egg props
@@ -2839,6 +3140,7 @@ if (!code) {
         if (G.chest.item) { const k = Math.min(1, (ms - G.at) / 600); PX.draw(ac, Game.ITEMS[G.chest.item].icon, cxp, cyp - 30 - k * 34, 48); }
       }
       if (G.state === 'egg') PX.draw(ac, 'egg_legend_0', AW * .68, AH * .66 - Math.abs(Math.sin(t * 3)) * 6, 64);
+      ac.restore();
       // floor label
       if (walking) {
         const k = Math.min(1, (ms - G.at) / 400);
@@ -2848,6 +3150,12 @@ if (!code) {
       }
     };
     arenaGame = G; requestAnimationFrame(G.loop);
+    if (opts.demo === 'legend') { G.floor = 3; info(); encounter(Game.rollLegend()); return; }
+    if (opts.demo === 'swap' && G.team[1]) { G.floor = 2; info(); encounter(Game.rollWild(G.map)); G.state = 'battle'; buttons([]); G.meHp = 0; swapIn(); return; }
+    if (opts.demo === 'chest') {
+      G.floor = 2; info(); const k = Game.rollTreasure(2);
+      G.state = 'chest'; G.chest = { open: true, item: k }; G.at = now(); say(`Found {i:${Game.ITEMS[k].icon}} <b>${Game.ITEMS[k].name}</b>!`); return;
+    }
     if (opts.demo) {
       G.floor = Game.EXPLORE_MAX_FLOOR; info(); encounter(Game.rollBoss(G.map));
       if (/^wheel/.test(opts.demo)) { G.wildHp = 1; G.wins++; if (opts.demo === 'wheel') ['greatBall', 'ultraBall', 'masterBall'].forEach(k => { if (!Game.itemCount(k)) Game.addItem(k); }); startWheel(); const k = { wheelgreat: 'greatBall', wheelultra: 'ultraBall', wheelmaster: 'masterBall' }[opts.demo]; if (k) { Game.addItem(k); boostWheel(k); G.wheel.boostAt = 0; } }
@@ -3216,9 +3524,13 @@ if (!code) {
   }
   pixelizeIcons();
   PX.hydrate();
-  if (window.PP_PREVIEW) {                                  // ?preview&demo=boss|wheel|wheelgreat|wheelmaster[&map=thunder|sea|volcano]: jump straight to the end-of-map boss
+  if (window.PP_PREVIEW) {                                  // ?preview&demo=boss|wheel|wheelgreat|wheelmaster|legend|swap|chest|team[&map=thunder|sea|volcano]: jump straight to a dungeon moment
     const qs = new URLSearchParams(location.search), demo = qs.get('demo');
-    if (demo) setTimeout(() => { const p = Game.pet(); if (p && p.asleep) Game.toggleSleep(); if (p) { p.ene = Math.max(p.ene, 80); p.food = Math.max(p.food, 80); } startExplore({ demo, map: qs.get('map') }); }, 1500);
+    if (demo) setTimeout(() => {
+      const p = Game.pet(); if (p && p.asleep) Game.toggleSleep(); if (p) { p.ene = Math.max(p.ene, 80); p.food = Math.max(p.food, 80); }
+      if (demo === 'team') return openTeam(qs.get('map') || 'cave');                     // the Main + Backup picker
+      startExplore({ demo, map: qs.get('map'), sub: Game.party()[0] });                 // demo=legend|swap|chest bring a Backup
+    }, 1500);
   }
   PX.onUpdate(() => { PX.hydrate(); if (els && els.name) els.name.dataset.sig = ''; }); // egg picture loaded
   // phones: stop double-tap zoom / pinch zoom from shifting the layout (text fields still work normally)

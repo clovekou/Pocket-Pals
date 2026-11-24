@@ -599,3 +599,18 @@ details.more[open] > summary::before { content: '▾ '; }
 .credits h4 { font-family: var(--pixel); margin: 16px 0 6px; }
 .credits p { line-height: 1.5; margin: 0 0 10px; }
 .credits a { color: #2a5dd8; font-weight: 800; }
+
+/* ---- explore: choose your team (Main + Backup) ---- */
+.teamgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.teamcard { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 8px; border: 3px solid var(--line); border-radius: 16px;
+  background: #fff; color: var(--ink); box-shadow: 0 3px 0 rgba(0, 0, 0, .2); text-align: center; min-width: 0; }
+.teamcard:active { transform: translateY(2px); }
+.teamcard img.face, .teamcard canvas { width: 56px; height: 56px; border-radius: 10px; border: 2px solid var(--line); background: #e6f2ff; image-rendering: pixelated; }
+.teamcard b { font-family: var(--pixel); font-size: 14px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.teamcard small { color: var(--muted); font-size: 11px; }
+.teamcard.lead { background: #fff4c4; border-color: #e0a81f; box-shadow: 0 3px 0 #b8860b; }
+.teamcard.sub { background: #e3f0ff; border-color: #4f93c4; box-shadow: 0 3px 0 #2f6f9a; }
+.teamcard em { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font-style: normal; font-family: var(--pixel); font-size: 10px; font-weight: 700;
+  padding: 1px 7px; border-radius: 8px; color: #fff; white-space: nowrap; }
+.teamcard em.tl { background: #e0a81f; }
+.teamcard em.ts { background: #4f93c4; }

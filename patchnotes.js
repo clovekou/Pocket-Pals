@@ -3,6 +3,16 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 97, date: '2026-11-24', title: 'Explore as a team',
+    notes: [
+      'Before a dungeon, choose a team of two: a Main who explores and a Backup who follows along behind.',
+      'If your Main faints in battle, your Backup jumps out of its Poké Ball at full HP and keeps fighting.',
+      'When your Pokémon finds treasure or an egg, it turns to look at you and jumps for joy.',
+      'Legendary Pokémon now make a grand entrance: the ground shakes, the cave goes dark, light bursts out and their name flashes across the screen.',
+      'Legendary battles have their own heroic theme music.',
+    ],
+  },
+  {
     version: 96, date: '2026-11-24', title: 'Eyes on the opponent',
     notes: [
       'In battles your Pokémon now turns to look up at the wild Pokémon, boss or friend it is facing.',
