@@ -34,21 +34,24 @@ if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: sta
       <span class="nm"><b id="petName">Pocket Pal</b><small id="petSub"></small></span>
       <span id="petLevel" class="lv"></span>
     </button>
-    <button id="friendsBtn" class="glass chip icon" aria-label="Pokégear: friends and trades"><svg class="dk" viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M30.5 6.5l3.5-4.5" stroke="#2b2f45" stroke-width="3" stroke-linecap="round"/>
-      <rect x="11" y="5" width="26" height="39" rx="7" fill="url(#dkBody)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
-      <path d="M11 15v-3a7 7 0 0 1 7-7h12a7 7 0 0 1 7 7v3z" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
-      <circle cx="17.5" cy="10.2" r="1.9" fill="#62c9ff"/><path d="M24 10h7" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/>
-      <rect x="15" y="18" width="18" height="14" rx="2.5" fill="#8fe3c2" stroke="#2b2f45" stroke-width="2"/>
-      <path d="M17.5 28.5h5v-6h8" fill="none" stroke="#3f9a78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="27" cy="25.5" r="2" fill="#ef4b3f"/>
-      <circle cx="24" cy="38" r="3.4" fill="#ffd86b" stroke="#2b2f45" stroke-width="2"/>
+    <button id="friendsBtn" class="glass chip icon" aria-label="Friends and trades"><svg class="dk" viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M22.5 43c0-8.5 5-13.5 11.5-13.5S45.5 34.5 45.5 43z" fill="url(#dkBlue)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="34" cy="17" r="7" fill="url(#dkSkin)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M27 16.2a7 7 0 0 1 14 0c-2.4-1.5-4.8-2.1-7-2.1s-4.6.6-7 2.1z" fill="#3b4a7a" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M4 44c0-9.8 5.8-15.5 14-15.5S32 34.2 32 44z" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="18" cy="20.5" r="8.3" fill="url(#dkSkin)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M9.7 19.6a8.3 8.3 0 0 1 16.6 0z" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M23.5 19.6h3.5" stroke="#2b2f45" stroke-width="3" stroke-linecap="round"/>
+      <path d="M15.5 14.8h4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M9 36.5a7 7 0 0 1 4-4" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="2.2" stroke-linecap="round"/>
     </svg><i id="friendsBadge" class="badge hidden">0</i></button>
     <button id="settingsBtn" class="glass chip icon" aria-label="Settings"><svg class="dk" viewBox="0 0 48 48" aria-hidden="true">
-      <g fill="url(#dkSteel)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"><rect x="20.5" y="5" width="7" height="10" rx="1.8" transform="rotate(0 24 24)"/><rect x="20.5" y="5" width="7" height="10" rx="1.8" transform="rotate(45 24 24)"/><rect x="20.5" y="5" width="7" height="10" rx="1.8" transform="rotate(90 24 24)"/><rect x="20.5" y="5" width="7" height="10" rx="1.8" transform="rotate(135 24 24)"/><rect x="20.5" y="5" width="7" height="10" rx="1.8" transform="rotate(180 24 24)"/><rect x="20.5" y="5" width="7" height="10" rx="1.8" transform="rotate(225 24 24)"/><rect x="20.5" y="5" width="7" height="10" rx="1.8" transform="rotate(270 24 24)"/><rect x="20.5" y="5" width="7" height="10" rx="1.8" transform="rotate(315 24 24)"/></g>
-      <circle cx="24" cy="24" r="12.5" fill="url(#dkSteel)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
-      <circle cx="24" cy="24" r="5" fill="#fff" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
-      <path d="M16 19.5a9.5 9.5 0 0 1 5-4.5" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="2" stroke-linecap="round"/>
+      <path d="M20.0 9.0 L20.5 3.3 L27.5 3.3 L28.0 9.0 L31.8 10.6 L36.2 6.9 L41.1 11.8 L37.4 16.2 L39.0 20.0 L44.7 20.5 L44.7 27.5 L39.0 28.0 L37.4 31.8 L41.1 36.2 L36.2 41.1 L31.8 37.4 L28.0 39.0 L27.5 44.7 L20.5 44.7 L20.0 39.0 L16.3 37.4 L11.8 41.1 L6.9 36.2 L10.6 31.8 L9.0 28.0 L3.3 27.5 L3.3 20.5 L9.0 20.0 L10.6 16.3 L6.9 11.8 L11.8 6.9 L16.2 10.6z" fill="url(#dkSteel)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="24" cy="24" r="9.5" fill="url(#dkWhite)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M14.5 24a9.5 9.5 0 0 1 19 0z" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M14.5 24h19" stroke="#2b2f45" stroke-width="2.5"/>
+      <circle cx="24" cy="24" r="3.3" fill="#fff" stroke="#2b2f45" stroke-width="2.2"/>
+      <path d="M12.5 15.5a13 13 0 0 1 4.5-4" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="2.2" stroke-linecap="round"/>
     </svg></button>
   </header>
 
@@ -89,44 +92,46 @@ if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: sta
       <linearGradient id="dkWhite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d3d8e6"/></linearGradient>
       <linearGradient id="dkBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#535a7e"/><stop offset="1" stop-color="#2f3450"/></linearGradient>
       <linearGradient id="dkSteel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2e5ef"/><stop offset="1" stop-color="#9aa1b8"/></linearGradient>
+      <linearGradient id="dkBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc3ff"/><stop offset="1" stop-color="#3a74d8"/></linearGradient>
+      <linearGradient id="dkSkin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe6cc"/><stop offset="1" stop-color="#f1b98c"/></linearGradient>
+      <radialGradient id="dkLens" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#d6f3ff"/><stop offset=".45" stop-color="#62c9ff"/><stop offset="1" stop-color="#2a86d6"/></radialGradient>
       <linearGradient id="dkScreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9fbf1"/><stop offset="1" stop-color="#bfe9d2"/></linearGradient>
     </defs></svg>
     <button data-act="bag" aria-label="Bag"><svg class="dk" viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M18 14v-2a6 6 0 0 1 12 0v2" fill="none" stroke="#2b2f45" stroke-width="3" stroke-linecap="round"/>
-      <rect x="8" y="13" width="32" height="29" rx="9" fill="url(#dkBag)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
-      <rect x="14.5" y="31" width="19" height="8" rx="3.5" fill="#fff4d6" stroke="#2b2f45" stroke-width="2"/>
-      <path d="M8 23v-1a9 9 0 0 1 9-9h14a9 9 0 0 1 9 9v1z" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
-      <path d="M13 18.5a6 6 0 0 1 5-3h5" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/>
-      <circle cx="24" cy="23" r="5.5" fill="#fff"/><path d="M18.5 23a5.5 5.5 0 0 1 11.0 0z" fill="url(#dkBall)"/><circle cx="24" cy="23" r="5.5" fill="none" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/><path d="M18.5 23h11.0" stroke="#2b2f45" stroke-width="2.5"/><circle cx="24" cy="23" r="1.8" fill="#fff" stroke="#2b2f45" stroke-width="2.2"/>
+      <path d="M18 12.5V9.5a6 6 0 0 1 12 0v3" fill="none" stroke="#2b2f45" stroke-width="3" stroke-linecap="round"/>
+      <rect x="8.5" y="11.5" width="31" height="32" rx="9" fill="url(#dkBag)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M8.5 23.5v-3a9 9 0 0 1 9-9h13a9 9 0 0 1 9 9v3z" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <rect x="15" y="29" width="18" height="9.5" rx="3.5" fill="#fff3cf" stroke="#2b2f45" stroke-width="2.2"/>
+      <circle cx="24" cy="23.5" r="3.8" fill="#fff" stroke="#2b2f45" stroke-width="2.2"/>
+      <path d="M13.5 18a5 5 0 0 1 3.5-3" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="2.2" stroke-linecap="round"/>
     </svg><span>Bag</span></button>
     <button data-act="care" aria-label="Care: feed, bath, sleep"><svg class="dk" viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M24 42S8 33.2 8 21.4C8 15.2 12.5 11 17.8 11c2.8 0 5 1.3 6.2 3.4C25.2 12.3 27.4 11 30.2 11 35.5 11 40 15.2 40 21.4 40 33.2 24 42 24 42z" fill="url(#dkCare)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
-      <g fill="#b8285a" fill-opacity=".45"><ellipse cx="24" cy="30.4" rx="5.6" ry="4.6"/><circle cx="17.4" cy="24.6" r="2.4"/><circle cx="21.3" cy="21.2" r="2.4"/><circle cx="26.7" cy="21.2" r="2.4"/><circle cx="30.6" cy="24.6" r="2.4"/></g>
-      <g fill="#fff"><ellipse cx="24" cy="29.2" rx="5.6" ry="4.6"/><circle cx="17.4" cy="23.4" r="2.4"/><circle cx="21.3" cy="20" r="2.4"/><circle cx="26.7" cy="20" r="2.4"/><circle cx="30.6" cy="23.4" r="2.4"/></g>
-      <path d="M12.4 20.5c.3-3.4 2.7-5.8 5.8-6" fill="none" stroke="#fff" stroke-opacity=".9" stroke-width="2.6" stroke-linecap="round"/>
-      <circle cx="12.8" cy="24.8" r="1.3" fill="#fff" fill-opacity=".8"/>
-      <path d="M39 4.8l1.20 3.00 3.00 1.20-3.00 1.20L39 13.2l-1.20-3.00-3.00-1.20 3.00-1.20z" fill="#ffe27a" stroke="#2b2f45" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M24 42S5.5 31.5 5.5 18.5C5.5 12.3 10.2 8 15.8 8c3.7 0 6.5 1.9 8.2 4.8C25.7 9.9 28.5 8 32.2 8c5.6 0 10.3 4.3 10.3 10.5C42.5 31.5 24 42 24 42z" fill="url(#dkCare)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M24 19.5v10M19 24.5h10" stroke="#fff" stroke-width="4.2" stroke-linecap="round"/>
+      <path d="M11.5 17.5a5.5 5.5 0 0 1 4.5-4.5" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M40.5 2.5l1.5 3.2 3.2 1.5-3.2 1.5-1.5 3.2-1.5-3.2-3.2-1.5 3.2-1.5z" fill="#ffd86b" stroke="#2b2f45" stroke-width="1.6" stroke-linejoin="round"/>
     </svg><span>Care</span></button>
     <button data-act="explore" class="center" aria-label="Explore: dungeon or training"><i class="hub"><svg class="dk" viewBox="0 0 48 48" aria-hidden="true">
-      <circle cx="24" cy="24" r="19" fill="url(#dkGold)" stroke="#2b2f45" stroke-width="2.5"/>
-      <circle cx="24" cy="24" r="14.8" fill="url(#dkFace)" stroke="#b07414" stroke-width="1.5"/>
-      <path d="M10.6 17.2A15 15 0 0 1 20 8.4" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="2" stroke-linecap="round"/>
-      <path d="M24 11.4v2.8M24 33.8v2.8M11.4 24h2.8M33.8 24h2.8" stroke="#2b2f45" stroke-width="2" stroke-linecap="round"/>
-      <path d="M15.6 15.6l1.3 1.3M32.4 15.6l-1.3 1.3M15.6 32.4l1.3-1.3M32.4 32.4l-1.3-1.3" stroke="#aab0c6" stroke-width="1.5" stroke-linecap="round"/>
-      <g transform="rotate(35 24 24)"><path d="M24 12.2V24h-4.6z" fill="#ff7d70"/><path d="M24 12.2L28.6 24H24z" fill="#d42d22"/><path d="M24 35.8V24h-4.6z" fill="#8a9ae0"/><path d="M24 35.8L28.6 24H24z" fill="#4655a6"/><path d="M24 12.2L28.6 24 24 35.8 19.4 24z" fill="none" stroke="#2b2f45" stroke-width="1.6" stroke-linejoin="round"/></g>
-      <circle cx="24" cy="24" r="3" fill="url(#dkGold)" stroke="#2b2f45" stroke-width="1.6"/><circle cx="23.1" cy="23.1" r=".9" fill="#fff"/>
+      <circle cx="24" cy="24" r="19" fill="url(#dkGold)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="24" cy="24" r="13.8" fill="url(#dkFace)" stroke="#2b2f45" stroke-width="2.2"/>
+      <path d="M24 11.8v3M24 33.2v3M11.8 24h3M33.2 24h3" stroke="#2b2f45" stroke-width="2.2" stroke-linecap="round"/>
+      <g transform="rotate(35 24 24)"><path d="M24 12.8l4.6 11.2h-9.2z" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M24 35.2l4.6-11.2h-9.2z" fill="#3b4a7a" stroke="#2b2f45" stroke-width="2" stroke-linejoin="round"/></g>
+      <circle cx="24" cy="24" r="2.5" fill="#fff" stroke="#2b2f45" stroke-width="1.8"/>
+      <path d="M10.5 17a15 15 0 0 1 5-6" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="2.2" stroke-linecap="round"/>
     </svg></i><span>Explore</span></button>
     <button data-act="party" aria-label="Party"><svg class="dk" viewBox="0 0 48 48" aria-hidden="true">
-      <circle cx="13.5" cy="18.5" r="8.5" fill="url(#dkWhite)"/><path d="M5 18.5a8.5 8.5 0 0 1 17 0z" fill="url(#dkBall)"/><ellipse cx="9.9" cy="14.2" rx="2.5" ry="1.4" transform="rotate(-32 9.9 14.2)" fill="#fff" fill-opacity=".85"/><circle cx="13.5" cy="18.5" r="8.5" fill="none" stroke="#2b2f45" stroke-width="2.5"/><path d="M5 18.5h17" stroke="#2b2f45" stroke-width="2.5"/><circle cx="13.5" cy="18.5" r="2.7" fill="#fff" stroke="#2b2f45" stroke-width="2.2"/><circle cx="34.5" cy="18.5" r="8.5" fill="url(#dkWhite)"/><path d="M26 18.5a8.5 8.5 0 0 1 17 0z" fill="url(#dkBall)"/><ellipse cx="30.9" cy="14.2" rx="2.5" ry="1.4" transform="rotate(-32 30.9 14.2)" fill="#fff" fill-opacity=".85"/><circle cx="34.5" cy="18.5" r="8.5" fill="none" stroke="#2b2f45" stroke-width="2.5"/><path d="M26 18.5h17" stroke="#2b2f45" stroke-width="2.5"/><circle cx="34.5" cy="18.5" r="2.7" fill="#fff" stroke="#2b2f45" stroke-width="2.2"/><circle cx="24" cy="31" r="10.5" fill="url(#dkWhite)"/><path d="M13.5 31a10.5 10.5 0 0 1 21 0z" fill="url(#dkBall)"/><ellipse cx="19.6" cy="25.8" rx="3.1" ry="1.8" transform="rotate(-32 19.6 25.8)" fill="#fff" fill-opacity=".85"/><circle cx="24" cy="31" r="10.5" fill="none" stroke="#2b2f45" stroke-width="2.5"/><path d="M13.5 31h21" stroke="#2b2f45" stroke-width="2.5"/><circle cx="24" cy="31" r="3.4" fill="#fff" stroke="#2b2f45" stroke-width="2.2"/>
-      <path d="M41.5 29.93l1.02 2.55 2.55 1.02-2.55 1.02L41.5 37.07l-1.02-2.55-2.55-1.02 2.55-1.02z" fill="#ffe27a" stroke="#2b2f45" stroke-width="1.2" stroke-linejoin="round"/>
+      <circle cx="14.5" cy="16.5" r="10" fill="url(#dkWhite)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/><path d="M4.5 16.5a10 10 0 0 1 20 0z" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/><path d="M4.5 16.5h20" stroke="#2b2f45" stroke-width="2.5"/><circle cx="14.5" cy="16.5" r="3.4" fill="#fff" stroke="#2b2f45" stroke-width="2.2"/>
+      <circle cx="33.5" cy="16.5" r="10" fill="url(#dkWhite)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/><path d="M23.5 16.5a10 10 0 0 1 20 0z" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/><path d="M23.5 16.5h20" stroke="#2b2f45" stroke-width="2.5"/><circle cx="33.5" cy="16.5" r="3.4" fill="#fff" stroke="#2b2f45" stroke-width="2.2"/>
+      <circle cx="24" cy="31" r="12.5" fill="url(#dkWhite)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/><path d="M11.5 31a12.5 12.5 0 0 1 25.0 0z" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/><path d="M11.5 31h25.0" stroke="#2b2f45" stroke-width="2.5"/><circle cx="24" cy="31" r="4.2" fill="#fff" stroke="#2b2f45" stroke-width="2.2"/>
     </svg><span>Party</span></button>
     <button data-act="dex" aria-label="Pokédex"><svg class="dk" viewBox="0 0 48 48" aria-hidden="true">
-      <rect x="9" y="6" width="30" height="37" rx="7" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
-      <circle cx="17" cy="14.5" r="4.6" fill="#62c9ff" stroke="#fff" stroke-width="2"/>
-      <circle cx="15.8" cy="13.3" r="1.3" fill="#fff"/>
-      <circle cx="26" cy="12" r="1.8" fill="#ffd86b"/><circle cx="31.5" cy="12" r="1.8" fill="#7fdc6c"/>
-      <rect x="14" y="22" width="20" height="15" rx="3.5" fill="url(#dkScreen)" stroke="#2b2f45" stroke-width="2"/>
-      <path d="M18 27.5h12M18 32h8" stroke="#5aa57d" stroke-width="2" stroke-linecap="round"/>
+      <rect x="8.5" y="4.5" width="31" height="39" rx="6.5" fill="url(#dkRed)" stroke="#2b2f45" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="16" cy="11.5" r="4" fill="url(#dkLens)" stroke="#2b2f45" stroke-width="2.2"/>
+      <circle cx="23.8" cy="10" r="1.7" fill="#ff9a8a" stroke="#2b2f45" stroke-width="1.2"/><circle cx="28.3" cy="10" r="1.7" fill="#ffd86b" stroke="#2b2f45" stroke-width="1.2"/><circle cx="32.8" cy="10" r="1.7" fill="#7be38a" stroke="#2b2f45" stroke-width="1.2"/>
+      <rect x="13.5" y="18.5" width="21" height="15" rx="3" fill="url(#dkScreen)" stroke="#2b2f45" stroke-width="2.2"/>
+      <circle cx="24" cy="26" r="4.2" fill="none" stroke="#3f9a78" stroke-width="2"/><path d="M19.8 26h8.4" stroke="#3f9a78" stroke-width="2"/>
+      <path d="M15 38.5h7" stroke="#2b2f45" stroke-width="2.6" stroke-linecap="round"/><circle cx="31.5" cy="38.5" r="2.3" fill="#2b2f45"/>
     </svg><span>Dex</span></button>
   </nav>
 </div>
