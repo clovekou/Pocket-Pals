@@ -937,9 +937,36 @@ const Game = (() => {
   }
   /** what friends see: your main + party, as battle-ready numbers */
   function showcase() {
-    const card = m => m && !m.egg ? { sp: m.sp, shiny: !!m.shiny, name: m.name || '', level: memberLevel(m), ot: m.ot || null } : null;
+    const card = m => m && !m.egg ? { sp: m.sp, shiny: !!m.shiny, name: m.name || '', level: memberLevel(m), ot: m.ot || null, id: m.key || '' } : null;
+    // party cards carry their battle numbers too, so a friend can borrow one for exploring
+    const withStats = m => { const c = card(m); if (!c) return null; const b = memberBattler(m); return Object.assign(c, { atk: b.atk, def: b.def, spd: b.spd }); };
     const main = S.pet && !S.pet.egg ? Object.assign(card(S.pet), { atk: stat('atk'), def: stat('def'), spd: stat('spd') }) : null;
-    return { main, party: S.player.party.map(card).filter(Boolean), dex: registeredCount(), updatedAt: Date.now() };
+    const party = S.player.party.map(withStats).filter(Boolean);
+    const hk = helperKey(), helper = (main && main.id === hk && main) || party.find(c => c.id === hk) || null;
+    return { main, party, helper, dex: registeredCount(), updatedAt: Date.now() };
+  }
+
+  // ---------------- friend helpers (borrowed for exploring) ----------------
+  /** the Pokémon you lend to friends for exploring (by key); falls back to your main */
+  function helperKey() {
+    const k = S.player.helperKey, ok = k && [S.pet, ...S.player.party].some(m => m && !m.egg && m.key === k);
+    return ok ? k : (S.pet && !S.pet.egg ? S.pet.key || '' : '');
+  }
+  function setHelper(key) { ensureKeys(); S.player.helperKey = key || ''; save(); emit('party'); }
+  /** friend Pokémon you've already explored with today: { [friendUid]: [card ids] } (starts fresh each day) */
+  function borrowedToday() {
+    const b = S.player.borrowed;
+    if (!b || b.day !== dayNum()) S.player.borrowed = { day: dayNum(), used: {} };
+    return S.player.borrowed.used;
+  }
+  function markBorrowed(uid, id) {
+    const used = borrowedToday(); used[uid] = [...new Set([...(used[uid] || []), id])]; save();
+  }
+  /** battle numbers for a friend's Pokémon from its showcase card */
+  function cardBattler(c) {
+    if (!(c.atk > 0 && c.def > 0 && c.spd > 0)) return battler(c.sp, c.level || 5, false);
+    const lv = c.level || 5;
+    return { id: c.sp, level: lv, atk: c.atk, def: c.def, spd: c.spd, maxHp: Math.round(22 + lv * 2.2 + c.def * .25) };
   }
 
   // ---------------- battle stats ----------------
@@ -961,7 +988,7 @@ const Game = (() => {
     /** admin edits to evolutions (Firestore config/evolutions) */
     applyEvolutions(o) { if (EV) { EV.setOverrides(o); emit('config'); } }, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
-    setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, memberBattler, addItem, itemCount, useItem, useHeal, exploreEnd,
+    setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, memberBattler, cardBattler, helperKey, setHelper, borrowedToday, markBorrowed, addItem, itemCount, useItem, useHeal, exploreEnd,
     resume, canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
     stat, registered, registeredCount, shinyCount, careBonus, isFinal,
     LEGEND_UNLOCK, FAREWELL_AGE,

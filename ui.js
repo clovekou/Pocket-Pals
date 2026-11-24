@@ -1233,8 +1233,11 @@ if (!code) {
       const pic = m.egg ? `<img class="face" src="${PX.url(`egg_${s.tier || 'common'}_${Math.min(2, m.taps || 0)}`)}" alt="">` : face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny });
       return `<div class="pslot ${isMain ? 'main' : ''}">${pic}<div class="pi"><b>${m.egg ? 'Egg' : esc(memberName(m))}${m.shiny && !m.egg ? '{i:sparkle}' : ''}</b>
         <small>${m.egg ? 'Waiting to hatch' : `${ELEMENTS[s.el].label}${lv}${isMain ? '' : ' · resting'}`}</small>${needBar(m)}</div>
-        <div class="acts">${isMain ? '<span class="tag">{i:arrow}Main</span>' : m.locked ? '<span class="tag">{i:lock}In a trade</span>' : `<button data-sw="${i}">Make main</button><button class="alt" data-tobox="${i}">To Box</button>`}</div></div>`;
+        <div class="acts">${isMain ? '<span class="tag">{i:arrow}Main</span>' : m.locked ? '<span class="tag">{i:lock}In a trade</span>' : `<button data-sw="${i}">Make main</button><button class="alt" data-tobox="${i}">To Box</button>`}${helperBtn(m)}</div></div>`;
     };
+    // which Pokémon friends can borrow as their explore Backup (only matters once you're signed in)
+    const lending = ON().enabled && ON().profile, hk = Game.helperKey();
+    const helperBtn = m => !lending || m.egg ? '' : m.key && m.key === hk ? '<span class="tag helper">{i:friends}Friend helper</span>' : `<button class="alt" data-helper="${esc(m.key || '')}">{i:friends} Lend to friends</button>`;
     const roomInParty = party.length + 1 < Game.PARTY_MAX;
     // the PC Box is a grid, three to a row; tap one to move it to the party or release it
     const boxSlot = (m, i) => {
@@ -1244,11 +1247,17 @@ if (!code) {
         ${m.shiny ? '<span class="boxshiny">{i:sparkle}</span>' : ''}${m.fav ? '<span class="boxfav">{i:star}</span>' : ''}${m.locked ? '<span class="boxlock">{i:lock}</span>' : ''}</button>`;
     };
     const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
-    openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.</p>
+    openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Your main is the one you care for; the others rest and play in the background (their needs pause while resting). Tap one on the home screen to switch.${lending ? ' Your <b>Friend helper</b> is the Pokémon your friends can take exploring as their Backup.' : ''}</p>
       <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="pslot empty">Empty slot</div>'.repeat(empties)}</div>
       ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 4px">PC Box (${Game.box().length})</h4><p class="muted" style="margin:0 0 8px">Tap a Pokémon to move it to your party or release it.</p>
         <label class="boxsortsel"><span>Sort by</span><select id="boxSortSel">${BOX_SORTS.map(([k, l]) => `<option value="${k}" ${boxSort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
         <div class="boxgrid">${sortedBox().map(({ m, i }) => boxSlot(m, i)).join('')}</div>` : ''}`);
+    sheet.querySelectorAll('[data-helper]').forEach(b => b.addEventListener('click', () => {
+      const y = sheet.scrollTop; Game.setHelper(b.dataset.helper); Sound.play('medal');
+      toast('{i:friends} Friends can now bring this Pokémon along when they explore!');
+      Online.uploadSave(true).catch(() => {});
+      openParty(); sheet.scrollTop = y;
+    }));
     const sortSel = sheet.querySelector('#boxSortSel');
     if (sortSel) sortSel.addEventListener('change', () => {
       boxSort = sortSel.value; try { localStorage.setItem('pocketpal.boxSort', boxSort); } catch (e) {}
@@ -1799,44 +1808,96 @@ if (!code) {
   function openTeam(mapId) {
     const main = Game.pet();
     const pool = [{ m: main, i: -1 }, ...Game.party().map((m, i) => ({ m, i }))].filter(x => x.m && !x.m.egg && !x.m.locked && SPECIES_BY_ID[x.m.sp]);
-    if (pool.length < 2) { closeSheet(); return startExplore({ map: mapId }); }   // nobody to bring along
-    const nm = x => x.m.name || SPECIES_BY_ID[x.m.sp].name;
-    const lv = x => x.i < 0 ? Game.level() : Game.memberLevel(x.m);
+    const friendPool = () => friendPicks();
+    let fpool = friendPool();
+    if (pool.length < 2 && !fpool.length) { closeSheet(); return startExplore({ map: mapId }); }   // nobody to bring along
+    // own Pokémon are pool[0..n-1]; friends' Pokémon follow at n.. (they can only be the Backup)
+    const n = pool.length, all = () => pool.concat(fpool);
+    const nm = x => x.friend ? x.c.name || SPECIES_BY_ID[x.c.sp].name : x.m.name || SPECIES_BY_ID[x.m.sp].name;
+    const lv = x => x.friend ? x.c.level || 1 : x.i < 0 ? Game.level() : Game.memberLevel(x.m);
     const cfg = Game.config || {};
-    const whyNot = x => x.m.asleep ? 'Asleep' : x.m.ene < (cfg.exploreEnergy || 0) ? 'Too tired' : x.m.food < 20 ? 'Too hungry' : '';
-    let lead = 0, sub = 1, role = 'sub';
+    const whyNot = x => x.friend ? 'friend' : x.m.asleep ? 'Asleep' : x.m.ene < (cfg.exploreEnergy || 0) ? 'Too tired' : x.m.food < 20 ? 'Too hungry' : '';
+    let lead = 0, sub = n > 1 ? 1 : n, role = 'sub';   // no other Pokémon of your own: start with the first friend's
+    if (sub >= all().length) sub = null;
     const render = () => {
+      const A = all();
       const card = (x, k) => {
-        const tag = k === lead ? '<em class="tl">MAIN</em>' : k === sub ? '<em class="ts">BACKUP</em>' : '', no = whyNot(x);
-        return `<button class="teamcard${k === lead ? ' lead' : k === sub ? ' sub' : ''}" data-k="${k}">${tag}${monFace(x.m.sp, x.m.shiny)}
-          <b>${x.m.shiny ? '{i:sparkle}' : ''}${esc(nm(x))}</b><small>Lv ${lv(x)}${no ? ` · ${no}` : ''}</small></button>`;
+        const tag = k === lead ? '<em class="tl">MAIN</em>' : k === sub ? '<em class="ts">BACKUP</em>' : '', no = x.friend ? '' : whyNot(x);
+        const sp = x.friend ? x.c.sp : x.m.sp, shiny = x.friend ? x.c.shiny : x.m.shiny;
+        const sub2 = x.friend ? `Lv ${lv(x)} · ${esc(x.owner)}${x.rec === 'helper' ? '' : ' · {i:sparkle}new pick'}` : `Lv ${lv(x)}${no ? ` · ${no}` : ''}`;
+        return `<button class="teamcard${k === lead ? ' lead' : k === sub ? ' sub' : ''}${x.friend ? ' friend' : ''}" data-k="${k}">${tag}${monFace(sp, shiny)}
+          <b>${shiny ? '{i:sparkle}' : ''}${esc(nm(x))}</b><small>${sub2}</small></button>`;
       };
+      const fsec = fpool.length ? `<h4 class="teamh">{i:friends} Friends' Pokémon <small>Backup only</small></h4>
+        <div class="teamgrid">${fpool.map((x, j) => card(x, n + j)).join('')}</div>
+        <p class="muted">Each friend lends you their helper. Already explored with it today? You'll get one of their other Pokémon instead.</p>` : '';
       openSheet(head('Choose your team') + `
         <p class="mapsub">Pick a <b>Main</b> to explore and a <b>Backup</b> who jumps in if the Main faints.</p>
-        <div class="tabs"><button data-role="lead" class="${role === 'lead' ? 'on' : ''}">Main: ${esc(nm(pool[lead]))}</button><button data-role="sub" class="${role === 'sub' ? 'on' : ''}">Backup: ${sub == null ? 'none' : esc(nm(pool[sub]))}</button></div>
+        <div class="tabs"><button data-role="lead" class="${role === 'lead' ? 'on' : ''}">Main: ${esc(nm(A[lead]))}</button><button data-role="sub" class="${role === 'sub' ? 'on' : ''}">Backup: ${sub == null ? 'none' : esc(nm(A[sub]))}</button></div>
+        <h4 class="teamh">Your Pokémon</h4>
         <div class="teamgrid">${pool.map(card).join('')}</div>
+        ${fsec}
         <p class="muted">Tap a tab, then tap a Pokémon. Tap the Backup again to go without one.${pool[lead].i >= 0 ? ' Your Main becomes the Pokémon you look after at home.' : ''}</p>
         <div class="btns two"><button class="btn alt" id="teamBack">← Back</button><button class="btn red" id="teamGo">{i:map} Explore!</button></div>`);
       sheet.querySelectorAll('[data-role]').forEach(b => b.addEventListener('click', () => { role = b.dataset.role; Sound.play('tap'); render(); }));
       sheet.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => {
-        const k = +b.dataset.k; Sound.play('tap');
+        const k = +b.dataset.k, X = all()[k]; Sound.play('tap');
         if (role === 'lead') {
-          if (whyNot(pool[k])) { toast(`${esc(nm(pool[k]))} can't lead: ${whyNot(pool[k]).toLowerCase()}.`); Sound.play('no'); return; }
+          if (X.friend) { toast('A friend\'s Pokémon can only come along as your Backup.'); Sound.play('no'); role = 'sub'; sub = k; return render(); }
+          if (whyNot(X)) { toast(`${esc(nm(X))} can't lead: ${whyNot(X).toLowerCase()}.`); Sound.play('no'); return; }
           if (k === sub) sub = lead;
           lead = k; role = 'sub';
         } else if (k === sub) sub = null;
-        else if (k === lead) { if (sub == null || whyNot(pool[sub])) { toast('Pick a different Pokémon as the Backup.'); return; } [lead, sub] = [sub, lead]; }
+        else if (k === lead) { if (sub == null || sub >= n || whyNot(pool[sub])) { toast('Pick a different Pokémon as the Backup.'); return; } [lead, sub] = [sub, lead]; }
         else sub = k;
         render();
       }));
       $('#teamBack').addEventListener('click', openMaps);
       $('#teamGo').addEventListener('click', () => {
-        const L = pool[lead], subM = sub == null ? null : pool[sub].m;
+        const L = pool[lead], S2 = sub == null ? null : all()[sub];
         if (L.i >= 0 && !Game.switchMain(Game.party().indexOf(L.m))) { toast('Couldn\'t switch your Main right now.'); Sound.play('no'); return; }
-        closeSheet(); startExplore({ map: mapId, sub: subM });
+        let subOpt = null;
+        if (S2 && S2.friend) { Game.markBorrowed(S2.uid, S2.id); subOpt = { friend: true, card: S2.c, owner: S2.owner }; }
+        else if (S2) subOpt = S2.m;
+        closeSheet(); startExplore({ map: mapId, sub: subOpt });
       });
     };
     render();
+    // friends may have changed their helper since you signed in: fetch their latest teams and refresh the list
+    if (ON().enabled && ON().profile && ON().friends.length) {
+      Promise.all(ON().friends.map(f => Online.friendTeam(f).then(sc => { if (sc) f.showcase = sc; }).catch(() => {}))).then(() => {
+        if (!sheet.querySelector('#teamGo')) return;            // the picker was closed meanwhile
+        const keep = sub != null && sub >= n ? all()[sub] : null;
+        fpool = friendPool();
+        if (keep) { const j = fpool.findIndex(x => x.uid === keep.uid && x.id === keep.id); sub = j >= 0 ? n + j : null; }
+        const y = sheet.scrollTop; render(); sheet.scrollTop = y;
+      });
+    }
+  }
+  /** one recommended Pokémon per friend: their chosen helper, or — once you've explored with that today —
+   *  a random other one from their team (the same pick all day, so it doesn't change every time you look) */
+  function friendPicks() {
+    const O = ON(); if (!O.enabled || !O.profile || !O.friends) return [];
+    const used = Game.borrowedToday(), day = Math.floor(Date.now() / 864e5);
+    const out = [];
+    O.friends.forEach(f => {
+      const sc = f.showcase; if (!sc) return;
+      const cards = [sc.main, ...(sc.party || [])].filter(c => c && SPECIES_BY_ID[c.sp]).map((c, i) => Object.assign({}, c, { id: c.id || `${c.sp}-${i}` }));
+      if (!cards.length) return;
+      const done = new Set(used[f.uid] || []);
+      const helper = sc.helper && SPECIES_BY_ID[sc.helper.sp] ? Object.assign({}, sc.helper, { id: sc.helper.id || `${sc.helper.sp}-h` }) : cards[0];
+      let c = null, rec = 'helper';
+      if (!done.has(helper.id)) c = helper;
+      else {
+        const rest = cards.filter(x => !done.has(x.id) && x.id !== helper.id);
+        if (!rest.length) return;                                // you've explored with all of them today
+        let h = 0; for (const ch of f.uid + day) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+        c = rest[h % rest.length]; rec = 'random';
+      }
+      out.push({ friend: true, c, id: c.id, uid: f.uid, owner: f.username || 'Friend', rec });
+      preloadSpecies(c.sp, c.shiny);
+    });
+    return out;
   }
   $('#nameBtn').addEventListener('click', () => openCard());
   $('#settingsBtn').addEventListener('click', openSettings);
@@ -2650,9 +2711,11 @@ if (!code) {
       map: map.id, bgSrc: map.src || null,
     };
     // the team: [0] the Main (your home Pokémon), [1] the Backup that takes over if the Main faints
-    const subM = opts.sub && !opts.sub.egg && opts.sub !== p && SPECIES_BY_ID[opts.sub.sp] ? opts.sub : null;
+    const fr = opts.sub && opts.sub.friend && opts.sub.card && SPECIES_BY_ID[opts.sub.card.sp] ? opts.sub : null;   // borrowed from a friend
+    const subM = !fr && opts.sub && !opts.sub.egg && opts.sub !== p && SPECIES_BY_ID[opts.sub.sp] ? opts.sub : fr ? fr.card : null;
     G.team = [{ mon: p, sp: p.sp, shiny: p.shiny, nm: () => petName() }];
-    if (subM) G.team.push({ mon: subM, sp: subM.sp, shiny: subM.shiny, nm: () => subM.name || SPECIES_BY_ID[subM.sp].name, battler: Game.memberBattler(subM) });
+    if (fr) G.team.push({ mon: { bond: 0 }, sp: subM.sp, shiny: !!subM.shiny, owner: fr.owner, nm: () => subM.name || SPECIES_BY_ID[subM.sp].name, battler: Game.cardBattler(subM) });
+    else if (subM) G.team.push({ mon: subM, sp: subM.sp, shiny: subM.shiny, nm: () => subM.name || SPECIES_BY_ID[subM.sp].name, battler: Game.memberBattler(subM) });
     G.cur = 0;
     preloadSpecies(p.sp, p.shiny);
     if (subM) preloadSpecies(subM.sp, subM.shiny);
@@ -2787,7 +2850,7 @@ if (!code) {
       setTimeout(() => {
         if (arenaGame !== G) return;
         Sound.play('level');
-        say(`Go, <b>${esc(bk.nm())}</b>! Your backup jumps in!`, `Lv ${bk.battler.level} · full HP · the battle goes on`);
+        say(`Go, <b>${esc(bk.nm())}</b>! ${bk.owner ? `${esc(bk.owner)}'s Pokémon jumps in to help!` : 'Your backup jumps in!'}`, `Lv ${bk.battler.level} · full HP · the battle goes on`);
         G.state = 'encounter'; G.wildFirst = false;
         encounterButtons();
       }, SWAP_OUT_MS + SWAP_IN_MS);
@@ -3028,7 +3091,8 @@ if (!code) {
       Game.exploreEnd({ floor: G.floor, wins: G.wins, lost: !!lost });
       closeArena();
       const found = Object.entries(G.finds).map(([k, n]) => `{i:${Game.ITEMS[k].icon}}${n > 1 ? '×' + n : ''}`).join(' ');
-      toast(`Explored to B${G.floor}F${G.wins ? ` · won ${G.wins} battle${G.wins > 1 ? 's' : ''}` : ''}${found ? ' · found ' + found : ''}`, 5000);
+      const thanks = G.team[1] && G.team[1].owner ? ` · thanks, ${esc(G.team[1].owner)}'s ${esc(G.team[1].nm())}!` : '';
+      toast(`Explored to B${G.floor}F${G.wins ? ` · won ${G.wins} battle${G.wins > 1 ? 's' : ''}` : ''}${found ? ' · found ' + found : ''}${thanks}`, 5000);
       Talk.clear(); setTimeout(() => Talk.say(lost ? 'exploreLose' : 'exploreBack', { prio: 2 }), 300);
     }
     G.finish = early => finish(early, false);
