@@ -12,8 +12,8 @@ final class WidgetModel: ObservableObject {
 struct Ring: View {
     var value: Double?            // 0…1, nil = empty slot
     var marker: String? = nil     // SF Symbol sitting in a gap at the top (like the charging bolt)
-    var size: CGFloat = 60
-    var line: CGFloat = 6
+    var size: CGFloat = 54
+    var line: CGFloat = 5.5
     let gap: Double = 0.07
 
     var color: Color {
@@ -54,10 +54,10 @@ struct Slot<Icon: View>: View {
     @ViewBuilder var icon: () -> Icon
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             Ring(value: value, marker: marker).overlay(icon())
             Text(label)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .monospacedDigit()
                 .foregroundColor(.white.opacity(value == nil ? 0 : 0.78))
         }
@@ -74,7 +74,7 @@ struct WidgetCard: View {
         let i = model.info
         let live = i != nil && !(i?.egg ?? false)
         let avg = i.map { Double($0.food + $0.joy + $0.ene + $0.hyg) / 400 }
-        HStack(spacing: 18) {
+        HStack(spacing: 10) {
             Slot(value: i == nil ? nil : (i!.egg ? 1 : avg),
                  label: i == nil ? "–" : (i!.egg ? "Egg" : "Lv \(i!.level)"),
                  marker: (i?.asleep ?? false) ? "moon.fill" : nil,
@@ -83,7 +83,7 @@ struct WidgetCard: View {
                     Ellipse().fill(Color.white.opacity(0.8)).frame(width: 20, height: 26)
                 } else if let p = model.portrait {
                     Image(nsImage: p).interpolation(.none).resizable()
-                        .frame(width: 40, height: 40).clipShape(Circle())
+                        .frame(width: 36, height: 36).clipShape(Circle())
                         .opacity((i?.asleep ?? false) ? 0.6 : 1)
                 }
             }
@@ -92,15 +92,17 @@ struct WidgetCard: View {
             Slot(value: live ? pct(i!.ene) : nil, label: live ? "\(i!.ene)%" : "", help: "Energy") { symbol("bolt.fill", live) }
             Slot(value: live ? pct(i!.hyg) : nil, label: live ? "\(i!.hyg)%" : "", help: "Clean") { symbol("sparkles", live) }
         }
-        .padding(.horizontal, 22)
-        .padding(.top, 22)
-        .padding(.bottom, 18)
-        .fixedSize()
+        .padding(.top, 4)
+        // the size of a medium macOS widget
+        .frame(width: DesktopWidget.size.width, height: DesktopWidget.size.height)
+        .background(Color.black.opacity(0.12))
+        .overlay(RoundedRectangle(cornerRadius: DesktopWidget.radius, style: .continuous)
+            .strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
     }
 
     func symbol(_ name: String, _ on: Bool) -> some View {
         Image(systemName: name)
-            .font(.system(size: 20, weight: .semibold))
+            .font(.system(size: 18, weight: .semibold))
             .foregroundColor(.white.opacity(on ? 0.75 : 0))
     }
 }
@@ -111,10 +113,19 @@ final class DesktopWidget {
     private var portraitKey = ""
     private let d = UserDefaults.standard
     var enabled: Bool { d.object(forKey: "showWidget") as? Bool ?? true }
+    // macOS desktop widget layout: medium widget size, and the grid widgets snap to
+    static let size = NSSize(width: 344, height: 162)
+    static let radius: CGFloat = 23
+    static let margin: CGFloat = 16                 // from the screen's left edge
+    static let colPitch: CGFloat = 180              // small widget (164) + gap (16)
+    static let rowTop: CGFloat = 56                 // first row, from the top of the screen
+    static let rowPitch: CGFloat = 179.5            // widget height + gap
+    private var snapWork: DispatchWorkItem?
+    private var snapping = false
 
     init() {
         let host = NSHostingView(rootView: WidgetCard(model: model))
-        let size = host.fittingSize
+        let size = DesktopWidget.size
         panel = NSPanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
         // on the desktop, under your windows, like a real widget
@@ -126,7 +137,7 @@ final class DesktopWidget {
         let glass = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
         glass.material = .hudWindow; glass.blendingMode = .behindWindow; glass.state = .active
         glass.appearance = NSAppearance(named: .darkAqua)
-        glass.maskImage = DesktopWidget.roundedMask(radius: 24)
+        glass.maskImage = DesktopWidget.roundedMask(radius: DesktopWidget.radius)
         glass.autoresizingMask = [.width, .height]
         host.frame = glass.bounds; host.autoresizingMask = [.width, .height]
         glass.addSubview(host)
@@ -137,11 +148,45 @@ final class DesktopWidget {
             let v = scr.visibleFrame
             panel.setFrameOrigin(NSPoint(x: v.maxX - size.width - 24, y: v.maxY - size.height - 24))
         }
+        snap(animate: false)
         NotificationCenter.default.addObserver(forName: NSWindow.didMoveNotification, object: panel, queue: .main) { [weak self] _ in
-            guard let self else { return }
-            self.d.set(NSStringFromPoint(self.panel.frame.origin), forKey: "widgetOrigin")
+            guard let self, !self.snapping else { return }
+            self.scheduleSnap()
         }
         if enabled { panel.orderFrontRegardless() }
+    }
+
+    // once you let go, line it up with the macOS widget grid (if it's close to a grid spot)
+    func scheduleSnap() {
+        snapWork?.cancel()
+        let w = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            if NSEvent.pressedMouseButtons != 0 { self.scheduleSnap(); return }   // still dragging
+            self.snap(animate: true)
+        }
+        snapWork = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
+    }
+
+    func snap(animate: Bool) {
+        let f = panel.frame
+        guard let scr = NSScreen.screens.first(where: { $0.frame.intersects(f) }) ?? NSScreen.screens.first else { return }
+        let S = DesktopWidget.self, sf = scr.frame
+        let col = ((f.minX - sf.minX - S.margin) / S.colPitch).rounded()
+        let row = ((sf.maxY - f.maxY - S.rowTop) / S.rowPitch).rounded()
+        let x = sf.minX + S.margin + col * S.colPitch
+        let top = sf.maxY - S.rowTop - row * S.rowPitch
+        let target = NSPoint(x: x.rounded(), y: (top - f.height).rounded())
+        if hypot(target.x - f.minX, target.y - f.minY) < 60 && target != f.origin {
+            snapping = true
+            if animate {
+                NSAnimationContext.runAnimationGroup({ c in
+                    c.duration = 0.18
+                    panel.animator().setFrameOrigin(target)
+                }, completionHandler: { [weak self] in self?.snapping = false })
+            } else { panel.setFrameOrigin(target); snapping = false }
+        }
+        d.set(NSStringFromPoint(hypot(target.x - f.minX, target.y - f.minY) < 60 ? target : f.origin), forKey: "widgetOrigin")
     }
 
     static func roundedMask(radius r: CGFloat) -> NSImage {

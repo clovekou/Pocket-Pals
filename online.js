@@ -13,7 +13,7 @@ const Online = (() => {
     incoming: [], outgoing: [], friends: [], trades: [], battles: [],
   };
   const subs = [];
-  let db = null, auth = null, unsub = [], syncTimer = null, lastSynced = '', cloudChecked = false;
+  let db = null, auth = null, unsub = [], syncTimer = null, widgetTimer = null, lastSynced = '', cloudChecked = false;
   // multi-device sync: every upload is stamped with this device and a revision time, so a device
   // (or Safari, opened from the widget) can tell when another device saved newer progress
   const DEVICE = (() => { try { let d = localStorage.getItem('pocketpal.device'); if (!d) { d = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('pocketpal.device', d); } return d; } catch (e) { return 'x'; } })();
@@ -168,7 +168,7 @@ const Online = (() => {
   async function signOut() { await uploadSave(true).catch(() => {}); return auth && auth.signOut(); }
 
   async function onUser(user) {
-    unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer);
+    unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer); clearInterval(widgetTimer);
     Object.assign(st, { user, profile: null, needsUsername: false, incoming: [], outgoing: [], friends: [], trades: [], battles: [] });
     cloudChecked = false; st.cloudChecked = false;
     if (!user) { Game.setTrainer(null); emit(); return; }
@@ -187,7 +187,7 @@ const Online = (() => {
   let removing = false;
   async function accountRemoved(user, note) {
     if (removing) return; removing = true;
-    unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer);
+    unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer); clearInterval(widgetTimer);
     st.profile = null; cloudChecked = false; st.cloudChecked = false; lastSynced = '';
     try { ['pocketpal.syncRev.', 'pocketpal.adminRev.'].forEach(k => localStorage.removeItem(k + user.uid)); } catch (e) {}
     Game.reset();
@@ -205,6 +205,8 @@ const Online = (() => {
     listen(); emit();
     checkCloudSave();
     syncTimer = setInterval(() => uploadSave(false), 20000);
+    // the home-screen widget and desktop apps: publish your main's stats every 10 s (only when they've changed)
+    widgetTimer = setInterval(() => syncWidget(false).catch(() => {}), 10000);
   }
 
   // ---------------- unique username + UID ----------------

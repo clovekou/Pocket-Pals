@@ -24,8 +24,8 @@ For a Windows laptop, see `Pocket Pals Windows/`.
 3. Paste the key into the box the app shows and click **Connect**. (If you copied it first, it's
    filled in for you.)
 
-It checks your account every minute. The game sends updates about every 20 seconds while it's
-open, and whenever you leave it.
+It checks your account every 10 seconds. The game sends your Pokémon's stats every 10 seconds while
+it's open (only when they've changed), and whenever you leave it.
 
 Tip: move the app into your **Applications** folder if you want **Open at login**.
 

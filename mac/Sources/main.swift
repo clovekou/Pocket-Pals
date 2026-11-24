@@ -480,7 +480,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let anim = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in self?.tick() }
         RunLoop.main.add(anim, forMode: .common)
-        let syncTimer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in self?.sync() }
+        let syncTimer = Timer(timeInterval: 10, repeats: true) { [weak self] _ in self?.sync() }
         RunLoop.main.add(syncTimer, forMode: .common)
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in self?.sync() }
 
