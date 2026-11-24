@@ -1227,6 +1227,7 @@ if (!code) {
           <div class="row"><span>Age</span><b>${fmtDur(p.ageMin)}</b></div>
           <div class="row"><span>Weight</span><b>${weightLabel(p.weight)}</b></div>
           <div class="row"><span>Bond</span><b>${'{i:heart}'.repeat(hearts)}${'{i:heartEmpty}'.repeat(5 - hearts)} ${p.bond}%</b></div>
+          <div class="row"><span>Personality</span><b>${Talk.natureLabel(p)}</b></div>
           <div class="row"><span>Favourite berry</span><b>${p.berryKnown ? FLAVORS[s.fav].label : '???'}</b></div>
           <div class="row"><span>Original Trainer</span><b>${p.ot ? `${esc(p.ot.name)}${p.ot.code ? ` (${esc(p.ot.code)})` : ''}` : '—'}</b></div>
           ${p.receivedFrom ? `<div class="row"><span>Received from</span><b>${esc(p.receivedFrom.name)} (trade)</b></div>` : ''}
@@ -3132,8 +3133,26 @@ if (!code) {
     if (p.bond >= 50) pool.push('chatBond', 'chatBond');
     if (ST().player.streak >= 3) pool.push('chatStreak');
     if (p.weight > 50) pool.push('chatFat');
+    // this Pokémon's own chatter: its personality and its type
+    pool.push('chatNature', 'chatNature', 'chatType', 'chatType');
+    // the day of the week and the time of year
+    const d = new Date(), dow = d.getDay(), md = (d.getMonth() + 1) * 100 + d.getDate();
+    if (dow === 0 || dow === 6) pool.push('chatWeekend'); else if (dow === 1) pool.push('chatMonday'); else if (dow === 5) pool.push('chatFriday');
+    if (md >= 1220 && md <= 1226) pool.push('chatChristmas', 'chatChristmas');
+    if (md >= 1231 || md <= 102) pool.push('chatNewYear', 'chatNewYear');
+    if (md >= 1025 && md <= 1031) pool.push('chatHalloween', 'chatHalloween');
+    if (md === 214) pool.push('chatValentine', 'chatValentine');
+    // who it is and who it lives with
+    const friends = (ST().player.party || []).filter(m => m && !m.egg && m.sp !== p.sp);
+    const friend = friends.length ? friends[Math.floor(Math.random() * friends.length)] : null;
+    if (friend) pool.push('chatParty');
+    if (p.shiny) pool.push('chatShiny');
+    if (SPECIES_BY_ID[p.sp] && SPECIES_BY_ID[p.sp].tier === 'legend') pool.push('chatLegend');
+    const days = Math.floor((Date.now() - (p.hatchedAt || Date.now())) / 86400000);
+    if (days >= 3) pool.push('chatTogether');
+    if (ST().player.streak >= 7) pool.push('chatStreakLong');
     const k = pool[Math.floor(Math.random() * pool.length)];
-    Talk.say(k, { prio: 0, vars: { n: ST().player.streak } });
+    Talk.say(k, { prio: 0, vars: { n: ST().player.streak, days, friend: friend ? (friend.name || (SPECIES_BY_ID[friend.sp] || {}).name || 'my friend') : 'my friend' } });
   }
   function greet() {
     const p = Game.pet();

@@ -68,6 +68,120 @@ const LINES = {
   eggTap: [[['', 'The Egg wobbled!']], [['', 'Something is tapping back from inside!']]],
 };
 
+// ---------------------------------------------------------------------------------------------------------
+// More lines, so every Pokémon sounds like itself.
+// Keys can be specialised: 'pet#shy' is only said by shy Pokémon, 'chatType@fire' only by Fire types.
+// When a Pokémon has its own lines for a moment, they're mixed in with (and favoured over) the general ones.
+// Personalities (natures) are fixed per Pokémon: cheerful, shy, brave, lazy, cheeky, gentle.
+// ---------------------------------------------------------------------------------------------------------
+const MORE_LINES = {
+  // ---- more of the everyday lines ----
+  greetMorning: [[['Normal', 'Mmm... is it morning already?'], ['Happy', 'Morning, {player}! Breakfast first, then adventures?']], [['Joyous', 'Rise and shine, {player}! I\'ve been up for ages!']]],
+  greetDay: [[['Happy', 'There you are! I saved you a spot in the sun.']], [['Surprised', 'Oh! I didn\'t hear you coming, {player}!'], ['Happy', 'Hehe. Hi!']]],
+  greetEvening: [[['Happy', 'Welcome back, {player}. Long day?'], ['Normal', 'Sit with me for a bit. It\'s nice and quiet.']]],
+  greetNight: [[['Normal', 'Can\'t sleep either, {player}?'], ['Happy', 'Let\'s just hang out quietly, then.']]],
+  pet: [[['Happy', 'Right there! That\'s the spot!']], [['Joyous', 'Hehehe, stop it! ...No, don\'t stop!']], [['Happy', 'Your hands are so warm, {player}.']], [['Inspired', 'I could stay like this all day.']]],
+  berry: [[['Happy', 'Crunchy! Thanks, {player}!']], [['Joyous', '*nom nom nom* ...What? I\'m a growing {species}!']], [['Normal', 'Not bad... not bad at all.']]],
+  bath: [[['Joyous', 'Bubbles! Look, {player}, BUBBLES!']], [['Happy', 'All fresh and shiny now!']]],
+  sleep: [[['Sigh', 'Just five minutes... maybe fifty...']], [['Normal', 'Night night, {player}. Don\'t go anywhere, okay?']]],
+  wake: [[['Joyous', 'I\'m up! What did I miss?']], [['Happy', 'I dreamed we found a giant berry tree, {player}!']]],
+  level: [[['Joyous', 'Level {lv}! Did you see that? Did you SEE that?!']], [['Inspired', 'Level {lv}... I think I can feel something new inside me.']]],
+  hungry: [[['Worried', 'Is it snack time yet? It feels like snack time.']], [['Sigh', 'I can smell berries somewhere... or I\'m imagining it.']]],
+  bored: [[['Sigh', 'I counted every blade of grass here. Twice.']], [['Sad', 'Play with me? Pleeease?']]],
+  dirty: [[['Worried', 'Something smells funny... oh no, is it me?']]],
+  exploreGo: [[['Determined', 'Treasure, here we come!']], [['Inspired', 'I have a good feeling about today\'s trip!']]],
+  exploreBack: [[['Joyous', 'Did you see me out there?! I was amazing!']], [['Sigh', 'My paws are tired... but that was worth it.']]],
+  playGood: [[['Joyous', 'Again! Again! Let\'s go again!']]],
+  trainGood: [[['Determined', 'Feel that? That\'s the power of teamwork!']]],
+  chatDay: [[['Normal', 'Do you think the clouds are racing each other?']], [['Happy', 'I found a shiny pebble earlier. I\'m keeping it for you.']], [['Inspired', 'Today feels like a lucky day, {player}!']], [['Normal', 'Shh... listen. You can hear the wind in the leaves.']]],
+  chatNight: [[['Normal', 'That star looks like it\'s winking at us.']], [['Happy', 'Night time is the best time for secrets. Wanna hear one? ...I really like you, {player}.']], [['Sigh', 'The moon looks so big tonight...']]],
+  chatBond: [[['Happy', 'When you\'re here, everything feels alright.']], [['Inspired', 'We\'re a real team now, aren\'t we, {player}?']]],
+
+  // ---- personalities ----
+  'pet#cheerful': [[['Joyous', 'Yay! Pets! Best thing ever!']], [['Joyous', 'Hehe! Do it again, do it again!']]],
+  'pet#shy': [[['Surprised', 'Oh! Um...'], ['Happy', '...That\'s nice. Thank you, {player}.']], [['Happy', '...I don\'t mind if you keep going.']]],
+  'pet#brave': [[['Determined', 'A warrior needs rest too. Carry on!']], [['Happy', 'Heh. Don\'t tell anyone I like this.']]],
+  'pet#lazy': [[['Sigh', 'Mmm... perfect... don\'t stop... zzz...']], [['Happy', 'This is my favourite kind of training.']]],
+  'pet#cheeky': [[['Joyous', 'Gotcha! Now it\'s my turn to tickle YOU!']], [['Happy', 'That\'ll cost you one berry. Hehe, kidding! ...Mostly.']]],
+  'pet#gentle': [[['Happy', 'Thank you, {player}. You\'re always so kind to me.']], [['Inspired', 'This feels like a warm blanket.']]],
+  'berry#lazy': [[['Happy', 'Food AND I didn\'t have to get up? Perfect.']]],
+  'berry#cheeky': [[['Happy', 'Mine! ...Oh, you were giving it to me anyway. Hehe.']]],
+  'berry#shy': [[['Happy', '...Thank you. It\'s really good.']]],
+  'berry#brave': [[['Determined', 'Fuel for the next battle! Thanks!']]],
+  'bath#lazy': [[['Sigh', 'Can I just float here forever?']]],
+  'bath#cheeky': [[['Joyous', 'Splash attack! Hehe, now YOU\'RE wet too!']]],
+  'sleep#lazy': [[['Joyous', 'Finally! My favourite activity!']]],
+  'sleep#brave': [[['Determined', 'A short rest. Then I\'ll be stronger than ever.']]],
+  'level#brave': [[['Shouting', 'Level {lv}! Nothing can stop us now!']]],
+  'level#shy': [[['Happy', 'Level {lv}... I did it. We did it.']]],
+  'level#gentle': [[['Inspired', 'Level {lv}. I hope I can protect you even better now, {player}.']]],
+  'exploreGo#brave': [[['Shouting', 'Bring on the wild Pokémon! I\'m ready!']]],
+  'exploreGo#shy': [[['Worried', 'You\'ll stay close to me in there... right?']]],
+  'exploreGo#lazy': [[['Sigh', 'Do we have to walk ALL the way? ...Okay, okay.']]],
+  'greetDay#cheeky': [[['Joyous', 'Boo! Hehe, did I scare you?']]],
+  'greetDay#shy': [[['Happy', '...Oh. Hi, {player}. I\'m glad you\'re here.']]],
+  'greetMorning#lazy': [[['Dizzy', 'Morning...? Already...? Five more minutes...']]],
+  chatNature: [],
+  'chatNature#cheerful': [[['Joyous', 'Everything is fun when we\'re together!']], [['Happy', 'Let\'s make today the best day ever!']], [['Joyous', 'I made up a song about you! ♪ {player}, {player}, the best trainer ever ♪']]],
+  'chatNature#shy': [[['Normal', '...Um, {player}? Nothing. I just wanted to say your name.']], [['Worried', 'Other Pokémon are a bit scary... but I\'m okay with you here.']], [['Happy', 'I practised saying hi to a Pidgey today. It flew away... but I tried!']]],
+  'chatNature#brave': [[['Determined', 'If anything scary shows up, I\'ll protect you!']], [['Shouting', 'One day I\'ll be the strongest {species} around!']], [['Determined', 'Let\'s train hard today. No breaks! ...Okay, one break.']]],
+  'chatNature#lazy': [[['Sigh', 'What if we just... lay here... all day?']], [['Dizzy', 'I had a busy day. I napped twice.']], [['Normal', 'Clouds are nice. They don\'t have to do anything either.']]],
+  'chatNature#cheeky': [[['Joyous', 'I hid one of your things. Bet you can\'t find it! ...Okay, I forgot where.']], [['Happy', 'If you give me a Poffin, I\'ll tell you a secret.']], [['Joyous', 'I made a face at a Psyduck earlier. It didn\'t notice. Hehe.']]],
+  'chatNature#gentle': [[['Happy', 'Are you eating well too, {player}? Take care of yourself, okay?']], [['Inspired', 'I watered the little flowers over there. They look happy.']], [['Happy', 'If you ever feel sad, you can tell me. I\'ll listen.']]],
+
+  // ---- types ----
+  chatType: [],
+  'chatType@fire': [[['Happy', 'I\'m toasty warm! Want to warm your hands, {player}?']], [['Worried', 'Is it going to rain? I really don\'t like rain...']]],
+  'chatType@water': [[['Joyous', 'I could swim all day long!']], [['Happy', 'Puddles are just tiny oceans, you know.']]],
+  'chatType@grass': [[['Happy', 'Sunshine feels like a big warm hug.']], [['Inspired', 'I think I grew a tiny bit taller today!']]],
+  'chatType@electric': [[['Joyous', 'Bzzt! Sorry, did I zap you? I\'m just excited!']], [['Determined', 'I\'m all charged up! Let\'s do something!']]],
+  'chatType@ghost': [[['Joyous', 'Boo! ...Hehe. I\'m not that scary, right?']], [['Normal', 'I can walk through walls, but I like walking next to you more.']]],
+  'chatType@psychic': [[['Inspired', 'I just knew you were about to visit. Don\'t ask how.']], [['Normal', 'I\'m thinking of a number between 1 and 10... You got it!']]],
+  'chatType@dragon': [[['Determined', 'Dragons are proud and strong. Like me!']], [['Inspired', 'Someday I\'ll fly so high, I\'ll touch the clouds.']]],
+  'chatType@ice': [[['Happy', 'Brr! Perfect weather! ...What, isn\'t it?']], [['Joyous', 'I made a snowflake just for you, {player}!']]],
+  'chatType@rock': [[['Determined', 'I\'m solid as a rock! Literally.']], [['Happy', 'I found a really nice stone. It looks like me!']]],
+  'chatType@ground': [[['Happy', 'Digging is the best. You never know what you\'ll find!']], [['Normal', 'The ground is warm today. Good napping weather.']]],
+  'chatType@flying': [[['Joyous', 'The wind\'s perfect today! I want to fly!']], [['Inspired', 'From up high, everything looks so tiny.']]],
+  'chatType@bug': [[['Happy', 'I made friends with a ladybug. Her name is Dot.']], [['Inspired', 'Small things can do big things too!']]],
+  'chatType@poison': [[['Worried', 'Don\'t worry, I\'m only a little bit poisonous. Mostly.']], [['Happy', 'Purple is the best colour. Obviously.']]],
+  'chatType@fighting': [[['Determined', 'Hiyah! I\'ve been practising my moves!']], [['Shouting', 'One hundred push-ups! ...Okay, ten. Ten is good.']]],
+  'chatType@normal': [[['Happy', 'I\'m just a regular {species}, but I\'m YOUR {species}!']], [['Normal', 'Simple days are the best days.']]],
+  'chatType@fairy': [[['Joyous', 'Let\'s sprinkle a little magic on today!']], [['Happy', 'Everything is prettier with sparkles. Everything!']]],
+  'chatType@dark': [[['Normal', 'Night is my favourite. Everything is calm.']], [['Happy', 'People think I\'m scary... but you don\'t, right?']]],
+  'chatType@steel': [[['Determined', 'I\'m tough as iron! Nothing can dent me!']], [['Worried', 'Is it just me, or did I squeak? I need oiling...']]],
+  'bath@fire': [[['Worried', 'W-water?! Okay... just a little... for you, {player}.']]],
+  'bath@water': [[['Joyous', 'Bath time is the BEST time!']]],
+  'greetNight@ghost': [[['Joyous', 'Night time! My favourite! I\'m wide awake, {player}!']]],
+  'greetNight@dark': [[['Happy', 'Ah, the night. This is when I\'m at my best.']]],
+  'sleep@electric': [[['Sigh', 'Time to recharge my batteries... zzz...']]],
+
+  // ---- special moments ----
+  chatWeekend: [[['Joyous', 'It\'s the weekend! That means extra time together, right?']], [['Happy', 'Weekends are for lazy mornings and big adventures.']]],
+  chatMonday: [[['Sigh', 'Monday again... You can do it, {player}! I believe in you!']]],
+  chatFriday: [[['Joyous', 'It\'s Friday! The weekend is almost here!']]],
+  chatChristmas: [[['Joyous', 'Snow and presents and lights! I love this time of year, {player}!']], [['Happy', 'I wrapped a present for you. ...It\'s a berry. Don\'t peek!']]],
+  chatNewYear: [[['Inspired', 'A whole new year! Let\'s make it our best one yet, {player}!']], [['Joyous', 'My resolution? Spend even more time with you!']]],
+  chatHalloween: [[['Joyous', 'Trick or treat! ...Can I have both?']], [['Surprised', 'Everyone\'s wearing costumes! Should I dress up as a {player}?']]],
+  'chatHalloween@ghost': [[['Joyous', 'It\'s my time to shine! Boooo! Hehe!']]],
+  chatValentine: [[['Happy', 'I made you a heart out of berry juice. It\'s a bit sticky. Happy Valentine\'s, {player}!']]],
+  chatParty: [[['Happy', '{friend} told me a funny story earlier. Hehe.']], [['Normal', 'Do you think {friend} likes me? I hope so!']], [['Determined', '{friend} and I had a race. I totally won! ...Probably.']]],
+  chatShiny: [[['Inspired', 'Other Pokémon keep staring at my colours. Is that a good thing?']], [['Happy', 'You said I\'m one in a million. Is that true, {player}?']]],
+  chatLegend: [[['Normal', 'People tell legends about Pokémon like me... but I just want to hang out with you.']], [['Inspired', 'I can feel ancient power inside me... and a little bit of hunger.']]],
+  chatTogether: [[['Happy', 'We\'ve been together for {days} days now. Time flies, huh?']], [['Teary-Eyed', '{days} days together... I remember the very first one.']]],
+  chatStreakLong: [[['Inspired', '{n} days in a row! You\'re the most dependable trainer ever, {player}!']]],
+};
+Object.entries(MORE_LINES).forEach(([k, v]) => { LINES[k] = (LINES[k] || []).concat(v); });
+
+/** each Pokémon's personality, fixed from its own data so it never changes */
+const NATURES = ['cheerful', 'shy', 'brave', 'lazy', 'cheeky', 'gentle'];
+const NATURE_LABEL = { cheerful: 'Cheerful', shy: 'Shy', brave: 'Brave', lazy: 'Laid-back', cheeky: 'Cheeky', gentle: 'Gentle' };
+function natureOf(p) {
+  if (!p) return 'cheerful';
+  const s = String(p.key || p.hatchedAt || p.sp);
+  let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return NATURES[Math.abs(h) % NATURES.length];
+}
+
 const Talk = (() => {
   let box, face, faceImg, nameEl, textEl, nextEl;
   let queue = [], cur = null, shown = 0, typing = false, lastType = 0, closeAt = 0, prio = 0;
@@ -104,7 +218,14 @@ const Talk = (() => {
     const p = opts.prio == null ? 1 : opts.prio;
     let lines = what;
     if (typeof what === 'string') {
-      const variants = LINES[what]; if (!variants) return;
+      // general lines, plus this Pokémon's own (personality '#', type '@'), which count double
+      let variants = LINES[what] || [];
+      const info = petInfo();
+      if (info && !info.p.egg) {
+        const own = (LINES[what + '#' + natureOf(info.p)] || []).concat(LINES[what + '@' + info.sp.el] || []);
+        variants = variants.concat(own, own);
+      }
+      if (!variants.length) return;
       lines = variants[Math.floor(Math.random() * variants.length)];
     }
     if (cur && p < prio) return;            // never interrupt something more important
@@ -155,5 +276,5 @@ const Talk = (() => {
   }
   function clear() { queue = []; cur = null; box && box.classList.add('hidden'); prio = 0; }
 
-  return { init, say, clear, get busy() { return !!cur; } };
+  return { init, say, clear, nature: p => natureOf(p), natureLabel: p => NATURE_LABEL[natureOf(p)], get busy() { return !!cur; } };
 })();

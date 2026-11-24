@@ -3,6 +3,15 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 95, date: '2026-11-24', title: 'Your Pokémon has more to say',
+    notes: [
+      'Every Pokémon now has its own personality: Cheerful, Shy, Brave, Laid-back, Cheeky or Gentle. Check it in the stat card.',
+      'Its personality and its type change how it talks. A shy Pokémon is soft-spoken, a Fire type isn\'t keen on baths, and Ghosts love the night.',
+      'Lots of new lines for greetings, petting, meals, baths, sleep, level-ups and trips.',
+      'Your Pokémon notices the weekend, holidays like Halloween, Christmas and New Year, its party friends, and how long you\'ve been together.',
+    ],
+  },
+  {
     version: 94, date: '2026-11-24', title: 'Volume controls',
     notes: [
       'Options now has a Master volume, plus separate volumes for Music and Sound effects.',
