@@ -265,6 +265,10 @@ final class Pet {
         return panel.frame.minY + 4 + CGFloat(a.h - a.footPad - a.topPad) * view.scale
     }
     var size = NSSize(width: 80, height: 80)
+    /// "Hide Pokémon" in the menu bar
+    static var hidden = UserDefaults.standard.bool(forKey: "hidden")
+    var ready = false
+    func show() { ready = true; if !Pet.hidden { panel.orderFrontRegardless() } }
 
     init(member: Member, isMain: Bool, egg: Bool, x: CGFloat, scale: CGFloat) {
         self.member = member; self.isMain = isMain; self.egg = egg; self.x = x
@@ -273,10 +277,10 @@ final class Pet {
         panel.contentView = view
         until = CACurrentMediaTime() + Double.random(in: 0.5...4)
         resize(scale)
-        if egg { panel.orderFrontRegardless() }
+        if egg { show() }
         else {
             Task { @MainActor in
-                if let a = await Loader.load(member) { self.anims = a; self.resize(self.view.scale); self.panel.orderFrontRegardless() }
+                if let a = await Loader.load(member) { self.anims = a; self.resize(self.view.scale); self.show() }
             }
         }
     }
@@ -467,7 +471,15 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var position: String { d.string(forKey: "position") ?? "walk" }
     /// off = it keeps walking and playing on your Mac even while it's asleep in the game
     var followSleep: Bool { d.object(forKey: "followSleep") as? Bool ?? true }
-    var petAsleep: Bool { followSleep && (info?.asleep ?? false) }
+    /// "game" = sleep when it's asleep in the game, "asleep" = always asleep, "awake" = always awake
+    var sleepMode: String { d.string(forKey: "sleepMode") ?? (followSleep ? "game" : "awake") }
+    var petAsleep: Bool {
+        switch sleepMode {
+        case "asleep": return true
+        case "awake": return false
+        default: return info?.asleep ?? false
+        }
+    }
 
     func applicationDidFinishLaunching(_ n: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -547,7 +559,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if position == "right" { lo = hi - zone } else if position == "left" { hi = lo + zone }
         let env = Env(ground: g, minX: lo, maxX: hi, sleeping: petAsleep, scale: scale)
         for p in pets { p.tick(dt, now, env) }
-        if now > nextPop {
+        if now > nextPop && !Pet.hidden {
             nextPop = now + Double.random(in: 30...75)
             if let p = pets.first, info != nil, !petAsleep, !p.dragging { portrait.show(moodEmotion(), on: p, scale: scale) }
         }
@@ -661,12 +673,15 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         posItem.submenu = poss; menu.addItem(posItem)
 
-        let slItem = NSMenuItem(title: "When asleep in the game", action: nil, keyEquivalent: ""), sls = NSMenu()
-        for (name, v) in [("Sleep on my Mac too", true), ("Keep doing its own thing", false)] {
-            let it = NSMenuItem(title: name, action: #selector(setFollowSleep(_:)), keyEquivalent: "")
-            it.representedObject = v; it.target = self; it.state = followSleep == v ? .on : .off; sls.addItem(it)
+        let slItem = NSMenuItem(title: "Asleep or awake", action: nil, keyEquivalent: ""), sls = NSMenu()
+        for (name, v) in [("Same as in the game", "game"), ("Asleep (stays still)", "asleep"), ("Awake (walks around)", "awake")] {
+            let it = NSMenuItem(title: name, action: #selector(setSleepMode(_:)), keyEquivalent: "")
+            it.representedObject = v; it.target = self; it.state = sleepMode == v ? .on : .off; sls.addItem(it)
         }
         slItem.submenu = sls; menu.addItem(slItem)
+
+        let hd = NSMenuItem(title: "Hide Pokémon", action: #selector(toggleHidden), keyEquivalent: "h")
+        hd.state = Pet.hidden ? .on : .off; hd.target = self; menu.addItem(hd)
 
         let sb = NSMenuItem(title: "Show portrait reactions", action: #selector(togglePortrait), keyEquivalent: "")
         sb.state = portrait.enabled ? .on : .off; sb.target = self; menu.addItem(sb)
@@ -692,7 +707,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func setSize(_ s: NSMenuItem) { d.set(s.representedObject as? Double ?? 2, forKey: "scale"); pets.forEach { $0.resize(scale) } }
     @objc func setPosition(_ s: NSMenuItem) { d.set(s.representedObject as? String ?? "walk", forKey: "position") }
-    @objc func setFollowSleep(_ s: NSMenuItem) { d.set(s.representedObject as? Bool ?? true, forKey: "followSleep"); if petAsleep { portrait.hide() } }
+    @objc func setSleepMode(_ s: NSMenuItem) { d.set(s.representedObject as? String ?? "game", forKey: "sleepMode"); if petAsleep { portrait.hide() } }
+    @objc func toggleHidden() {
+        Pet.hidden.toggle(); d.set(Pet.hidden, forKey: "hidden")
+        if Pet.hidden { portrait.hide(); pets.forEach { $0.panel.orderOut(nil) } }
+        else { pets.filter { $0.ready }.forEach { $0.panel.orderFrontRegardless() } }
+    }
     @objc func setWalk(_ s: NSMenuItem) { d.set(s.representedObject as? Bool ?? true, forKey: "onDock") }
     @objc func togglePortrait() { d.set(!portrait.enabled, forKey: "showPortrait"); if !portrait.enabled { portrait.hide() } }
     @objc func toggleClickThrough() { d.set(!clickThrough, forKey: "clickThrough"); pets.forEach { $0.panel.ignoresMouseEvents = clickThrough } }
@@ -739,7 +759,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             do {
                 let i = try await fetchInfo(k)
                 self.token = k; self.lastError = nil; self.lastSync = Date(); self.petSig = ""; self.apply(i)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { if let p = self.pets.first, !(self.followSleep && i.asleep) { self.portrait.show("Joyous", on: p, scale: self.scale) } }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { if let p = self.pets.first, !Pet.hidden && !(self.sleepMode == "asleep" || (self.sleepMode == "game" && i.asleep)) { self.portrait.show("Joyous", on: p, scale: self.scale) } }
             } catch { self.alert("Couldn't connect", error.localizedDescription) }
         }
     }

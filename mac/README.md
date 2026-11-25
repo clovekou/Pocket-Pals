@@ -7,8 +7,9 @@ For a Windows laptop, see `Pocket Pals Windows/`.
   is full screen (and the Dock is hidden), it walks along the bottom of the screen instead, and rides
   up with the Dock when you bring it up.
 - When your Pokémon is asleep in the game, it sleeps on your desktop too, with floating z's. An egg
-  sits there and wobbles. If you'd rather it keep walking around, set **When asleep in the game →
-  Keep doing its own thing** in the menu bar.
+  sits there and wobbles. You can choose this yourself in the menu bar under **Asleep or awake**:
+  **Same as in the game**, **Asleep (stays still)** or **Awake (walks around)**.
+- **Hide Pokémon** (⌘H while the menu is open) takes it off your screen until you turn it off again.
 - They stay visible above every window, on every desktop Space, and over full-screen apps.
 - Every so often a little portrait of your Pokémon pops up over its head, with a face that matches how
   it's doing (happy, sad, sleepy…). **Click** it to make it hop and smile. **Drag** it to pick it up; let go and
