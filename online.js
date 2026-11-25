@@ -10,7 +10,7 @@ const Online = (() => {
     enabled: !!cfg, ready: false, error: null,
     user: null, profile: null, needsUsername: false,
     removedMsg: (() => { try { return sessionStorage.getItem('pocketpal.removedMsg') || ''; } catch (e) { return ''; } })(),
-    incoming: [], outgoing: [], friends: [], trades: [], battles: [],
+    incoming: [], outgoing: [], friends: [], trades: [], battles: [], visits: [],
   };
   const subs = [];
   let db = null, auth = null, unsub = [], syncTimer = null, widgetTimer = null, lastSynced = '', cloudChecked = false;
@@ -190,7 +190,7 @@ const Online = (() => {
 
   async function onUser(user) {
     unsub.forEach(u => u()); unsub = []; clearInterval(syncTimer); clearInterval(widgetTimer); clearInterval(presenceTimer); clearInterval(friendTimer);
-    Object.assign(st, { user, profile: null, needsUsername: false, incoming: [], outgoing: [], friends: [], trades: [], battles: [] });
+    Object.assign(st, { user, profile: null, needsUsername: false, incoming: [], outgoing: [], friends: [], trades: [], battles: [], visits: [] });
     cloudChecked = false; st.cloudChecked = false;
     if (!user) { Game.setTrainer(null); emit(); return; }
     try {
@@ -412,6 +412,7 @@ const Online = (() => {
       if (v && v.data && (v.adminRev || 0) > appliedRev()) applyAdminSave(v);
     }, () => {}));
     unsub.push(db.collection('battles').where('to', '==', uid).onSnapshot(q => { st.battles = map(q).filter(b => !b.seen); emit(); }, err));
+    unsub.push(db.collection('visits').where('to', '==', uid).onSnapshot(q => { st.visits = map(q).filter(v => !v.seen); emit(); }, () => {}));
   }
   function err(e) { st.error = friendly(e); emit(); }
 
@@ -516,6 +517,20 @@ const Online = (() => {
     return list;
   }
 
+  // ---------------- visits (Friends → Visit) ----------------
+  // Every visit is logged in visits/{id}: the friend gets a "came to visit" note, and the Admin page lists
+  // who visited whom and the Pokécoins each visit found.
+  async function recordVisit(friend, coins, myMon, theirMon) {
+    if (!db || !me() || !st.profile) return;
+    await db.collection('visits').add({ members: [me(), friend.uid], from: me(), fromName: st.profile.username, to: friend.uid, toName: friend.username || '',
+      coins: Math.max(0, Math.round(coins || 0)), fromMon: myMon || null, toMon: theirMon || null, seen: false, createdAt: now() });
+  }
+  async function markVisitsSeen() {
+    const list = st.visits.slice(); st.visits = []; emit();
+    await Promise.all(list.map(v => db.collection('visits').doc(v.id).update({ seen: true }).catch(() => {})));
+    return list;
+  }
+
   /** things waiting for you (for the badge) */
   function pending() {
     const uid = me();
@@ -527,6 +542,6 @@ const Online = (() => {
   return {
     get state() { return st; }, on: f => subs.push(f), init, signIn, signOut, createProfile, usernameFree, NAME_RE,
     resolveConflict, uploadSave, syncWidget, findUser, addFriend, respond, cancelRequest, removeFriend,
-    suggestUsers, presence, seenText, refreshFriends, offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, pending, redeemCode, backgroundImage, clearRemovedMsg,
+    suggestUsers, presence, seenText, refreshFriends, offerTrade, counterTrade, confirmTrade, declineTrade, friendTeam, recordBattle, markBattlesSeen, recordVisit, markVisitsSeen, pending, redeemCode, backgroundImage, clearRemovedMsg,
   };
 })();

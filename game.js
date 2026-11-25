@@ -40,6 +40,9 @@ const Game = (() => {
     bossHpMult: 1.8,     // floor boss HP ×
     bossLegendMult: 1,   // × each map's legendary-boss %
     catchMult: 1,        // × every ball's catch rate (the Master Ball always catches)
+    // visiting a friend (Friends → Visit): one try a day per friend at finding Pokécoins
+    visitCoins: 500,     // Pokécoins found
+    visitChance: 50,     // % chance the daily try finds them
     features: { explore: true, training: true, codes: true, shop: true, teamBackup: true, friendHelpers: true },
     announcement: '',
     // Poké Mart prices in Pokécoins (0 = not on the shelf), from items.js. The admin can change them.
@@ -58,6 +61,7 @@ const Game = (() => {
     num('shinyMult', .1, 50); num('legendMult', 0, 100); num('treasureMult', 0, 5); num('eggMult', 0, 10); num('bossShinyMult', .1, 50);
     num('wildChance', 0, 100); num('dropChance', 0, 100); num('floorHeal', 0, 100); num('runChance', 0, 100);
     num('bossHpMult', .5, 5); num('bossLegendMult', 0, 50); num('catchMult', .1, 10);
+    num('visitCoins', 0, 100000); num('visitChance', 0, 100); CFG.visitCoins = Math.round(CFG.visitCoins);
     CFG.exploreFloors = Math.round(CFG.exploreFloors); CFG.fragments = Math.round(CFG.fragments);
     CFG.features = Object.assign({}, CFG_DEFAULT.features, c.features || {});
     CFG.announcement = String(c.announcement || '').slice(0, 400);
@@ -656,6 +660,14 @@ const Game = (() => {
   function rollLegend(map) {
     const m = map && EXPLORE_MAPS[map];
     if (m && m.noLegend) return null;                                   // this map has no legendaries
+    const mo = monthLegends(map);
+    if (mo) {                                                           // this month's line-up: featured one weighted higher
+      const list = [[mo.main, mo.mainChance], ...mo.extras.map(id => [id, mo.extraChance])].filter(([id]) => id);
+      const tot = list.reduce((a, [, w]) => a + w, 0);
+      let r = Math.random() * tot, pick = list[0][0];
+      if (tot > 0) for (const [id, w] of list) { if ((r -= w) < 0) { pick = id; break; } }
+      return { sp: pick, level: Math.max(5, level()), shiny: rnd(100) === 0, legend: true, monthly: true };
+    }
     if (m && m.beast && SPECIES_BY_ID[m.beast]) return { sp: m.beast, level: Math.max(5, level()), shiny: rnd(100) === 0, legend: true };   // only its own
     const pool = SPECIES.filter(s => isSpecial(s.id));
     if (!pool.length) return null;
@@ -683,7 +695,8 @@ const Game = (() => {
   function rollFloor(floor, map) {
     const r = Math.random(), m = EXPLORE_MAPS[map] || {};
     // a wandering legendary is very rare; maps whose legendary is "more likely" (beastChance 4) double it, the desert has none
-    const legend = m.noLegend ? 0 : (.0008 + floor * .0002) * CFG.legendMult * (m.beastChance >= 4 ? 2 : 1), eggChance = Math.min(.4, (.002 + floor * .0003) * CFG.eggMult),   // Mystery Eggs in the grass: very rare
+    const mo = monthLegends(map), hot = mo ? mo.mainChance >= 4 : m.beastChance >= 4;
+    const legend = m.noLegend ? 0 : (.0008 + floor * .0002) * CFG.legendMult * (hot ? 2 : 1), eggChance = Math.min(.4, (.002 + floor * .0003) * CFG.eggMult),   // Mystery Eggs in the grass: very rare
       treasure = Math.min(.55, (.2 + floor * .015) * CFG.treasureMult), wild = CFG.wildChance / 100;
     if (Math.random() < legend && SPECIES.some(s => isSpecial(s.id))) return 'legend';
     if (r < eggChance) return 'egg';
@@ -710,7 +723,7 @@ const Game = (() => {
   const MAP_DEFAULTS = {};
   (typeof EXPLORE_MAP_DEFAULTS !== 'undefined' ? EXPLORE_MAP_DEFAULTS : [{ id: 'cave', types: null }]).forEach(m => {
     MAP_DEFAULTS[m.id] = { types: m.types ? Object.assign({}, m.types) : null, beast: m.beast || 0, beastChance: m.beastChance || 0,
-      noLegend: !!m.noLegend, chase: m.chase || 0, chaseChance: m.chaseChance || 0 };
+      noLegend: !!m.noLegend, chase: m.chase || 0, chaseChance: m.chaseChance || 0, monthly: {} };
   });
   const EXPLORE_MAPS = JSON.parse(JSON.stringify(MAP_DEFAULTS));   // the live values (same object all along; overrides fill it in)
   const firstMap = () => EXPLORE_MAPS[Object.keys(EXPLORE_MAPS)[0]] || { types: null };   // an unknown map id falls back to the first map
@@ -734,9 +747,32 @@ const Game = (() => {
         noLegend: 'noLegend' in o ? !!o.noLegend : d.noLegend,
         chase: 'chase' in o ? sp(o.chase) : d.chase,
         chaseChance: 'chaseChance' in o ? pct(o.chaseChance, d.chaseChance) : d.chaseChance,
+        monthly: cleanMonthly(o.monthly, sp, pct),
       };
     });
     emit('config');
+  }
+  // Monthly legendaries (Admin → Explore maps): { 'YYYY-MM': { main, mainChance, extras: [ids], extraChance } }.
+  // During that month the map's boss is the featured legendary mainChance % of the time, and each of the
+  // few lower-chance ones extraChance % of the time; they replace the map's usual legendary for the month.
+  function cleanMonthly(mo, sp, pct) {
+    const out = {};
+    if (!mo || typeof mo !== 'object') return out;
+    Object.entries(mo).forEach(([k, v]) => {
+      if (!/^\d{4}-\d{2}$/.test(k) || !v || typeof v !== 'object') return;
+      const main = sp(v.main), extras = [...new Set((Array.isArray(v.extras) ? v.extras : []).map(sp).filter(id => id && id !== main))].slice(0, 6);
+      if (!main && !extras.length) return;
+      out[k] = { main, mainChance: main ? pct(v.mainChance, 0) : 0, extras, extraChance: extras.length ? pct(v.extraChance, 0) : 0 };
+    });
+    return out;
+  }
+  const monthKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  /** this month's legendary line-up for a map, or null (none set, or the map has no legendaries) */
+  function monthLegends(map) {
+    const m = EXPLORE_MAPS[map];
+    if (!m || m.noLegend || !m.monthly) return null;
+    const e = m.monthly[monthKey()];
+    return e && (e.main || e.extras.length) ? e : null;
   }
   /** the species a map can show: every one for the plain cave, else one of its types (picked by weight) */
   function mapPool(map, list) {
@@ -768,13 +804,20 @@ const Game = (() => {
    *  On a themed map it's one of that map's types, and its legendary beast turns up beastChance % of the time. */
   function rollBoss(map) {
     const m = EXPLORE_MAPS[map] || firstMap();
-    if (!m.noLegend && m.beast && SPECIES_BY_ID[m.beast] && Math.random() * 100 < m.beastChance * CFG.bossLegendMult) {
-      return { sp: m.beast, level: Math.max(5, level() + 3), shiny: oneIn(150, CFG.bossShinyMult), boss: true, bossTier: 'legend', legend: true };
+    const legendBoss = id => ({ sp: id, level: Math.max(5, level() + 3), shiny: oneIn(150, CFG.bossShinyMult), boss: true, bossTier: 'legend', legend: true });
+    const mo = monthLegends(map);
+    if (mo) {                                       // this month: featured legendary (higher %), then each lower-chance one
+      const r = Math.random() * 100, k = CFG.bossLegendMult, top = mo.main ? mo.mainChance * k : 0;
+      if (mo.main && r < top) return legendBoss(mo.main);
+      const i = Math.floor((r - top) / Math.max(1e-9, mo.extraChance * k));
+      if (r >= top && i < mo.extras.length) return legendBoss(mo.extras[i]);
+    } else if (!m.noLegend && m.beast && SPECIES_BY_ID[m.beast] && Math.random() * 100 < m.beastChance * CFG.bossLegendMult) {
+      return legendBoss(m.beast);
     }
     const r = Math.random() * 100;
     const normal = mapPool(map, SPECIES.filter(s => !isSpecial(s.id)));
     const pools = [
-      ['legend', m.beast || m.noLegend ? 0 : .5, SPECIES.filter(s => isSpecial(s.id))],   // themed maps: only their own beast (or none)
+      ['legend', m.beast || m.noLegend || mo ? 0 : .5, SPECIES.filter(s => isSpecial(s.id))],   // themed maps: only their own beast (or none)
       ['final', 3.5, normal.filter(s => s.stage >= 2 && !s.next.length)],
       ['stage2', 15.5, normal.filter(s => s.stage === 2 && s.next.length)],
     ];
@@ -1003,6 +1046,20 @@ const Game = (() => {
     return { main, party, helper, dex: registeredCount(), updatedAt: Date.now() };
   }
 
+  // ---------------- visiting friends (Friends → Visit) ----------------
+  /** one try a day per friend at finding Pokécoins: { coins } (0 = none this time) or { already: true } */
+  function visitReward(uid) {
+    const v = S.player.visits;
+    if (!v || v.day !== dayNum()) S.player.visits = { day: dayNum(), tried: {} };
+    const tried = S.player.visits.tried;
+    if (tried[uid]) { save(); return { already: true, coins: 0 }; }
+    const coins = CFG.visitCoins > 0 && Math.random() * 100 < CFG.visitChance ? CFG.visitCoins : 0;
+    tried[uid] = coins || -1;
+    if (coins) S.player.coins = (S.player.coins || 0) + coins;
+    save(); if (coins) emit('coins');
+    return { coins };
+  }
+
   // ---------------- friend helpers (borrowed for exploring) ----------------
   /** the Pokémon you lend to friends for exploring (by key); falls back to your main */
   function helperKey() {
@@ -1043,7 +1100,7 @@ const Game = (() => {
     applyConfig, applyNews, applyDevMail, feature, get config() { return CFG; }, redeemGift, hasRedeemed, coins, buyItem, sellItem, ownsBackground, buyBackground, useBackground,
     useEvoItem, giveHeld, takeHeld, evoTarget, evoUsers, heldEvo, evoMethods,
     /** admin edits to evolutions (Firestore config/evolutions) */
-    applyEvolutions(o) { if (EV) { EV.setOverrides(o); emit('config'); } }, pickMysterySpecies, rollLegend, rollBoss, catchLegend, addFragment, summonLegend,
+    applyEvolutions(o) { if (EV) { EV.setOverrides(o); emit('config'); } }, pickMysterySpecies, rollLegend, monthLegends, visitReward, rollBoss, catchLegend, addFragment, summonLegend,
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
     setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, memberBattler, cardBattler, helperKey, setHelper, borrowedToday, markBorrowed, addItem, itemCount, useItem, useHeal, exploreEnd,
     resume, canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,

@@ -815,3 +815,26 @@ details.more[open] > summary::before { content: '▾ '; }
 .eg-chip.item { background: #efe8ff; padding-left: 3px; }
 .eg-chip img.ic { width: 20px; height: 20px; image-rendering: pixelated; }
 .eg-when { font-weight: 600; }
+
+/* ---------- party photo & visiting friends: only the scene is left on screen ---------- */
+body.photo #top, body.photo #bars, body.photo #actions, body.photo #mailBtn, body.photo #cerBtns, body.photo #toasts, body.photo #hint, body.photo #talk, body.photo #updateBar, body.photo #installBar,
+body.visiting #top, body.visiting #bars, body.visiting #actions, body.visiting #mailBtn, body.visiting #cerBtns, body.visiting #hint, body.visiting #talk, body.visiting #installBar { display: none !important; }
+body.photo #app, body.visiting #app { padding-top: 0; }
+body.photo #stage, body.visiting #stage { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+body.visiting #toasts { top: calc(66px + var(--safe-t)); }
+#sceneUi { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+#sceneUi.hidden { display: none; }
+#sceneUi .sx-x { pointer-events: auto; position: absolute; top: calc(12px + var(--safe-t)); right: 12px; width: 44px; height: 44px; border-radius: 50%; padding: 0;
+  border: 3px solid var(--line); background: rgba(255, 255, 255, .94); color: var(--ink); font-size: 18px; font-weight: 900; box-shadow: 0 3px 0 rgba(0, 0, 0, .2); cursor: pointer; }
+#sceneUi .sx-x:active { transform: translateY(2px); }
+#sceneUi .sx-bar { position: absolute; left: 0; right: 0; bottom: calc(20px + var(--safe-b)); display: flex; justify-content: center; pointer-events: none; }
+#sceneUi .sx-bar .btn { pointer-events: auto; width: auto; padding: 12px 22px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 0 rgba(0, 0, 0, .25); }
+#sceneUi .sx-head { position: absolute; top: calc(12px + var(--safe-t)); left: 12px; right: 68px; display: flex; }
+#sceneUi .sx-head span { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  background: rgba(255, 255, 255, .94); border: 3px solid var(--line); border-radius: 999px; padding: 7px 14px; font-family: var(--pixel); font-size: 15px; color: var(--ink); }
+#sceneUi .sx-head .ic { width: 22px; height: 22px; flex: none; }
+#sceneUi .sx-head em { font-style: normal; overflow: hidden; text-overflow: ellipsis; }
+#sceneUi .sx-flash { position: absolute; inset: 0; background: #fff; animation: sxFlash .45s ease-out forwards; }
+@keyframes sxFlash { from { opacity: .95; } to { opacity: 0; } }
+#sceneUi .sx-note { position: absolute; left: 50%; bottom: calc(84px + var(--safe-b)); transform: translateX(-50%); white-space: nowrap;
+  background: rgba(20, 22, 45, .85); color: #fff; padding: 8px 14px; border-radius: 999px; font-weight: 800; font-size: 14px; }

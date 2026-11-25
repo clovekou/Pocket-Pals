@@ -3,6 +3,15 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 112, date: '2026-11-25', title: 'Party photos and visiting friends',
+    notes: [
+      'Party → Party photo hides every button so it\'s just your Pokémon. Tap Share picture to send it or save it, or ✕ to go back.',
+      'Friends → Visit takes you to a friend\'s place. You\'ll see all 6 of their Pokémon, and your main chats and jumps for joy with theirs.',
+      'Each friend you visit gives you one chance a day to find 500 Pokécoins.',
+      'Explore maps can now have monthly legendaries: one featured legendary that\'s easier to find, plus a few rarer ones. Check the map cards to see this month\'s.',
+    ],
+  },
+  {
     version: 109, date: '2026-11-24', title: 'Find new friends',
     notes: [
       'The Friends screen now opens full screen.',

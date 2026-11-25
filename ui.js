@@ -453,6 +453,7 @@
   const talkEl = document.getElementById('talk');
   /** how far the ground must rise so the Pokémon stands just above the dialogue box */
   function talkLift() {
+    if (V.photo || V.visit) return 0;
     if (!Talk.busy || talkEl.classList.contains('hidden')) return 0;
     const top = talkEl.offsetTop; // box top inside the stage (the portrait sits to the left, above it)
     return Math.max(0, H * .86 - (top - 10));
@@ -764,7 +765,7 @@
       anim: hopping ? 'Hop' : (!V.moving && ms >= V.eatUntil && !p.asleep && Game.lowest() < 15 ? 'Hurt' : undefined),
       animT: hopping ? hopT : undefined,
     });
-    if (mainPos && Game.party().length) {               // ▼ marks your main when others are around
+    if (mainPos && Game.party().length && !V.photo) {   // ▼ marks your main when others are around (not in photos)
       PX.draw(cx, 'arrow', x, mainPos.top - 16 - Math.abs(Math.sin(t * 3)) * 6, 24);
     }
     if (p.shiny && !p.asleep && Math.sin(t * 1.3) > .97) addSparkles(x + (Math.random() - .5) * size * 2, fy - size * (1 + Math.random() * 1.2), 1, '#fff');
@@ -887,6 +888,7 @@
   }
 
   function draw(t, ms) {
+    if (V.visit) { drawVisit(t); drawFx(); return; }
     const p = Game.pet();
     const phase = scenePhase();
     const biome = p ? ELEMENTS[SPECIES_BY_ID[p.sp].el].biome : 'meadow';
@@ -898,6 +900,195 @@
     else if (V.anim) drawEnding(t, ms);
     else { V.pals.slice().sort((a, b) => a.depth - b.depth).forEach(p => drawPal(p, t)); drawPet(t, ms); drawBath(t, ms); }
     drawFx();
+  }
+
+
+  // ======================= party photo & visiting friends =======================
+  // Photo mode hides every bar and button so only the scene is left; Share sends (or saves) the picture.
+  // Only the scene canvas goes into the picture, so the Share and ✕ buttons floating over it never show up.
+  // A visit swaps the home scene for a friend's place: their 6 Pokémon, with your main chatting and hopping with theirs.
+  const sceneUi = document.createElement('div'); sceneUi.id = 'sceneUi'; sceneUi.className = 'hidden'; stage.appendChild(sceneUi);
+  function setSceneMode(mode) {               // null | 'photo' | 'visit'
+    document.body.classList.toggle('photo', mode === 'photo');
+    document.body.classList.toggle('visiting', mode === 'visit');
+    sceneUi.className = mode || 'hidden';
+    if (!mode) sceneUi.innerHTML = '';
+    else { Talk.clear(); closeSheet(); }
+  }
+  function startPhoto() {
+    if (!Game.pet()) return;
+    V.photo = true; V.visit = null; setSceneMode('photo');
+    sceneUi.innerHTML = icons(`<button class="sx-x" data-sx="close" aria-label="Close photo mode">✕</button>
+      <div class="sx-bar"><button class="btn red" data-sx="share">{i:image} Share picture</button></div>`);
+    Sound.play('tap');
+  }
+  function endSceneMode() {
+    if (!V.photo && !V.visit) return;
+    V.photo = false; V.visit = null; setSceneMode(null);
+    Sound.play('tap');
+  }
+  function sceneNote(msg) {
+    const n = document.createElement('div'); n.className = 'sx-note'; n.textContent = msg; sceneUi.appendChild(n);
+    setTimeout(() => n.remove(), 2600);
+  }
+  // the picture is made straight away inside the tap, so phones still allow the share sheet to open
+  function sceneBlob() {
+    const url = cv.toDataURL('image/png'), bin = atob(url.slice(url.indexOf(',') + 1)), a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    return new Blob([a], { type: 'image/png' });
+  }
+  async function sharePicture() {
+    let blob;
+    try { blob = sceneBlob(); } catch (e) { sceneNote("Couldn't take the picture on this device."); return; }
+    Sound.play('medal');
+    const fl = document.createElement('div'); fl.className = 'sx-flash'; sceneUi.appendChild(fl); setTimeout(() => fl.remove(), 500);
+    const v = V.visit, name = `pocket-pals-${v ? 'visit' : 'party'}-${new Date().toISOString().slice(0, 10)}.png`;
+    const title = v ? `Visiting ${v.friend.username} in Pocket Pals` : 'My Pocket Pals party';
+    let file = null; try { file = new File([blob], name, { type: 'image/png' }); } catch (e) {}
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }          // closed the share sheet: nothing to do
+    }
+    // no share sheet (most computers): download the picture instead
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    sceneNote('Picture saved to your downloads');
+  }
+  sceneUi.addEventListener('pointerdown', e => e.stopPropagation());
+  sceneUi.addEventListener('click', e => {
+    const b = e.target.closest('[data-sx]'); if (!b) return;
+    if (b.dataset.sx === 'close') endSceneMode(); else if (b.dataset.sx === 'share') sharePicture();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && (V.photo || V.visit)) endSceneMode(); });
+
+  // ---------- visiting a friend ----------
+  const VISIT_LINES = {
+    me: ['Hi there!', 'Your place is so nice!', 'Wanna play?', 'Yay! Best friends!', "Let's explore together!", 'I missed you!', "Tag! You're it!", 'This is so fun!'],
+    them: ['Welcome, {me}!', 'So happy you came!', "Let's play!", 'Come in, come in!', 'Hehe!', 'Come back soon!', 'Want a berry?', 'Meet my friends!'],
+  };
+  async function startVisit(friend, preset) {
+    if (!guard()) return;
+    let team = preset || null;
+    if (!team) try { team = await Online.friendTeam(friend); } catch (e) { toast("Couldn't reach your friend's place. Try again."); return; }
+    const guests = team ? [team.main, ...(team.party || [])].filter(m => m && SPECIES_BY_ID[m.sp]).slice(0, Game.PARTY_MAX) : [];
+    if (!team || !team.main || !guests.length) { toast(`${friend.username} doesn't have a Pokémon to visit yet.`); return; }
+    if (!guard()) return;                                        // still awake after the wait?
+    const p = Game.pet(), host = guests[0], others = guests.slice(1), t = now() / 1000;
+    guests.forEach(m => preloadSpecies(m.sp, m.shiny, ['Idle', 'Walk', 'Hop']));
+    preloadSpecies(p.sp, p.shiny, ['Idle', 'Walk', 'Hop']);
+    V.visit = {
+      friend, host, t0: t, last: t, state: 'enter', meX: -.1, metAt: 0, rewarded: false,
+      hostName: host.name || SPECIES_BY_ID[host.sp].name,
+      biome: (ELEMENTS[SPECIES_BY_ID[host.sp].el] || {}).biome || 'meadow',
+      // their other Pokémon stand around in the back, spread out and hopping now and then
+      pals: others.map((m, i) => ({ m, x: .1 + (i + .5) * (.8 / others.length) + (Math.random() - .5) * .04, depth: .63 + (i % 2) * .05,
+        hopAt: -9, nextHop: t + 1.5 + Math.random() * 4 })),
+      line: null, lineAt: 0, nextLine: 0, speaker: 'them', meHop: -9, hostHop: -9, nextJoy: 0, said: { me: [], them: [] },
+    };
+    V.photo = false; setSceneMode('visit');
+    sceneUi.innerHTML = icons(`<div class="sx-head"><span>{i:friends} <em><b>${esc(friend.username)}</b>'s place</em></span></div>
+      <button class="sx-x" data-sx="close" aria-label="Leave">✕</button>
+      <div class="sx-bar"><button class="btn alt" data-sx="share">{i:image} Take a photo</button></div>`);
+    Sound.play('tap');
+  }
+  function visitLine(v, who) {
+    const pool = VISIT_LINES[who].filter(l => !v.said[who].includes(l));
+    const l = (pool.length ? pool : VISIT_LINES[who])[Math.floor(Math.random() * (pool.length || VISIT_LINES[who].length))];
+    v.said[who] = [...v.said[who], l].slice(-4);
+    return l.replace('{me}', petName());
+  }
+  function visitReward(v) {
+    v.rewarded = true;
+    const r = Game.visitReward(v.friend.uid), p = Game.pet();
+    if (r.coins) {
+      Sound.play('level');
+      toast(`{i:coin} ${petName()} found ${r.coins.toLocaleString()} Pokécoins at ${v.friend.username}'s place!`, 5000);
+      addSparkles(W * .5, H * .86 - baseSize() * 2, 22);
+      Online.uploadSave(true).catch(() => {});
+    } else if (r.already) toast(`{i:heart} You already searched for Pokécoins here today. Come back tomorrow!`, 4000);
+    else toast(`{i:heart} No Pokécoins this time, but they're having lots of fun!`, 4000);
+    Online.recordVisit(v.friend, r.coins || 0, { sp: p.sp, shiny: !!p.shiny }, { sp: v.host.sp, shiny: !!v.host.shiny }).catch(() => {});
+  }
+  function speechBubble(x, top, text, alpha) {
+    cx.save();
+    cx.globalAlpha = alpha;
+    cx.font = '800 14px "Nunito", system-ui, sans-serif';
+    const w = Math.min(W * .46, cx.measureText(text).width + 22), h = 30;
+    const bx = Math.max(6, Math.min(W - w - 6, x - w / 2)), by = Math.max(6, top - h - 14);
+    const tx = Math.max(bx + 14, Math.min(bx + w - 14, x));
+    cx.fillStyle = '#fff'; cx.strokeStyle = '#2b2f45'; cx.lineWidth = 2.5; cx.lineJoin = 'round';
+    roundRect(cx, bx, by, w, h, 11); cx.fill(); cx.stroke();
+    cx.beginPath(); cx.moveTo(tx - 7, by + h - 1.5); cx.lineTo(tx, by + h + 9); cx.lineTo(tx + 7, by + h - 1.5); cx.fill();
+    cx.beginPath(); cx.moveTo(tx - 7, by + h); cx.lineTo(tx, by + h + 9); cx.lineTo(tx + 7, by + h); cx.stroke();
+    cx.fillStyle = '#2b2f45'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    cx.fillText(text, bx + w / 2, by + h / 2 + 1, w - 14);
+    cx.restore();
+  }
+  function nameTag(x, y, text) {
+    cx.save();
+    cx.font = '800 12px "Nunito", system-ui, sans-serif';
+    const w = Math.min(W * .44, cx.measureText(text).width + 16), h = 20;
+    cx.fillStyle = 'rgba(25,30,55,.62)'; roundRect(cx, x - w / 2, y, w, h, 10); cx.fill();
+    cx.fillStyle = '#fff'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(text, x, y + h / 2 + 1, w - 10);
+    cx.restore();
+  }
+  function drawVisit(t) {
+    const v = V.visit, p = Game.pet();
+    if (!p || p.egg) { endSceneMode(); return; }
+    const dt = Math.min(.05, Math.max(0, t - v.last)); v.last = t;
+    drawSky(t, 'day'); drawBiome(v.biome, t, 'day');
+    const fy = H * .86, base = baseSize();
+    const hopLen = id => Math.max(.45, animLength(id, 'Hop') || .55);
+    const jump = (at, id, height) => {           // the Hop animation plus a real little jump
+      const e = t - at, k = e / hopLen(id);
+      return k >= 0 && k < 1 ? { anim: 'Hop', animT: e, hop: Math.sin(k * Math.PI) * height } : {};
+    };
+    // their other Pokémon in the back, facing the two friends in the middle
+    const pxScale = Math.max(1, Math.round(base * 1.35 / 28 * DPR)) / DPR;
+    v.pals.slice().sort((a, b) => a.depth - b.depth).forEach(q => {
+      if (t > q.nextHop) { q.hopAt = t; q.nextHop = t + (v.state === 'meet' ? 1.6 : 3) + Math.random() * 3.5; }
+      const x = q.x * W, y = H * q.depth, size = base * .85;
+      pixelShadow(cx, x, y, size * .8, size * .16, .14, pxScale);
+      const pos = drawCreature(cx, q.m.sp, { x, y, size, t: t + q.depth * 10, pxScale, maxH: base * 2.6, dpr: DPR, shiny: q.m.shiny, flip: q.x > .5, ...jump(q.hopAt, q.m.sp, size * .25) });
+      if (pos && t - q.hopAt < .9 && v.state === 'meet') PX.draw(cx, 'note', x + (q.x > .5 ? -1 : 1) * size * .5, pos.top - 10, 20, { alpha: 1 - (t - q.hopAt) / .9 });
+    });
+    // your main walks in from the left; their main waits on the right
+    const meX = .35, hostX = .65;
+    if (v.state === 'enter') {
+      v.meX = Math.min(meX, v.meX + dt * .2);
+      if (v.meX >= meX) { v.state = 'meet'; v.metAt = t; v.nextLine = t + .3; v.nextJoy = t + 1.2; v.hostHop = t; Sound.play('pet'); }
+    }
+    if (v.state === 'meet') {
+      if (t > v.nextLine) {                       // take turns talking; the one talking hops with joy
+        v.line = { who: v.speaker, text: visitLine(v, v.speaker) }; v.lineAt = t; v.nextLine = t + 2.3;
+        if (v.speaker === 'me') v.meHop = t; else v.hostHop = t;
+        v.speaker = v.speaker === 'me' ? 'them' : 'me';
+        Sound.play('tap');
+      }
+      if (t > v.nextJoy) {                        // every few seconds both jump together and hearts float up
+        v.meHop = v.hostHop = t; v.nextJoy = t + 3.2 + Math.random() * 2;
+        for (let i = 0; i < 4; i++) V.hearts.push({ x: W * .5 + (Math.random() - .5) * 50, y: fy - base * 2.2 + Math.random() * 16, vy: 30 + Math.random() * 25, life: 1.5 + Math.random() * .5, age: 0 });
+      }
+      if (!v.rewarded && t - v.metAt > 2.6) visitReward(v);
+    }
+    const sMe = base * stageScale(p.sp), sHost = base * stageScale(v.host.sp);
+    const mx = v.meX * W, hx = hostX * W;
+    pixelShadow(cx, hx, fy, sHost * .85, sHost * .18, .18, sHost / 10);
+    pixelShadow(cx, mx, fy, sMe * .85, sMe * .18, .18, sMe / 10);
+    const walking = v.state === 'enter', jh = jump(v.hostHop, v.host.sp, sHost * .45), jm = walking ? {} : jump(v.meHop, p.sp, sMe * .45);
+    const hostPos = drawCreature(cx, v.host.sp, { x: hx, y: fy, size: sHost, t: t + 3, maxH: H * .42, shiny: v.host.shiny, flip: true, ...jh });
+    const mePos = drawCreature(cx, p.sp, { x: mx, y: fy, size: sMe, t, maxH: H * .42, shiny: p.shiny, flip: false, walking, ...jm });
+    v.tops = v.tops || {};
+    if (hostPos && !jh.anim) v.tops.them = hostPos.top;
+    if (mePos && !jm.anim) v.tops.me = mePos.top;
+    nameTag(mx, fy + 10, petName());
+    nameTag(hx, fy + 10, `${v.friend.username}'s ${v.hostName}`);
+    if (v.line) {
+      const age = t - v.lineAt, a = Math.max(0, Math.min(1, age * 6, (2.1 - age) * 4));
+      const me = v.line.who === 'me', x = me ? mx : hx, top = v.tops[me ? 'me' : 'them'] || fy - base * 2, lift = (me ? jm : jh).hop || 0;
+      if (a > 0) speechBubble(x, top - lift, v.line.text, a);
+    }
   }
 
   // ======================= HUD =======================
@@ -1266,10 +1457,12 @@ if (!code) {
     };
     const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
     openSheet(head('Party') + `<p class="muted" style="margin-top:0">Up to ${Game.PARTY_MAX} Pokémon. Tap a Pokémon for options. Resting Pokémon don't get hungry or tired.</p>
+      ${p ? '<div class="btns" style="margin:0 0 12px"><button class="btn red" id="partyPhoto">{i:image} Party photo</button></div>' : ''}
       <div class="partylist">${p ? slot(p, -1, true) : ''}${party.map((m, i) => slot(m, i, false)).join('')}${'<div class="prow empty">Empty slot</div>'.repeat(empties)}</div>
       ${Game.box().length ? `<h4 style="font-family:var(--pixel);margin:18px 0 4px">PC Box (${Game.box().length})</h4><p class="muted" style="margin:0 0 8px">Tap a Pokémon to move it to your party or release it.</p>
         <label class="boxsortsel"><span>Sort by</span><select id="boxSortSel">${BOX_SORTS.map(([k, l]) => `<option value="${k}" ${boxSort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
         <div class="boxgrid">${sortedBox().map(({ m, i }) => boxSlot(m, i)).join('')}</div>` : ''}`);
+    const ph = sheet.querySelector('#partyPhoto'); if (ph) ph.addEventListener('click', startPhoto);
     // tapping a row opens a small menu with just the actions that make sense for it
     sheet.querySelectorAll('[data-pm]').forEach(b => b.addEventListener('click', () => {
       const i = +b.dataset.pm, isMain = i < 0, m = isMain ? Game.pet() : party[i]; if (!m) return;
@@ -1726,7 +1919,7 @@ if (!code) {
   function showAnnouncement() {
     clearTimeout(newsTimer);
     const n = Game.config.news; if (!n || !ST().player.starterPicked || ST().settings.seenNewsId === n.id) return;
-    if (!sheet.classList.contains('hidden')) { newsTimer = setTimeout(showAnnouncement, 4000); return; }
+    if (!sheet.classList.contains('hidden') || V.photo || V.visit) { newsTimer = setTimeout(showAnnouncement, 4000); return; }
     ST().settings.seenNewsId = n.id; Game.save();
     Sound.play('medal');
     dialog(icons('{i:sparkle} News'), esc(n.text).replace(/\n/g, '<br>'), [{ label: 'OK', cls: 'gold' }]);
@@ -1830,7 +2023,7 @@ if (!code) {
   /** existing players who never saw the tour: offer it once, when nothing else is on screen */
   function offerTour() {
     if (ST().settings.tourSeen || !ST().player.starterPicked || Tour.active()) return;
-    if (!sheet.classList.contains('hidden') || !arena.classList.contains('hidden')) return setTimeout(offerTour, 8000);
+    if (!sheet.classList.contains('hidden') || !arena.classList.contains('hidden') || V.photo || V.visit) return setTimeout(offerTour, 8000);
     dialog('New: a quick tour', 'Want a one-minute tour of Pocket Pal? It shows what every button does. You can always find it later in Options → Tutorial.', [
       { label: 'Not now', cls: 'alt', fn: () => { ST().settings.tourSeen = true; Game.save(); } },
       { label: 'Show me', cls: 'red', fn: () => Tour.start() },
@@ -1864,7 +2057,7 @@ if (!code) {
   }
   let pressTimer = null;
   stage.addEventListener('pointerdown', e => {
-    if (e.target.closest('#cerBtns button, #mailBtn')) return;
+    if (V.photo || V.visit || e.target.closest('#cerBtns button, #mailBtn, #sceneUi')) return;
     const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     const onPet = hitPet(x, y);
     const p = Game.pet();
@@ -1879,7 +2072,7 @@ if (!code) {
   const endPress = e => {
     if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
     const P = V.press; V.press = null;
-    if (!P || V.anim || !ST().player.starterPicked) return;
+    if (!P || V.anim || V.photo || V.visit || !ST().player.starterPicked) return;
     const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     const dx = x - P.x, dy = y - P.y;
     if (Math.max(Math.abs(dx), Math.abs(dy)) > 50) {
@@ -1999,9 +2192,12 @@ if (!code) {
       const def = MAPS[m.id] || {}, types = def.types ? Object.keys(def.types) : null;
       const chips = types ? types.map(el => `<i style="background:${(ELEMENTS[el] || {}).color || '#777'}">${(ELEMENTS[el] || {}).label || el}</i>`).join('') : '<i class="all">All types</i>';
       const beast = def.beast && SPECIES_BY_ID[def.beast], chase = def.chase && def.chaseChance > 0 && SPECIES_BY_ID[def.chase];
+      // the admin's legendaries for this month: the featured one first, then the rarer ones
+      const mo = Game.monthLegends(m.id), moIds = mo ? [mo.main, ...mo.extras].filter(id => id && SPECIES_BY_ID[id]) : [];
+      const moNames = moIds.slice(0, 3).map(id => SPECIES_BY_ID[id].name).join(', ') + (moIds.length > 3 ? ` +${moIds.length - 3}` : '');
       return `<button class="mapcard" data-map="${m.id}">
         <span class="mapimg" style="background-image:url('${m.thumb}')"></span><span class="mapshade"></span>
-        <span class="mapboss">${def.noLegend ? 'No legendaries' : `{i:sparkle} ${beast ? `Rare boss: ${beast.name}` : 'Any legendary'}`}</span>
+        <span class="mapboss">${def.noLegend ? 'No legendaries' : mo ? `{i:sparkle} This month: ${esc(moNames)}` : `{i:sparkle} ${beast ? `Rare boss: ${beast.name}` : 'Any legendary'}`}</span>
         <span class="mapinfo"><b class="mapname">${m.name}</b>${chase ? `<span class="mapchase">{i:star} Main chase: ${esc(chase.name)}</span>` : ''}<span class="mapchips">${chips}</span></span></button>`;
     };
     openSheet(head('Choose a map') + `
@@ -3505,8 +3701,8 @@ if (!code) {
         const m = f.showcase && f.showcase.main;
         const on = Online.presence(f).online;
         return `<div class="fcard">${m ? monFace(m.sp, m.shiny) : `<img class="face" src="${PX.url('egg_common_0')}" alt="">`}<div class="fi"><b><i class="pdot${on ? ' on' : ''}" title="${on ? 'Online' : 'Offline'}"></i>${esc(f.username)}</b><small class="seen${on ? ' on' : ''}">${esc(Online.seenText(f))}</small><small>${esc(f.code || '')}</small><small>Main: ${m ? monLine(m) : 'none yet'}</small></div>
-          <div class="acts"><button data-fb="${i}">{i:sword} Battle</button><button class="gold" data-ft="${i}">{i:trade} Trade</button></div></div>`;
-      }).join('') + '<p class="muted" style="margin-top:10px">Battles use your friend\'s current main. Trades never include your main.</p>';
+          <div class="acts"><button class="alt" data-fv="${i}">{i:heart} Visit</button><button data-fb="${i}">{i:sword} Battle</button><button class="gold" data-ft="${i}">{i:trade} Trade</button></div></div>`;
+      }).join('') + '<p class="muted" style="margin-top:10px">Visit a friend to see their whole party and let your mains play. Each friend you visit gives one chance a day to find Pokécoins. Battles use your friend\'s current main. Trades never include your main.</p>';
     }
     if (tab === 'requests') {
       const inc = S2.incoming.map(r => `<div class="fcard"><img class="face" src="${PX.url('friends')}" alt=""><div class="fi"><b>${esc(r.fromName)}</b><small>${esc(r.fromCode || '')} wants to be friends</small></div>
@@ -3614,6 +3810,12 @@ if (!code) {
       const f = ON().friends[+e.currentTarget.dataset.ft];
       pickForTrade(`Offer a Pokémon to ${f.username}`, async key => { await Online.offerTrade(f, key); toast(`Offer sent to ${f.username}. Your Pokémon is locked until the trade is done.`, 4000); openOnline('trades'); });
     });
+    on('[data-fv]', 'click', safe(async e => {
+      const b = e.currentTarget, f = ON().friends[+b.dataset.fv]; if (!f) return;
+      if (!guard()) return;
+      b.disabled = true;
+      try { await startVisit(f); } finally { b.disabled = false; }
+    }));
     on('[data-fb]', 'click', safe(async e => {
       const f = ON().friends[+e.currentTarget.dataset.fb];
       const team = await Online.friendTeam(f);
@@ -3644,6 +3846,12 @@ if (!code) {
     }
     if (s.battles.length) {
       Online.markBattlesSeen().then(list => list.forEach(b => toast(`{i:sword} ${b.fromName} battled your ${b.toMon && SPECIES_BY_ID[b.toMon.sp] ? SPECIES_BY_ID[b.toMon.sp].name : 'Pokémon'} and ${b.winner === s.user.uid ? 'lost' : 'won'}!`, 5000)));
+    }
+    if (s.visits && s.visits.length) {
+      Online.markVisitsSeen().then(list => {
+        const names = [...new Set(list.map(v => v.fromName).filter(Boolean))];
+        if (names.length) toast(`{i:friends} ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''} came to visit your Pokémon!`, 5000);
+      });
     }
     if (s.conflict && !onlineOpen) openOnline();
     // refresh the friends screen if it's open (but not while typing)
@@ -3737,7 +3945,7 @@ if (!code) {
   // ---------- talking on its own ----------
   let nextChat = now() + 25000, awayGreeted = false;
   function chatter(ms) {
-    if (ms < nextChat || Talk.busy || arenaGame || V.anim || !sheet.classList.contains('hidden')) return;
+    if (ms < nextChat || Talk.busy || arenaGame || V.anim || V.photo || V.visit || !sheet.classList.contains('hidden')) return;
     const p = Game.pet(); if (!p || p.egg || p.asleep || !ST().player.starterPicked) { nextChat = ms + 10000; return; }
     nextChat = ms + 35000 + Math.random() * 40000;
     if (p.food < 25) return Talk.say('hungry');
@@ -3832,11 +4040,13 @@ if (!code) {
   }
   pixelizeIcons();
   PX.hydrate();
-  if (window.PP_PREVIEW) {                                  // ?preview&demo=boss|wheel|wheelgreat|wheelmaster|legend|swap|chest|team[&map=thunder|sea|volcano]: jump straight to a dungeon moment
+  if (window.PP_PREVIEW) {                                  // ?preview&demo=boss|wheel|wheelgreat|wheelmaster|legend|swap|chest|team|photo|visit[&map=thunder|sea|volcano]: jump straight to a dungeon moment
     const qs = new URLSearchParams(location.search), demo = qs.get('demo');
     if (demo) setTimeout(() => {
       const p = Game.pet(); if (p && p.asleep) Game.toggleSleep(); if (p) { p.ene = Math.max(p.ene, 80); p.food = Math.max(p.food, 80); }
       if (demo === 'team') return openTeam(qs.get('map') || 'cave');                     // the Main + Backup picker
+      if (demo === 'photo') return startPhoto();                                          // party photo mode
+      if (demo === 'visit') return startVisit({ uid: 'demo', username: 'Misty' }, Game.showcase());   // visit your own team as a stand-in friend
       startExplore({ demo, map: qs.get('map'), sub: Game.party()[0] });                 // demo=legend|swap|chest bring a Backup
     }, 1500);
   }

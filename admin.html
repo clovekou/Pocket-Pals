@@ -110,6 +110,27 @@
   .typew.off { opacity: .4; pointer-events: none; }
   .maped .g3 label, .maped .g2 label { font-size: 12px; color: var(--muted); font-weight: 700; display: grid; gap: 3px; }
   .maped .reset { margin-top: 12px; }
+  .maped select { width: 100%; }
+  .molist { display: grid; gap: 10px; margin-top: 8px; }
+  .morow { border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: #fcfaf5; display: grid; gap: 10px; }
+  .morow.now { border-color: var(--accent); background: #faf8ff; }
+  .morow.past { opacity: .6; }
+  .morow .mohead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .morow .mohead select { width: auto; font-weight: 800; }
+  .morow .mohead .sp { flex: 1; }
+  .morow label { font-size: 12px; color: var(--muted); font-weight: 700; display: grid; gap: 3px; }
+  .mo2 { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+  @media (max-width: 560px) { .mo2 { grid-template-columns: 1fr; } }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; align-items: center; }
+  .chips .chip { display: inline-flex; align-items: center; gap: 4px; background: #e7defd; color: #4b33b0; border-radius: 999px; padding: 3px 4px 3px 10px; font-size: 13px; font-weight: 800; }
+  .chips .chip button { border: 0; background: #fff8; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 12px; line-height: 1; padding: 0; }
+  .vstats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 10px 0 14px; }
+  .vstats div { background: var(--chip); border-radius: 14px; padding: 12px; } .vstats b { display: block; font-size: 22px; } .vstats small { color: var(--muted); font-size: 12px; font-weight: 700; }
+  .vlist { display: grid; gap: 6px; }
+  .vrow { display: grid; grid-template-columns: 34px 34px 1fr auto; gap: 10px; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+  .vrow img { width: 34px; height: 34px; border-radius: 8px; background: #e6f2ff; image-rendering: pixelated; }
+  .vrow .vw small { display: block; color: var(--muted); font-size: 12px; }
+  .vrow .vc { font-weight: 800; white-space: nowrap; } .vrow .vc.none { color: var(--muted); font-weight: 600; }
   @media (max-width: 560px) { .maped .th { width: 84px; } .maped .g3 { grid-template-columns: 1fr; } }
   .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 9; max-width: calc(100% - 32px); }
   @media (max-width: 560px) { .mons { grid-template-columns: 1fr; } }
@@ -205,6 +226,7 @@
     <button data-tab="evos">Evolutions</button>
     <span class="grp">Players</span>
     <button data-tab="players">Players</button>
+    <button data-tab="visits">Visits</button>
     <button data-tab="codes">Gift codes</button>
     <span class="grp">Messages</span>
     <button data-tab="news">Announcement</button>
@@ -260,6 +282,14 @@
         <label class="fld"><span class="fl">Running away works</span><span class="fi"><input type="number" data-cfg="runChance" min="0" max="100" step="1"><em>%</em></span><small>Default 80.</small></label>
         <label class="fld"><span class="fl">Floor boss HP</span><span class="fi"><input type="number" data-cfg="bossHpMult" min="0.5" max="5" step="0.1"><em>×</em></span><small>Default 1.8. Higher = tougher bosses.</small></label>
         <label class="fld"><span class="fl">Catch rate</span><span class="fi"><input type="number" data-cfg="catchMult" min="0.1" max="10" step="0.1"><em>×</em></span><small>Default 1. The Master Ball always catches.</small></label>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3>Friends</h3>
+      <div class="fields">
+        <label class="fld"><span class="fl">Pokécoins found on a visit</span><span class="fi"><input type="number" data-cfg="visitCoins" min="0" max="100000" step="1"><em>coins</em></span><small>Default 500. 0 = visits never find coins.</small></label>
+        <label class="fld"><span class="fl">Chance to find them</span><span class="fi"><input type="number" data-cfg="visitChance" min="0" max="100" step="1"><em>%</em></span><small>Default 50. One try a day for each friend visited.</small></label>
       </div>
     </div>
 
@@ -413,6 +443,16 @@
     <div id="banned"><p class="note">Loading…</p></div>
   </section>
 
+  <section class="card" id="visitsCard" hidden>
+    <h2>Visits</h2>
+    <p class="sub">Every time a player visits a friend's place (Friends → Visit), it shows here with the Pokécoins that visit found. Each player gets one try a day per friend; the amount and chance are in <b>Game settings → Friends</b>.</p>
+    <div class="row"><input type="search" id="vq" placeholder="Search a username…" style="flex:1">
+      <label class="chk"><input type="checkbox" id="vOnlyCoins"> Only visits that found coins</label>
+      <button class="btn alt" id="vReload">Refresh</button></div>
+    <div class="vstats" id="vStats"></div>
+    <div class="vlist" id="vList"><p class="note">Loading…</p></div>
+  </section>
+
   <section class="card" id="editCard" hidden>
     <h2 id="edTitle"></h2>
     <p class="sub" id="edSub"></p>
@@ -493,7 +533,7 @@ async function signIn() {
 $('#signOut').onclick = () => auth.signOut();
 
 async function onUser(u) {
-  $('#playersCard').hidden = $('#editCard').hidden = $('#settingsCard').hidden = $('#codesCard').hidden = $('#evoCard').hidden = $('#bgCard').hidden = $('#mapsCard').hidden = $('#tabs').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
+  $('#visitsCard').hidden = $('#playersCard').hidden = $('#editCard').hidden = $('#settingsCard').hidden = $('#codesCard').hidden = $('#evoCard').hidden = $('#bgCard').hidden = $('#mapsCard').hidden = $('#tabs').hidden = true; $('#signOut').hidden = !u; $('#who').textContent = '';
   cur = save = null; dirty();
   if (!u) { status('<h2>Admin sign-in</h2><p class="sub">Sign in with the Google account that has admin access.</p><button class="btn" id="signIn">Sign in with Google</button>'); $('#signIn').onclick = signIn; return; }
   $('#who').textContent = u.displayName || '';
@@ -521,8 +561,9 @@ function showTab(t) {
   $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   $('#settingsCard').hidden = t !== 'settings'; $('#codesCard').hidden = t !== 'codes'; $('#newsCard').hidden = t !== 'news'; $('#devmailCard').hidden = t !== 'devmail';
   $('#playersCard').hidden = t !== 'players'; $('#editCard').hidden = t !== 'players' || !cur;
-  $('#evoCard').hidden = t !== 'evos'; $('#bgCard').hidden = t !== 'bgs'; $('#mapsCard').hidden = t !== 'maps';
+  $('#evoCard').hidden = t !== 'evos'; $('#bgCard').hidden = t !== 'bgs'; $('#mapsCard').hidden = t !== 'maps'; $('#visitsCard').hidden = t !== 'visits';
   if (t === 'bgs') loadBgs();
+  if (t === 'visits') loadVisits();
   if (t === 'evos') drawEvos();
 }
 
@@ -642,7 +683,7 @@ $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => showTab(b.d
 
 // ---------------- game settings (config/game) ----------------
 const CFG_DEFAULT = { exploreFloors: 10, fragments: 20, exploreEnergy: 30, shinyMult: 1, legendMult: 1, treasureMult: 1, eggMult: 1, bossShinyMult: 1,
-  wildChance: 30, dropChance: 35, floorHeal: 15, runChance: 80, bossHpMult: 1.8, bossLegendMult: 1, catchMult: 1,   // keep in step with game.js
+  wildChance: 30, dropChance: 35, floorHeal: 15, runChance: 80, bossHpMult: 1.8, bossLegendMult: 1, catchMult: 1, visitCoins: 500, visitChance: 50,   // keep in step with game.js
   features: { explore: true, training: true, codes: true, shop: true, teamBackup: true, friendHelpers: true }, announcement: '',
   shopBuy: {}, shopSell: {} };
 // every item comes from items.js (shared with the game)
@@ -694,6 +735,22 @@ const MAPDEF = typeof EXPLORE_MAP_DEFAULTS !== 'undefined' ? EXPLORE_MAP_DEFAULT
 const TYPES = [...new Set(Object.values(SP).map(s => s.el))].sort();
 const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
 const spVal = id => id && SP[id] ? `${pad(id)} ${SP[id].name}` : '';
+// legendaries and mythicals, plus Ultra Beasts and Paradox Pokémon (the game counts those as legendary too; keep in step with game.js)
+const SPECIAL_IDS = new Set([793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806, 984, 985, 986, 987, 988, 989, 990, 991, 992, 993, 994, 995, 1005, 1006, 1009, 1010, 1020, 1021, 1022, 1023]);
+const LEGENDS = Object.values(SP).filter(s => s.tier === 'legend' || SPECIAL_IDS.has(s.id)).sort((a, b) => a.id - b.id).map(s => s.id);
+/** a <select> of every legendary; `keep` adds an option for a saved value that isn't on the list */
+function legendSelect(attr, val, empty) {
+  const ids = val && !LEGENDS.includes(val) && SP[val] ? [val, ...LEGENDS] : LEGENDS;
+  return `<select ${attr}><option value="">${esc(empty)}</option>${ids.map(id => `<option value="${id}" ${id === val ? 'selected' : ''}>${esc(spVal(id))}</option>`).join('')}</select>`;
+}
+const monthKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+const monthLabel = k => { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }); };
+/** this month and the next 11, plus any month already saved */
+function monthOptions(extra) {
+  const d = new Date(), out = [];
+  for (let i = 0; i < 12; i++) out.push(monthKey(new Date(d.getFullYear(), d.getMonth() + i, 1)));
+  return [...new Set([...extra, ...out])].sort();
+}
 let mapOver = {};
 /** the values a map uses now: its default, with the saved override on top */
 function mapNow(d) {
@@ -704,17 +761,69 @@ function mapNow(d) {
     beast: 'beast' in o ? o.beast : (d.beast || 0), beastChance: 'beastChance' in o ? o.beastChance : (d.beastChance || 0),
     noLegend: 'noLegend' in o ? !!o.noLegend : !!d.noLegend,
     chase: 'chase' in o ? o.chase : (d.chase || 0), chaseChance: 'chaseChance' in o ? o.chaseChance : (d.chaseChance || 0),
+    monthly: o.monthly && typeof o.monthly === 'object' ? o.monthly : {},
   };
+}
+function moText(e) {
+  const parts = [];
+  if (e.main && SP[e.main]) parts.push(`${SP[e.main].name} ${e.mainChance}%`);
+  if (e.extras && e.extras.length) parts.push(`${e.extras.filter(id => SP[id]).map(id => SP[id].name).join(', ')} ${e.extraChance}% each`);
+  return parts.join(' · ');
 }
 function mapSummary(v) {
   const types = v.allTypes ? 'All types' : Object.entries(v.types).filter(([, w]) => w > 0).sort((a, b) => b[1] - a[1]).map(([t]) => cap(t)).join(', ') || 'No types set';
   const leg = v.noLegend ? 'No legendaries' : v.beast && SP[v.beast] ? `Legendary: ${SP[v.beast].name} (${v.beastChance}% boss)` : 'Legendary: any';
   const chase = v.chase && SP[v.chase] && v.chaseChance > 0 ? `Main chase: ${SP[v.chase].name} (${v.chaseChance}% per battle)` : 'No main chase';
-  return `${esc(types)}<br>${esc(leg)} · ${esc(chase)}`;
+  const mo = !v.noLegend && v.monthly[monthKey()];
+  return `${esc(types)}<br>${esc(leg)} · ${esc(chase)}${mo ? `<br><b>This month:</b> ${esc(moText(mo))}` : ''}`;
+}
+/** one month's line-up: featured legendary (higher chance) + a few lower-chance ones */
+function moRow(key, e, taken) {
+  e = e || { main: 0, mainChance: 5, extras: [], extraChance: 1 };
+  const now = monthKey(), cls = key === now ? 'now' : key < now ? 'past' : '';
+  const opts = monthOptions([key]).map(k => `<option value="${k}" ${k === key ? 'selected' : ''} ${k !== key && taken.includes(k) ? 'disabled' : ''}>${esc(monthLabel(k))}${k === now ? ' (this month)' : k < now ? ' (past)' : ''}</option>`).join('');
+  const chips = (e.extras || []).filter(id => SP[id]).map(id => `<span class="chip" data-x="${id}">${esc(SP[id].name)}<button type="button" data-unx="${id}" aria-label="Remove">✕</button></span>`).join('');
+  return `<div class="morow ${cls}" data-mo>
+    <div class="mohead"><select data-mk>${opts}</select><span class="sp"></span><button type="button" class="btn alt sm" data-model>Remove month</button></div>
+    <div class="mo2">
+      <label>Featured legendary (higher chance)${legendSelect('data-mmain', e.main || 0, '— none —')}</label>
+      <label>Higher chance %<input type="number" min="0" max="100" step="0.5" data-mmc value="${e.mainChance || 0}"></label>
+    </div>
+    <div class="mo2">
+      <label>Lower-chance legendaries (pick a few, up to 6)<div class="chips" data-chips>${chips || '<span class="note">None yet</span>'}</div>${legendSelect('data-madd', 0, '+ Add a lower-chance legendary…')}</label>
+      <label>Lower chance % (each)<input type="number" min="0" max="100" step="0.5" data-mxc value="${e.extraChance || 0}"></label>
+    </div>
+  </div>`;
+}
+function wireMoRow(row) {
+  const chips = row.querySelector('[data-chips]'), add = row.querySelector('[data-madd]');
+  const ids = () => [...chips.querySelectorAll('[data-x]')].map(c => +c.dataset.x);
+  const redraw = list => {
+    chips.innerHTML = list.map(id => `<span class="chip" data-x="${id}">${esc(SP[id].name)}<button type="button" data-unx="${id}" aria-label="Remove">✕</button></span>`).join('') || '<span class="note">None yet</span>';
+  };
+  add.onchange = () => {
+    const id = +add.value; add.value = ''; if (!id) return;
+    const list = ids();
+    if (list.includes(id)) return;
+    if (id === +row.querySelector('[data-mmain]').value) { toast('That one is already the featured legendary'); return; }
+    if (list.length >= 6) { toast('Up to 6 lower-chance legendaries per month'); return; }
+    redraw([...list, id]);
+  };
+  chips.onclick = e => { const b = e.target.closest('[data-unx]'); if (b) redraw(ids().filter(id => id !== +b.dataset.unx)); };
+  row.querySelector('[data-model]').onclick = () => { const list = row.parentElement; row.remove(); refreshMonthChoices(list); };
+  row.querySelector('[data-mk]').onchange = () => refreshMonthChoices(row.parentElement);
+}
+/** a month can only be used once per map: grey it out in the other rows */
+function refreshMonthChoices(list) {
+  const rows = [...list.querySelectorAll('[data-mo]')], used = rows.map(r => r.querySelector('[data-mk]').value), now = monthKey();
+  rows.forEach((r, i) => {
+    r.querySelectorAll('[data-mk] option').forEach(o => { o.disabled = o.value !== used[i] && used.includes(o.value); });
+    r.classList.toggle('now', used[i] === now); r.classList.toggle('past', used[i] < now);
+  });
 }
 function drawMaps() {
   $('#mapEditors').innerHTML = MAPDEF.map(d => {
-    const v = mapNow(d), edited = !!mapOver[d.id];
+    const v = mapNow(d), edited = !!mapOver[d.id], months = Object.keys(v.monthly).sort();
     return `<details class="maped" data-map="${d.id}">
       <summary><span class="th" style="background-image:url('${esc(d.thumb)}')"></span>
         <span class="sum"><b>${esc(d.name)} ${edited ? '<span class="tag ed">edited</span>' : ''}</b><small>${mapSummary(v)}</small></span><span class="chev">›</span></summary>
@@ -725,11 +834,15 @@ function drawMaps() {
         <div class="typew ${v.allTypes ? 'off' : ''}">${TYPES.map(t => { const w = v.types[t] || 0; return `<label class="${w > 0 ? 'on' : ''}">${cap(t)}<input type="number" min="0" max="100" step="1" data-tw="${t}" value="${w}"></label>`; }).join('')}</div>
         <h4>Legendary</h4>
         <div class="g3">
-          <label>Legendary Pokémon<input type="text" list="spList" data-beast value="${esc(spVal(v.beast))}" placeholder="e.g. 0251 Celebi"></label>
+          <label>Legendary Pokémon${legendSelect('data-beast', v.beast || 0, 'Any legendary')}</label>
           <label>Floor boss chance %<input type="number" min="0" max="100" step="0.5" data-bc value="${v.beastChance}"></label>
           <label class="chk" style="align-self:end"><input type="checkbox" data-nolegend ${v.noLegend ? 'checked' : ''}> No legendaries on this map</label>
         </div>
-        <p class="note" style="margin:6px 0 0">The boss at the bottom of the map is this legendary that % of the time. Very rarely it also wanders in on other floors. Leave it empty for any legendary.</p>
+        <p class="note" style="margin:6px 0 0">The boss at the bottom of the map is this legendary that % of the time. Very rarely it also wanders in on other floors. Pick "Any legendary" to allow any of them.</p>
+        <h4>Monthly legendaries</h4>
+        <p class="note" style="margin:0">Plan a line-up for any month: one <b>featured</b> legendary with a higher chance, plus a few others with a lower chance. During that month they replace the legendary above (the boss % is each one's own chance, and "Legendary bosses ×" in Game settings still applies). Months with nothing set use the legendary above.</p>
+        <div class="molist" data-molist>${months.map(k => moRow(k, v.monthly[k], months)).join('')}</div>
+        <button type="button" class="btn alt sm" data-moadd style="margin-top:8px">+ Add a month</button>
         <h4>Main chase</h4>
         <div class="g2">
           <label>Chase Pokémon<input type="text" list="spList" data-chase value="${esc(spVal(v.chase))}" placeholder="e.g. 0025 Pikachu"></label>
@@ -740,9 +853,17 @@ function drawMaps() {
       </div></details>`;
   }).join('');
   $('#mapEditors').querySelectorAll('.maped').forEach(el => {
-    const all = el.querySelector('[data-all]'), grid = el.querySelector('.typew');
+    const all = el.querySelector('[data-all]'), grid = el.querySelector('.typew'), list = el.querySelector('[data-molist]');
     all.onchange = () => grid.classList.toggle('off', all.checked);
     grid.querySelectorAll('[data-tw]').forEach(inp => { inp.oninput = () => inp.parentElement.classList.toggle('on', Number(inp.value) > 0); });
+    list.querySelectorAll('[data-mo]').forEach(wireMoRow);
+    el.querySelector('[data-moadd]').onclick = () => {
+      const used = [...list.querySelectorAll('[data-mk]')].map(s => s.value);
+      const free = monthOptions([]).find(k => !used.includes(k));
+      if (!free) { toast('Every month in the next year already has a line-up'); return; }
+      list.insertAdjacentHTML('beforeend', moRow(free, null, used));
+      wireMoRow(list.lastElementChild); refreshMonthChoices(list);
+    };
     el.querySelector('[data-reset]').onclick = () => { delete mapOver[el.dataset.map]; const open = el.open; drawMaps(); const again = $(`.maped[data-map="${el.dataset.map}"]`); if (again) again.open = open; toast('Reset — press Save maps to apply'); };
   });
 }
@@ -758,18 +879,27 @@ $('#mapsSave').onclick = async () => {
   const out = {};
   for (const el of document.querySelectorAll('.maped')) {
     const id = el.dataset.map, d = MAPDEF.find(m => m.id === id);
-    const pctOf = sel => Math.max(0, Math.min(100, Number(el.querySelector(sel).value) || 0));
+    const pctOf = (sel, root = el) => Math.max(0, Math.min(100, Number(root.querySelector(sel).value) || 0));
     const allTypes = el.querySelector('[data-all]').checked, types = {};
     el.querySelectorAll('[data-tw]').forEach(i => { const w = Math.max(0, Math.min(100, Math.round(Number(i.value) || 0))); if (w > 0) types[i.dataset.tw] = w; });
     if (!allTypes && !Object.keys(types).length) { el.open = true; toast(`${d.name}: pick at least one type, or tick "Every type"`); return; }
-    const beastTxt = el.querySelector('[data-beast]').value.trim(), chaseTxt = el.querySelector('[data-chase]').value.trim();
-    const beast = beastTxt ? parseSp(beastTxt) : 0, chase = chaseTxt ? parseSp(chaseTxt) : 0;
-    if (beastTxt && !beast) { el.open = true; toast(`${d.name}: no Pokémon called "${beastTxt}"`); return; }
+    const chaseTxt = el.querySelector('[data-chase]').value.trim();
+    const beast = +el.querySelector('[data-beast]').value || 0, chase = chaseTxt ? parseSp(chaseTxt) : 0;
     if (chaseTxt && !chase) { el.open = true; toast(`${d.name}: no Pokémon called "${chaseTxt}"`); return; }
-    const v = { allTypes, types: allTypes ? null : types, beast, beastChance: pctOf('[data-bc]'), noLegend: el.querySelector('[data-nolegend]').checked, chase, chaseChance: pctOf('[data-cc]') };
+    // monthly line-ups, keyed by month (YYYY-MM)
+    const monthly = {};
+    for (const row of el.querySelectorAll('[data-mo]')) {
+      const k = row.querySelector('[data-mk]').value, main = +row.querySelector('[data-mmain]').value || 0;
+      const extras = [...row.querySelectorAll('[data-x]')].map(c => +c.dataset.x).filter(x => x !== main);
+      if (!main && !extras.length) continue;                       // an empty month: just skip it
+      if (monthly[k]) { el.open = true; toast(`${d.name}: ${monthLabel(k)} is set twice`); return; }
+      monthly[k] = { main, mainChance: main ? pctOf('[data-mmc]', row) : 0, extras, extraChance: extras.length ? pctOf('[data-mxc]', row) : 0 };
+    }
+    const sorted = o => Object.fromEntries(Object.entries(o).sort());
+    const v = { allTypes, types: allTypes ? null : types, beast, beastChance: pctOf('[data-bc]'), noLegend: el.querySelector('[data-nolegend]').checked, chase, chaseChance: pctOf('[data-cc]'), monthly: sorted(monthly) };
     // only keep maps that differ from their defaults
-    const def = { allTypes: !d.types, types: d.types || null, beast: d.beast || 0, beastChance: d.beastChance || 0, noLegend: !!d.noLegend, chase: d.chase || 0, chaseChance: d.chaseChance || 0 };
-    const same = JSON.stringify(Object.assign({}, v, { types: v.types && Object.fromEntries(Object.entries(v.types).sort()) })) === JSON.stringify(Object.assign({}, def, { types: def.types && Object.fromEntries(Object.entries(def.types).sort()) }));
+    const def = { allTypes: !d.types, types: d.types || null, beast: d.beast || 0, beastChance: d.beastChance || 0, noLegend: !!d.noLegend, chase: d.chase || 0, chaseChance: d.chaseChance || 0, monthly: {} };
+    const same = JSON.stringify(Object.assign({}, v, { types: v.types && sorted(v.types) })) === JSON.stringify(Object.assign({}, def, { types: def.types && sorted(def.types) }));
     if (!same) out[id] = v;
   }
   try {
@@ -777,6 +907,38 @@ $('#mapsSave').onclick = async () => {
     toast('Maps saved — live for every player'); loadMaps();
   } catch (e) { toast("Couldn't save: " + e.message, 5000); }
 };
+
+// ---------------- visits (Friends → Visit): who visited whom, and the Pokécoins each visit found ----------------
+let visits = [], visitsAt = 0;
+async function loadVisits(force) {
+  if (!force && visits.length && Date.now() - visitsAt < 30000) return drawVisits();
+  $('#vList').innerHTML = '<p class="note">Loading visits…</p>';
+  try {
+    const q = await db.collection('visits').orderBy('createdAt', 'desc').limit(500).get();
+    visits = q.docs.map(d => ({ id: d.id, ...d.data() })); visitsAt = Date.now();
+    drawVisits();
+  } catch (e) { $('#vList').innerHTML = `<p class="note">Couldn't load visits: ${esc(e.message)}. Make sure the latest firestore.rules is published.</p>`; }
+}
+function drawVisits() {
+  const q = $('#vq').value.trim().toLowerCase(), only = $('#vOnlyCoins').checked;
+  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const today = visits.filter(v => tsMs(v.createdAt) >= dayStart.getTime());
+  const sum = l => l.reduce((a, v) => a + (v.coins || 0), 0);
+  $('#vStats').innerHTML = [
+    [visits.length.toLocaleString(), `visit${visits.length === 1 ? '' : 's'}${visits.length >= 500 ? ' (latest 500)' : ''}`],
+    [sum(visits).toLocaleString(), 'Pokécoins found'],
+    [today.length.toLocaleString(), 'visits today'],
+    [sum(today).toLocaleString(), 'Pokécoins found today'],
+  ].map(([b, s]) => `<div><b>${b}</b><small>${esc(s)}</small></div>`).join('');
+  const list = visits.filter(v => (!q || String(v.fromName).toLowerCase().includes(q) || String(v.toName).toLowerCase().includes(q)) && (!only || v.coins > 0));
+  const mon = m => m && SP[m.sp] ? `<img src="${face(m.sp, m.shiny)}" alt="" title="${esc(SP[m.sp].name)}" onerror="this.style.visibility='hidden'">` : '<img alt="">';
+  $('#vList').innerHTML = list.map(v => `<div class="vrow">${mon(v.fromMon)}${mon(v.toMon)}
+      <span class="vw"><b>${esc(v.fromName || '?')}</b> visited <b>${esc(v.toName || '?')}</b><small>${esc(fmtDate(tsMs(v.createdAt)))}${v.fromMon && SP[v.fromMon.sp] && v.toMon && SP[v.toMon.sp] ? ` · ${esc(SP[v.fromMon.sp].name)} played with ${esc(SP[v.toMon.sp].name)}` : ''}</small></span>
+      <span class="vc ${v.coins > 0 ? '' : 'none'}">${v.coins > 0 ? `+${v.coins.toLocaleString()} coins` : 'No coins'}</span></div>`).join('')
+    || `<p class="note">${visits.length ? 'No visits match.' : 'No visits yet.'}</p>`;
+}
+$('#vq').oninput = drawVisits; $('#vOnlyCoins').onchange = drawVisits; $('#vReload').onclick = () => loadVisits(true);
+
 // ---------------- announcement (config/news): broadcast live to every player ----------------
 function newsRef() { return db.collection('config').doc('news'); }
 async function loadNews() {
@@ -1057,6 +1219,7 @@ async function deletePlayer() {
       db.collection('friendships').where('members', 'array-contains', uid).get(),
       db.collection('trades').where('members', 'array-contains', uid).get(),
       db.collection('battles').where('members', 'array-contains', uid).get(),
+      db.collection('visits').where('members', 'array-contains', uid).get(),
       db.collection('widgets').where('uid', '==', uid).get(),
     ]);
     found.forEach(q => q.docs.forEach(d => refs.push(d.ref)));

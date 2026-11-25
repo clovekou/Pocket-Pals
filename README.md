@@ -47,6 +47,13 @@ you to any device. Add friends by username, battle their main, or trade Pokémon
 locked until both players confirm; your main can never be traded). Pokémon remember their Original
 Trainer. Needs a free Firebase project: see **[ONLINE-SETUP.md](ONLINE-SETUP.md)**.
 
+### Party photos and visiting friends
+- **Party → Party photo** hides every bar and button so only your Pokémon are on screen. **Share picture** opens the
+  share sheet (or downloads the PNG on a computer); **✕** goes back. Only the scene goes into the picture.
+- **Friends → Visit** takes you to a friend's place: all 6 of their Pokémon, with your main and theirs chatting and
+  jumping for joy. Each friend gives one try a day at finding Pokécoins (500 at 50% by default: Admin → Game settings → Friends).
+  Every visit is listed in **Admin → Visits** with the coins it found.
+
 ## Training games
 **Explore → Training** on the bottom bar: Poké Ball Catch (Speed), Rock Smash (Attack) and Protect (Defence).
 

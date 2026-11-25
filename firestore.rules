@@ -165,5 +165,22 @@ service cloud.firestore {
       allow update: if signedIn() && resource.data.to == request.auth.uid && unchanged(['members', 'from', 'to', 'winner']);
       allow delete: if isAdmin();
     }
+
+    // Visits to a friend's place (Friends → Visit): only friends can log one, the host can only mark it seen,
+    // and admins see them all (Admin → Visits) with the Pokécoins each one found.
+    match /visits/{id} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid in resource.data.members);
+      allow create: if signedIn() && request.resource.data.from == request.auth.uid
+        && request.resource.data.members.size() == 2 && request.auth.uid in request.resource.data.members
+        && request.resource.data.to in request.resource.data.members && request.resource.data.to != request.auth.uid
+        && request.resource.data.coins is int && request.resource.data.coins >= 0 && request.resource.data.coins <= 100000
+        && request.resource.data.seen == false
+        && exists(/databases/$(database)/documents/friendships/$(request.resource.data.members[0] < request.resource.data.members[1]
+             ? request.resource.data.members[0] + '_' + request.resource.data.members[1]
+             : request.resource.data.members[1] + '_' + request.resource.data.members[0]));
+      allow update: if signedIn() && resource.data.to == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']);
+      allow delete: if isAdmin();
+    }
   }
 }
