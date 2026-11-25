@@ -453,7 +453,11 @@
   const talkEl = document.getElementById('talk');
   /** how far the ground must rise so the Pokémon stands just above the dialogue box */
   function talkLift() {
-    if (V.photo || V.visit) return 0;
+    if (V.visit) return 0;
+    if (V.photo) {                         // photo mode: stand just above the pose and Share buttons
+      const bar = sceneUi.querySelector('.sx-bar');
+      return bar ? Math.max(0, H * .86 - (bar.offsetTop - 6)) : 0;
+    }
     if (!Talk.busy || talkEl.classList.contains('hidden')) return 0;
     const top = talkEl.offsetTop; // box top inside the stage (the portrait sits to the left, above it)
     return Math.max(0, H * .86 - (top - 10));
@@ -602,15 +606,16 @@
       im = shopBgImgs[id] = new Image();
       const own = BUILTIN_BGS.find(b => b.id === id);
       if (own) im.src = own.src;
-      else Online.backgroundImage(id).then(url => { if (url) im.src = url; });   // one try per session (a deleted background just shows the classic one)
+      else Online.backgroundImage(id, id !== ST().settings.bg).then(url => { if (url) im.src = url; });   // one try per session (a deleted background just shows the classic one)
     }
     return im;
   }
-  function drawCustomBg(scene, phase) {
+  /** `friendPick`: draw a friend's chosen background instead of yours (visiting); '' = their default scenery */
+  function drawCustomBg(scene, phase, friendPick) {
     const cfg = typeof BACKGROUNDS !== 'undefined' ? BACKGROUNDS : null;
-    const pick = ST().settings.bg;
+    const pick = friendPick != null ? friendPick : ST().settings.bg;
     let im = null;
-    if (pick && Game.ownsBackground(pick)) { im = shopBgImage(pick); if (!im.complete || !im.naturalWidth) im = null; }   // classic picture until it loads
+    if (pick && (friendPick != null || Game.ownsBackground(pick))) { im = shopBgImage(pick); if (!im.complete || !im.naturalWidth) im = null; }   // classic picture until it loads
     const file = !im && cfg && cfg.assign && (cfg.assign[scene] || cfg.assign.default);
     if (!im && !file) return false;
     if (!im) { im = bgImgs[file]; if (!im) { im = bgImgs[file] = new Image(); im.src = 'backgrounds/' + encodeURIComponent(file); } }
@@ -653,7 +658,7 @@
       if (V.tx < minX) V.tx = minX + Math.random() * .1;
       if (V.x < minX - .02) { V.x += Math.min(minX - V.x, dt * .35); V.flip = false; }
     }
-    if (p && !p.egg && !p.asleep && !V.anim && now() > V.eatUntil && now() > V.bathUntil && !V.press) {
+    if (p && !p.egg && !p.asleep && !V.anim && now() > V.eatUntil && now() > V.bathUntil && !V.press && !photoPose()) {
       if (t > V.nextMove) { V.tx = .22 + Math.random() * .56; V.nextMove = t + 3 + Math.random() * 5; }
       const sad = Game.lowest() < 25;
       const sp = (sad ? .035 : .07) * dt * (p.weight > 50 ? .6 : 1);
@@ -682,6 +687,7 @@
   }
   function stepPals(t, dt) {
     const pals = V.pals;
+    if (photoPose()) { pals.forEach(p => { p.moving = false; }); return; }   // holding a pose for the photo
     const P = Game.pet(), mainAsleep = !!(P && !P.egg && P.asleep);
     pals.forEach((p, i) => {
       // lights out: when the main Pokémon sleeps, the whole party curls up too
@@ -724,15 +730,19 @@
     const pxScale = Math.max(1, Math.round(baseSize() * (far ? 1.1 : 1.75) / 28 * DPR)) / DPR;
     const maxH = baseSize() * (far ? 2.45 : 3.6);
     pixelShadow(cx, x, fy, size * .8, size * .16, .14, pxScale);
-    const sleeping = p.act === 'sleep', playing = p.act === 'play' && !p.moving;
+    const po = poseOpts(p.sp, V.pals.indexOf(p) + 1, size);
+    const sleeping = po ? po.sleep : p.act === 'sleep', playing = !po && p.act === 'play' && !p.moving;
     const pos = drawCreature(cx, p.sp, {
       x, y: fy, size, t: t + p.depth * 10, pxScale, maxH, dpr: DPR, shiny: p.shiny, sleep: sleeping, walking: p.moving, flip: p.flip,
       anim: playing ? 'Hop' : undefined, animT: playing ? ((t - p.t0) % Math.max(.4, animLength(p.sp, 'Hop') + .5)) : undefined,
+      ...(po || {}),
     });
     const top = pos ? pos.top : fy - size * 2;
     if (sleeping) {
       const ph = (t * .4 + p.depth) % 1;
       PX.draw(cx, 'z', x + size * .5, top - 4 - ph * 18, 16, { alpha: 1 - ph });
+    } else if (po) {
+      if (po.anim && Math.sin(t * 2 + p.depth * 20) > .8) PX.draw(cx, 'note', x, top - 10, 20);
     } else if (p.act === 'chat' && !p.moving) {
       const turn = Math.floor((t - p.t0) / 1.6) % 2 === (p.friend !== 'main' && V.pals.indexOf(p) > V.pals.indexOf(p.friend) ? 1 : 0);
       if (turn) PX.draw(cx, Math.floor((t - p.t0) / 3.2) % 3 === 2 ? 'note' : 'chat', x + (p.flip ? -1 : 1) * size * .4, top - 12, 24);
@@ -759,23 +769,25 @@
     const x = V.x * W;
     pixelShadow(cx, x, fy, size * .85, size * .18, .18, size / 10);
     const hopT = (ms - V.hopAt) / 1000, hopping = hopT < animLength(p.sp, 'Hop') && !p.asleep;
+    const po = poseOpts(p.sp, 0, size), asleep = po ? po.sleep : p.asleep;
     const mainPos = drawCreature(cx, p.sp, {
       x, y: fy, size, t, maxH: H * .42, shiny: p.shiny, sleep: p.asleep, blink: t < V.blinkUntil,
       eat: ms < V.eatUntil, flip: V.flip, walking: V.moving,
       anim: hopping ? 'Hop' : (!V.moving && ms >= V.eatUntil && !p.asleep && Game.lowest() < 15 ? 'Hurt' : undefined),
       animT: hopping ? hopT : undefined,
+      ...(po || {}),
     });
     if (mainPos && Game.party().length && !V.photo) {   // ▼ marks your main when others are around (not in photos)
       PX.draw(cx, 'arrow', x, mainPos.top - 16 - Math.abs(Math.sin(t * 3)) * 6, 24);
     }
     if (p.shiny && !p.asleep && Math.sin(t * 1.3) > .97) addSparkles(x + (Math.random() - .5) * size * 2, fy - size * (1 + Math.random() * 1.2), 1, '#fff');
-    if (ms < V.eatUntil) {
+    if (ms < V.eatUntil && !po) {
       const k = (V.eatUntil - ms) / 2500, dir = V.flip ? -1 : 1;
       const bx = x + dir * size * .9, by = fy - size * 1.2;
       PX.draw(cx, V.eatIcon || 'pecha', bx, by, Math.max(16, Math.round((size * .7 * k + 8) / 8) * 8));
       if (Math.random() < .2) V.fx.push({ kind: 'crumb', x: bx, y: by, vx: (Math.random() - .5) * 60, vy: -30, life: .5, age: 0, col: V.eatColor });
     }
-    if (p.asleep) {
+    if (asleep) {
       cx.fillStyle = '#fff'; cx.font = `800 ${Math.round(size * .35)}px "Nunito", system-ui, sans-serif`;
       for (let i = 0; i < 3; i++) {
         const ph = (t * .35 + i / 3) % 1;
@@ -915,16 +927,38 @@
     if (!mode) sceneUi.innerHTML = '';
     else { Talk.clear(); closeSheet(); }
   }
+  // poses for the photo: playing as usual, or everyone looks at the camera, jumps together, or sleeps
+  const POSES = [['free', 'Play', 'play'], ['still', 'Look here', 'sparkle'], ['jump', 'Jump!', 'up'], ['sleep', 'Sleep', 'z']];
+  V.pose = 'free';
+  function photoPose() { return V.photo && V.pose !== 'free' ? V.pose : null; }
+  /** drawCreature options for the current pose (null = no pose); `seed` staggers the jumps into a little wave */
+  function poseOpts(id, seed, size) {
+    const pose = photoPose(); if (!pose) return null;
+    if (pose === 'sleep') return { sleep: true, walking: false, eat: false, anim: undefined, animT: undefined, dir: undefined };
+    if (pose === 'still') return { sleep: false, walking: false, eat: false, anim: undefined, animT: undefined, dir: 'front' };
+    const len = Math.max(.45, animLength(id, 'Hop') || .55), e = (now() / 1000 + seed * .17) % (len + .35), k = e / len;
+    return { sleep: false, walking: false, eat: false, dir: 'front', anim: 'Hop', animT: Math.min(e, len - .01), hop: k < 1 ? Math.sin(k * Math.PI) * size * .4 : 0 };
+  }
+  /** posing: the main steps to the middle and the party spreads out evenly behind, so nobody hides anybody */
+  function lineUp() {
+    V.x = V.tx = .5; V.flip = false;
+    const pals = V.pals.slice().sort((a, b) => a.x - b.x);
+    pals.forEach((p, i) => { p.x = p.tx = .12 + (i + .5) * (.76 / pals.length); p.moving = false; });
+  }
+  function photoBar() {
+    return icons(`<button class="sx-x" data-sx="close" aria-label="Close photo mode">✕</button>
+      <div class="sx-bar"><div class="sx-poses" role="group" aria-label="Pose">${POSES.map(([k, l, i]) => `<button data-pose="${k}" class="${V.pose === k ? 'on' : ''}" aria-pressed="${V.pose === k}">{i:${i}} ${l}</button>`).join('')}</div>
+      <button class="btn red" data-sx="share">{i:image} Share picture</button></div>`);
+  }
   function startPhoto() {
     if (!Game.pet()) return;
-    V.photo = true; V.visit = null; setSceneMode('photo');
-    sceneUi.innerHTML = icons(`<button class="sx-x" data-sx="close" aria-label="Close photo mode">✕</button>
-      <div class="sx-bar"><button class="btn red" data-sx="share">{i:image} Share picture</button></div>`);
+    V.photo = true; V.visit = null; V.pose = 'free'; setSceneMode('photo');
+    sceneUi.innerHTML = photoBar();
     Sound.play('tap');
   }
   function endSceneMode() {
     if (!V.photo && !V.visit) return;
-    V.photo = false; V.visit = null; setSceneMode(null);
+    V.photo = false; V.visit = null; V.pose = 'free'; setSceneMode(null);
     Sound.play('tap');
   }
   function sceneNote(msg) {
@@ -957,6 +991,14 @@
   }
   sceneUi.addEventListener('pointerdown', e => e.stopPropagation());
   sceneUi.addEventListener('click', e => {
+    const pb = e.target.closest('[data-pose]');
+    if (pb && V.photo) {
+      V.pose = pb.dataset.pose;
+      if (V.pose !== 'free') lineUp();
+      sceneUi.querySelectorAll('[data-pose]').forEach(x => { x.classList.toggle('on', x === pb); x.setAttribute('aria-pressed', x === pb); });
+      Sound.play(V.pose === 'jump' ? 'pet' : 'tap');
+      return;
+    }
     const b = e.target.closest('[data-sx]'); if (!b) return;
     if (b.dataset.sx === 'close') endSceneMode(); else if (b.dataset.sx === 'share') sharePicture();
   });
@@ -979,7 +1021,7 @@
     preloadSpecies(p.sp, p.shiny, ['Idle', 'Walk', 'Hop']);
     V.visit = {
       friend, host, t0: t, last: t, state: 'enter', meX: -.1, metAt: 0, rewarded: false,
-      hostName: host.name || SPECIES_BY_ID[host.sp].name,
+      hostName: host.name || SPECIES_BY_ID[host.sp].name, bg: String(team.bg || ''),
       biome: (ELEMENTS[SPECIES_BY_ID[host.sp].el] || {}).biome || 'meadow',
       // their other Pokémon stand around in the back, spread out and hopping now and then
       pals: others.map((m, i) => ({ m, x: .1 + (i + .5) * (.8 / others.length) + (Math.random() - .5) * .04, depth: .63 + (i % 2) * .05,
@@ -1037,20 +1079,24 @@
     const v = V.visit, p = Game.pet();
     if (!p || p.egg) { endSceneMode(); return; }
     const dt = Math.min(.05, Math.max(0, t - v.last)); v.last = t;
-    drawSky(t, 'day'); drawBiome(v.biome, t, 'day');
-    const fy = H * .86, base = baseSize();
+    // their place looks like their home: the background they picked (or their default scenery)
+    V.bg = null;
+    if (!drawCustomBg(v.biome, 'day', v.bg)) { drawSky(t, 'day'); drawBiome(v.biome, t, 'day'); }
+    const bg = V.bg, fy = H * .86, base = baseSize();
     const hopLen = id => Math.max(.45, animLength(id, 'Hop') || .55);
     const jump = (at, id, height) => {           // the Hop animation plus a real little jump
       const e = t - at, k = e / hopLen(id);
       return k >= 0 && k < 1 ? { anim: 'Hop', animT: e, hop: Math.sin(k * Math.PI) * height } : {};
     };
     // their other Pokémon in the back, facing the two friends in the middle
-    const pxScale = Math.max(1, Math.round(base * 1.35 / 28 * DPR)) / DPR;
+    const pxScale = Math.max(1, Math.round(base * (bg ? 1.1 : 1.35) / 28 * DPR)) / DPR;
     v.pals.slice().sort((a, b) => a.depth - b.depth).forEach(q => {
       if (t > q.nextHop) { q.hopAt = t; q.nextHop = t + (v.state === 'meet' ? 1.6 : 3) + Math.random() * 3.5; }
-      const x = q.x * W, y = H * q.depth, size = base * .85;
+      const size = base * (bg ? .55 : .85);
+      const x = bg ? Math.max(bg.x, 0) + Math.min(bg.w, W) * (.18 + (q.x - .1) / .8 * .62) : q.x * W;
+      const y = bg ? Math.max(H * .3, bg.y + bg.h * (.43 + (q.depth - .62) * .5)) : H * q.depth;
       pixelShadow(cx, x, y, size * .8, size * .16, .14, pxScale);
-      const pos = drawCreature(cx, q.m.sp, { x, y, size, t: t + q.depth * 10, pxScale, maxH: base * 2.6, dpr: DPR, shiny: q.m.shiny, flip: q.x > .5, ...jump(q.hopAt, q.m.sp, size * .25) });
+      const pos = drawCreature(cx, q.m.sp, { x, y, size, t: t + q.depth * 10, pxScale, maxH: base * (bg ? 2.45 : 2.6), dpr: DPR, shiny: q.m.shiny, flip: q.x > .5, ...jump(q.hopAt, q.m.sp, size * .25) });
       if (pos && t - q.hopAt < .9 && v.state === 'meet') PX.draw(cx, 'note', x + (q.x > .5 ? -1 : 1) * size * .5, pos.top - 10, 20, { alpha: 1 - (t - q.hopAt) / .9 });
     });
     // your main walks in from the left; their main waits on the right
@@ -4046,7 +4092,7 @@ if (!code) {
       const p = Game.pet(); if (p && p.asleep) Game.toggleSleep(); if (p) { p.ene = Math.max(p.ene, 80); p.food = Math.max(p.food, 80); }
       if (demo === 'team') return openTeam(qs.get('map') || 'cave');                     // the Main + Backup picker
       if (demo === 'photo') return startPhoto();                                          // party photo mode
-      if (demo === 'visit') return startVisit({ uid: 'demo', username: 'Misty' }, Game.showcase());   // visit your own team as a stand-in friend
+      if (demo === 'visit') return startVisit({ uid: 'demo', username: 'Misty' }, Object.assign(Game.showcase(), qs.has('bg') ? { bg: qs.get('bg') } : {}));   // your own team as a stand-in friend (&bg= their background)
       startExplore({ demo, map: qs.get('map'), sub: Game.party()[0] });                 // demo=legend|swap|chest bring a Backup
     }, 1500);
   }

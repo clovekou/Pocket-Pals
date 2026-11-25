@@ -90,7 +90,8 @@ const Online = (() => {
     }, () => {});
   }
   const bgImages = {};
-  function backgroundImage(id) {
+  /** a shop background's picture; `visiting` = a friend's background: fetched but not kept on this device */
+  function backgroundImage(id, visiting) {
     if (bgImages[id]) return bgImages[id];
     const key = 'pocketpal.bgImage.' + id;
     let cached = null; try { cached = localStorage.getItem(key); } catch (e) {}
@@ -98,7 +99,7 @@ const Online = (() => {
     if (!db) return Promise.resolve(null);
     return (bgImages[id] = db.collection('shopBackgroundImages').doc(id).get().then(d => {
       const url = d.exists ? d.data().image : null;
-      if (url) { try { Object.keys(localStorage).filter(k => k.startsWith('pocketpal.bgImage.') && k !== key).forEach(k => localStorage.removeItem(k)); localStorage.setItem(key, url); } catch (e) {} }
+      if (url && !visiting) { try { Object.keys(localStorage).filter(k => k.startsWith('pocketpal.bgImage.') && k !== key).forEach(k => localStorage.removeItem(k)); localStorage.setItem(key, url); } catch (e) {} }
       return url;
     }).catch(() => { delete bgImages[id]; return null; }));
   }

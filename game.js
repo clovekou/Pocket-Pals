@@ -1043,7 +1043,9 @@ const Game = (() => {
     const main = S.pet && !S.pet.egg ? Object.assign(card(S.pet), { atk: stat('atk'), def: stat('def'), spd: stat('spd') }) : null;
     const party = S.player.party.map(withStats).filter(Boolean);
     const hk = helperKey(), helper = (main && main.id === hk && main) || party.find(c => c.id === hk) || null;
-    return { main, party, helper, dex: registeredCount(), updatedAt: Date.now() };
+    // the home background they picked, so friends who visit see their place as they set it up
+    const bg = S.settings.bg && ownsBackground(S.settings.bg) ? String(S.settings.bg) : '';
+    return { main, party, helper, bg, dex: registeredCount(), updatedAt: Date.now() };
   }
 
   // ---------------- visiting friends (Friends → Visit) ----------------

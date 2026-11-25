@@ -3,6 +3,13 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 113, date: '2026-11-25', title: 'Photo poses and friends\' backgrounds',
+    notes: [
+      'Party photo now has poses: Play, Look here (everyone lines up and faces the camera), Jump! (everyone hops together) and Sleep.',
+      'When you visit a friend, you now see their place with the background they picked.',
+    ],
+  },
+  {
     version: 112, date: '2026-11-25', title: 'Party photos and visiting friends',
     notes: [
       'Party → Party photo hides every button so it\'s just your Pokémon. Tap Share picture to send it or save it, or ✕ to go back.',
