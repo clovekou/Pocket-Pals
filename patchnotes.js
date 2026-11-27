@@ -3,12 +3,25 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 115, date: '2026-11-27', title: 'Pokémon-style battles',
+    notes: [
+      '8 elements: Fire, Water, Nature, Electric, Earth, Light, Dark and Neutral. Super effective moves do 2×, weak ones ½, and moves of your own element 1.5×.',
+      'Every Pal now has 4 moves, each with its own PP. Pick them in battle from a 2×2 grid. Learn, replace and relearn moves in Party → Moves & stats.',
+      'Battles have critical hits, accuracy, speed, priority moves, stat changes and statuses (burn, poison, paralysis, sleep, freeze and flinch). Wild Pals choose their moves smartly too!',
+      'New battle actions: Bag, Switch (your Backup), Capture with a Poké Ball, and Run. Tap AUTO and your Pal picks its own moves.',
+      'Before exploring, the Get ready screen shows the area\'s difficulty, its elements, and your 3 best Pals for it.',
+      'Win battles for EXP. HP and PP carry over and come back while your Pals rest at home.',
+      'At max bond, Bond Awakening powers your Pal up once per battle. Well cared-for Pals get small battle bonuses.',
+      'Your Pokémon now tells you what happened while you were away, and after patting, in its speech bubble.',
+    ],
+  },
+  {
     version: 114, date: '2026-11-27', title: 'Hands-on care',
     notes: [
       'New Feed button (top left): tap it, then hold a berry and drag it onto your Pokémon. It jumps when it sees the food, then eats it.',
       'Bath is now the Water button, just under Feed. Hold it and drag it onto your Pokémon to wash it.',
       'Your Pokémon falls asleep by itself when its Energy drops below 30. Double-tap it to wake it up.',
-      'Rub your Pokémon (finger back and forth) up to 3 times a day to build your bond.',
+      'Pat your Pokémon (finger back and forth) up to 3 times a day to build your bond.',
       'Friends has moved to the bottom bar, where Care used to be.',
       'Pokémon now stop at Lv 100.',
       'There\'s a short "What\'s new" tour to try it all out (Options → What\'s new tour).',

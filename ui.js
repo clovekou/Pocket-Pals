@@ -1464,6 +1464,78 @@ if (!code) {
   }
   /** a small, clean menu for one Pokémon: portrait + name, one or two clear actions, a favorite star,
    *  and a quiet "Release" link at the bottom. Closing (✕ or tapping outside) goes back via onClose. */
+
+  // ---------- a Pal's battle page: element, stats, HP, EXP, bond, moves (learn, replace, relearn) ----------
+  function moveLine(id, x, extra = '') {
+    const mv = Battle.move(id), E = Battle.elInfo(mv.el);
+    return `<div class="mvline" style="--ec:${E.color}"><div class="ml-top"><b>${E.icon} ${esc(mv.name)}</b>${x ? `<span class="pp${x.pp === 0 ? ' out' : x.pp <= mv.pp / 4 ? ' low' : ''}">PP ${x.pp}/${mv.pp}</span>` : ''}</div>
+      <small>${E.label} · ${CAT_LABEL[mv.cat]}${mv.power ? ` · Power ${mv.power}` : ''} · ${mv.acc ? `Acc ${mv.acc}%` : 'Never misses'}${mv.pri ? ` · Priority ${mv.pri > 0 ? '+' : ''}${mv.pri}` : ''}</small>
+      <p>${esc(mv.desc)}</p>${extra}</div>`;
+  }
+  function relationsHtml(el) {
+    const r = Battle.relations(el);
+    return `<div class="rels"><div><span>Strong against</span>${elIcons(r.strong)}</div><div><span>Weak to</span>${elIcons(r.weak)}</div><div><span>Resists</span>${elIcons(r.resist)}</div></div>`;
+  }
+  function palInfoHtml(m) {
+    Game.ensureBattle(m);
+    const b = Game.battleMon(m), L = Game.learnable(m), lv = Game.memberLevel(m), xp = Game.expInLevel(m);
+    const hpPct = Math.round(b.hp / b.maxHp * 100), hearts = Math.round((m.bond || 0) / 20);
+    const keys = [['hp', 'HP', '#58b868'], ['atk', 'Attack', '#e8503a'], ['def', 'Defence', '#e8a03a'], ['spa', 'Sp. Atk', '#4f93c4'], ['sdef', 'Sp. Def', '#7a6fd0'], ['spe', 'Speed', '#d9336a']];
+    const top = Math.max(...keys.map(([k]) => b.stats[k]));
+    const known = m.moves.map(x => x.id);
+    const can = L.now.filter(x => !known.includes(x.id)), soon = L.later.slice(0, 4);
+    const bonus = [b.cared ? '{i:heart} Well cared for: +5% battle stats' : '', b.happy ? '{i:sparkle} Happy: lands critical hits more often' : '',
+      b.canAwaken ? '{i:sparkle} Max bond: <b>Bond Awakening</b> ready in battle' : b.canEndure ? '{i:heart} Strong bond: can endure a knockout once per battle' : ''].filter(Boolean);
+    return `<div class="palinfo">
+      <div class="pi-el">${elChip(b.elem)}<small>Type ${ELEMENTS[SPECIES_BY_ID[m.sp].el].label}</small></div>
+      ${relationsHtml(b.elem)}
+      <div class="pi-bars">
+        <div class="pb"><span>Lv ${lv}${lv >= Game.LEVEL_CAP ? ' (max)' : ''}</span><div class="trk"><i style="width:${xp == null ? 100 : xp / 60 * 100}%;background:#4f93c4"></i></div><small>${xp == null ? 'MAX' : `EXP ${xp}/60`}</small></div>
+        <div class="pb"><span>HP</span><div class="trk"><i style="width:${hpPct}%;background:${hpPct > 50 ? 'var(--hp-hi)' : hpPct > 20 ? 'var(--hp-mid)' : 'var(--hp-lo)'}"></i></div><small>${b.hp}/${b.maxHp}</small></div>
+        <div class="pb"><span>Bond</span><div class="trk"><i style="width:${m.bond || 0}%;background:#ff5c8a"></i></div><small>${'{i:heart}'.repeat(hearts)}${m.bond || 0}</small></div>
+      </div>
+      <div class="pi-stats">${keys.map(([k, lab, col]) => `<div class="ps"><span>${lab}</span><div class="trk"><i style="width:${Math.round(b.stats[k] / top * 100)}%;background:${col}"></i></div><b>${b.stats[k]}</b></div>`).join('')}</div>
+      ${bonus.length ? `<div class="pi-bonus">${bonus.map(x => `<div>${x}</div>`).join('')}</div>` : ''}
+      <h4 class="teamh">Moves <small>${m.moves.length}/4 · tap Replace to swap one</small></h4>
+      <div class="mvlist">${m.moves.map((x, i) => moveLine(x.id, x, `<div class="ml-act">${m.moves.length > 1 ? `<button class="btn alt sm" data-forget="${i}">Forget</button>` : ''}</div>`)).join('')}</div>
+      <h4 class="teamh">Can learn <small>${can.length ? 'learn new moves or relearn old ones' : 'it knows every move it can learn for now'}</small></h4>
+      <div class="mvlist">${can.map(x => moveLine(x.id, null, `<div class="ml-act"><small>Lv ${x.lv}</small><button class="btn red sm" data-learn="${x.id}">${m.moves.length < 4 ? 'Learn' : 'Replace a move'}</button></div>`)).join('')}</div>
+      ${soon.length ? `<h4 class="teamh">Coming up</h4><div class="soon">${soon.map(x => { const mv = Battle.move(x.id); return `<span style="--ec:${Battle.elInfo(mv.el).color}">Lv ${x.lv} · ${Battle.elInfo(mv.el).icon} ${esc(mv.name)}</span>`; }).join('')}</div>` : ''}
+      <p class="muted">HP and PP come back while it rests at home (faster while it sleeps). Battles give EXP towards its next level.</p>
+    </div>`;
+  }
+  /** the Learn / Replace / Forget buttons; rerender() redraws the page you're on */
+  function wirePalInfo(m, rerender) {
+    sheet.querySelectorAll('[data-learn]').forEach(el => el.addEventListener('click', () => {
+      const id = el.dataset.learn, nm = Battle.move(id).name;
+      if (m.moves.length < 4) { const r = Game.setMove(m, m.moves.length, id); if (r.error) toast(r.error); else { Sound.play('medal'); toast(`${memberName(m)} learned ${nm}!`); } return rerender(); }
+      openSheet(`<h2 style="margin:0 0 4px">Learn ${esc(nm)}?</h2><p class="muted">Choose a move for ${esc(memberName(m))} to forget. You can relearn it later.</p>
+        <div class="mvlist">${m.moves.map((x, i) => moveLine(x.id, x, `<div class="ml-act"><button class="btn red sm" data-slot="${i}">Replace</button></div>`)).join('')}</div>
+        <div class="btns"><button class="btn alt" id="lmCancel">Cancel</button></div>`, { dialog: true });
+      sheet.querySelectorAll('[data-slot]').forEach(b => b.addEventListener('click', () => {
+        const old = Battle.move(m.moves[+b.dataset.slot].id).name, r = Game.setMove(m, +b.dataset.slot, id);
+        if (r.error) toast(r.error); else { Sound.play('medal'); toast(`1, 2 and… poof! ${memberName(m)} forgot ${old} and learned ${nm}!`, 3500); }
+        rerender();
+      }));
+      $('#lmCancel').addEventListener('click', rerender);
+    }));
+    sheet.querySelectorAll('[data-forget]').forEach(el => el.addEventListener('click', () => {
+      const i = +el.dataset.forget, nm = Battle.move(m.moves[i].id).name;
+      dialog(`Forget ${esc(nm)}?`, `${esc(memberName(m))} can relearn it any time from this page.`, [
+        { label: 'Keep it', cls: 'alt', fn: rerender },
+        { label: 'Forget', cls: 'red', fn: () => { const r = Game.forgetMove(m, i); if (r.error) toast(r.error); rerender(); } },
+      ]);
+    }));
+  }
+  function openPalInfo(m, onBack) {
+    const render = () => {
+      openSheet(head(`${m.shiny ? '{i:sparkle}' : ''}${esc(memberName(m))} · Moves &amp; stats`) + palInfoHtml(m) + '<div class="btns"><button class="btn alt" id="piBack">← Back</button></div>');
+      wirePalInfo(m, render);
+      $('#piBack').addEventListener('click', () => (onBack ? onBack() : closeSheet()));
+    };
+    render();
+  }
+
   function monMenu({ m, meta, note, actions = [], fav = null, danger = null, onClose }) {
     const face = portraitUrl(m.sp, m.shiny, 'Normal');
     const pic = face ? `<img class="mm-face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 72, shiny: m.shiny });
@@ -1496,7 +1568,7 @@ if (!code) {
       const pic = m.egg ? `<img class="face" src="${PX.url(`egg_${s.tier || 'common'}_${Math.min(2, m.taps || 0)}`)}" alt="">` : face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny });
       const badges = (isMain ? '<i class="pb main">Main</i>' : '') + (isHelper(m) ? '<i class="pb helper">Helper</i>' : '') + (m.locked ? '<i class="pb lock">Trading</i>' : '');
       return `<button class="prow ${isMain ? 'main' : ''}" data-pm="${i}">${pic}<span class="pi"><b>${m.egg ? 'Egg' : esc(memberName(m))}${m.shiny && !m.egg ? '{i:sparkle}' : ''}</b>
-        <small>${m.egg ? 'Waiting to hatch' : `${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)}`}</small>${needBar(m)}</span>
+        <small>${m.egg ? 'Waiting to hatch' : `${Battle.elInfo(Battle.elementOf(m.sp)).icon} ${Battle.elInfo(Battle.elementOf(m.sp)).label} · Lv ${Game.memberLevel(m)} · HP ${Math.round((m.hpFrac == null ? 1 : m.hpFrac) * 100)}%`}</small>${needBar(m)}</span>
         <span class="pbs">${badges}</span><span class="chev" aria-hidden="true">›</span></button>`;
     };
     const roomInParty = party.length + 1 < Game.PARTY_MAX;
@@ -1504,7 +1576,7 @@ if (!code) {
     const boxSlot = (m, i) => {
       const s = SPECIES_BY_ID[m.sp], face = portraitUrl(m.sp, m.shiny, 'Normal');
       return `<button class="boxtile ${m.locked ? 'locked' : ''}" data-box="${i}">${face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny })}
-        <b>${esc(memberName(m))}</b><small>Lv ${Game.memberLevel(m)} · ${ELEMENTS[s.el].label}</small>
+        <b>${esc(memberName(m))}</b><small>Lv ${Game.memberLevel(m)} · ${Battle.elInfo(Battle.elementOf(m.sp)).icon} ${Battle.elInfo(Battle.elementOf(m.sp)).label}</small>
         ${m.shiny ? '<span class="boxshiny">{i:sparkle}</span>' : ''}${m.fav ? '<span class="boxfav">{i:star}</span>' : ''}${m.locked ? '<span class="boxlock">{i:lock}</span>' : ''}</button>`;
     };
     const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
@@ -1531,9 +1603,10 @@ if (!code) {
         Game.setHelper(m.key); Sound.play('medal'); Online.uploadSave(true).catch(() => {});
         toast(`{i:friends} Friends can now take ${nm} exploring!`); openParty();
       } });
+      acts.push({ label: '{i:sword} Moves &amp; stats', cls: 'alt', fn: () => openPalInfo(m, openParty) });
       if (!isMain) acts.push({ label: 'Move to PC Box', cls: 'alt', fn: () => { Game.partyToBox(i); openParty(); } });
       const note = isMain ? 'Your main Pokémon' : isHelper(m) ? 'Resting · your friends can take it exploring' : 'Resting in your party';
-      monMenu({ m, meta: `${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)}`, note, actions: acts, onClose: openParty });
+      monMenu({ m, meta: `${Battle.elInfo(Battle.elementOf(m.sp)).icon} ${Battle.elInfo(Battle.elementOf(m.sp)).label} · Lv ${Game.memberLevel(m)}`, note, actions: acts, onClose: openParty });
     }));
     const sortSel = sheet.querySelector('#boxSortSel');
     if (sortSel) sortSel.addEventListener('change', () => {
@@ -1548,7 +1621,8 @@ if (!code) {
       Sound.play('tap');
       const show = () => monMenu({
         m, meta: `${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)}`, note: 'Resting in your PC Box',
-        actions: [{ label: '{i:pokeball} Add to party', cls: 'red', fn: () => { if (!roomInParty) { toast('Your party is full.'); return openParty(); } Game.boxToParty(i); Sound.play('tap'); openParty(); } }],
+        actions: [{ label: '{i:pokeball} Add to party', cls: 'red', fn: () => { if (!roomInParty) { toast('Your party is full.'); return openParty(); } Game.boxToParty(i); Sound.play('tap'); openParty(); } },
+          { label: '{i:sword} Moves &amp; stats', cls: 'alt', fn: () => openPalInfo(m, openParty) }],
         fav: { on: !!m.fav, fn: () => { m.fav = !m.fav; Game.save(); Sound.play(m.fav ? 'medal' : 'tap'); show(); } },
         danger: { label: 'Release', fn: () => dialog(`Release ${nm}?`, `${m.fav ? 'It\'s one of your favorites! ' : ''}${nm} goes back to the wild. This can't be undone.`, [
           { label: 'Cancel', cls: 'alt', fn: show },
@@ -1593,7 +1667,7 @@ if (!code) {
       body = `<div class="hero">${face ? `<img class="portrait" src="${face}" alt="">` : miniCanvas(p.sp, { px: 104, shiny: p.shiny })}<div>
           <h3>${esc(petName())} ${p.shiny ? '<span style="color:#e0a81f">{i:sparkle}</span>' : ''}</h3>
           <div class="muted">${s.name} · Lv ${Game.level()}</div>
-          <span class="pill" style="background:${el.color}">${el.label}</span>
+          <span class="pill" style="background:${el.color}">${el.label}</span> ${elChip(Battle.elementOf(p.sp), true)}
         </div></div>
         <div class="renamer"><input id="nameIn" maxlength="12" placeholder="Give it a nickname" value="${esc(p.name)}"><button id="nameSave">Save</button></div>
         <div class="rows" style="margin-top:8px">
@@ -1609,13 +1683,10 @@ if (!code) {
           <div class="row"><span>Genes</span><b>ATK ${p.genes.atk}% · DEF ${p.genes.def}% · SPD ${p.genes.spd}%</b></div>
         </div>`;
     } else if (cardTab === 'battle') {
-      const row = (k, label, col, note) => { const v = Game.stat(k); return `<div class="stat"><div class="top"><span>${label}</span><span>${v}</span></div><div class="trk"><i style="width:${Math.min(100, v / 2.5)}%;background:${col}"></i></div><small>${note}</small></div>`; };
-      const defLeft = 720 - p.goodTicks;
-      body = row('atk', '{i:sword} Attack', '#e8503a', `Strength training ${p.tr.atk}/100 — from Rock Smash`) +
-        row('def', '{i:shield} Defence', '#4f93c4', `Defence training ${p.tr.def}/100 — from Protect, and +1 per 12 h of good care`) +
-        row('spd', '{i:speed} Speed', '#58b868', `Speed training ${p.tr.spd}/100 — from Poké Ball Catch`) +
-        `<p class="muted">Stat = species base × genes + level + training.</p>
-        <div class="rows"><div class="row"><span>Best Poké Ball Catch</span><b>${S.player.gameHi}</b></div><div class="row"><span>Best Protect</span><b>${S.player.defHi || 0}</b></div></div>
+      body = palInfoHtml(p) + `<h4 class="teamh">Training</h4>
+        <div class="rows"><div class="row"><span>{i:sword} Strength (Rock Smash)</span><b>${p.tr.atk}/100</b></div><div class="row"><span>{i:shield} Defence (Protect)</span><b>${p.tr.def}/100</b></div><div class="row"><span>{i:speed} Speed (Poké Ball Catch)</span><b>${p.tr.spd}/100</b></div>
+        <div class="row"><span>Best Poké Ball Catch</span><b>${S.player.gameHi}</b></div><div class="row"><span>Best Protect</span><b>${S.player.defHi || 0}</b></div></div>
+        <p class="muted">Stats come from its species, genes, level and training. Strength raises Attack and Sp. Atk, Defence raises Defence and Sp. Def.</p>
         <div class="btns"><button class="btn red" id="goTrain">{i:pokeball} Training games</button></div>`;
     } else if (cardTab === 'medals') {
       body = `<div class="medals">${MEDALS.map(m => `<div class="medal ${p.medals.includes(m.id) ? '' : 'off'}" title="${m.desc}">${ic(m.icon)}${m.label}</div>`).join('')}</div>
@@ -1640,6 +1711,7 @@ if (!code) {
     }
     openSheet(head('Summary') + `<div class="tabs">${tabs.map(t => `<button data-tab="${t}" class="${t === cardTab ? 'on' : ''}">${TAB_LABEL[t]}</button>`).join('')}</div>` + body);
     sheet.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { cardTab = b.dataset.tab; renderCard(); }));
+    if (cardTab === 'battle') wirePalInfo(p, () => { const y = sheet.scrollTop; renderCard(); sheet.scrollTop = y; });
     const ns = $('#nameSave'); if (ns) ns.addEventListener('click', () => { Game.rename($('#nameIn').value); toast('Name saved!'); renderCard(); });
     const gt = $('#goTrain'); if (gt) gt.addEventListener('click', () => openGames());
   }
@@ -1708,14 +1780,19 @@ if (!code) {
     openSheet(head(`#${String(s.of || id).padStart(2, '0')} ${s.name}`) + `
       <div class="pair"><figure>${miniCanvas(id, { px: 120 })}Normal</figure><figure>${miniCanvas(id, { px: 120, shiny: true, sil: !hasShiny })}${hasShiny ? 'Shiny {i:sparkle}' : 'Shiny ???'}</figure></div>
       <div class="rows">
-        <div class="row"><span>Element</span><b><span class="pill" style="background:${el.color}">${el.label}</span></b></div>
+        <div class="row"><span>Type</span><b><span class="pill" style="background:${el.color}">${el.label}</span></b></div>
+        <div class="row"><span>Element</span><b>${elChip(Battle.elementOf(id))}</b></div>
         <div class="row"><span>Egg rarity</span><b>${TIER_LABEL[SPECIES_BY_ID[s.lineBase].tier]}</b></div>
         <div class="row"><span>Evolves</span><b>${evoText(id) || 'Final form'}</b></div>
         <div class="row"><span>Favourite berry</span><b>${S.player.favKnown[id] ? FLAVORS[s.fav].label : '???'}</b></div>
-        <div class="row"><span>Base ATK / DEF / SPD</span><b>${s.base.join(' / ')}</b></div>
+        <div class="row"><span>Base HP / Atk / Def</span><b>${(b6 => `${b6.hp} / ${b6.atk} / ${b6.def}`)(Battle.baseStats(id))}</b></div>
+        <div class="row"><span>Base Sp.Atk / Sp.Def / Spe</span><b>${(b6 => `${b6.spa} / ${b6.sdef} / ${b6.spe}`)(Battle.baseStats(id))}</b></div>
         <div class="row"><span>Raised</span><b>${S.player.dex[id]}×${S.player.shiny[id] ? ` (${S.player.shiny[id]} shiny)` : ''}</b></div>
         <div class="row"><span>Line</span><b>${line.map(x => Game.registered(x.id) ? x.name : '???').join(' → ')}</b></div>
       </div>
+      ${relationsHtml(Battle.elementOf(id))}
+      <h4 class="teamh">Moves it learns</h4>
+      <div class="soon">${Battle.learnset(id).map(x => { const mv = Battle.move(x.id); return `<span style="--ec:${Battle.elInfo(mv.el).color}">Lv ${x.lv} · ${Battle.elInfo(mv.el).icon} ${esc(mv.name)}</span>`; }).join('')}</div>
       <div class="btns"><button class="btn alt" id="dexBack">← Back to Dex</button></div>`);
     $('#dexBack').addEventListener('click', () => { dexTab = 'dex'; renderDex(); });
   }
@@ -1984,7 +2061,7 @@ if (!code) {
   const TOUR_VER = 2;
   const Tour = (() => {
     const STEPS = [
-      { newOnly: true, title: 'What\'s new in Pocket Pal', text: () => `Caring for your Pokémon has changed! Let's try it together.<br><br>You'll <b>feed</b> it, <b>wash</b> it and <b>rub</b> it, and see how <b>sleep</b> works now.` },
+      { newOnly: true, title: 'What\'s new in Pocket Pal', text: () => `Caring for your Pokémon has changed! Let's try it together.<br><br>You'll <b>feed</b> it, <b>wash</b> it and <b>pat</b> it, and see how <b>sleep</b> works now.` },
       { title: 'Welcome to Pocket Pal!', text: () => `You're about to raise your very own Pokémon. It lives in <b>real time</b>, even while the app is closed, so check in on it during the day.<br><br>This quick tour shows you around. It takes about a minute.` },
       { target: '#stage', place: 'top', when: () => Game.pet() && Game.pet().egg, wait: 'hatch', title: 'Hatch your egg',
         text: () => `This is your egg! <b>Tap it 3 times</b> to hatch it.` },
@@ -1996,11 +2073,11 @@ if (!code) {
         text: () => `Tap <b>Feed</b> (top left) to open your berries. Then <b>hold a berry</b> and drag it onto <b>${esc(petName())}</b>.<br><br>It jumps when it sees food, and eats it when you let go on it. Every Pokémon has a hidden <b>favourite berry</b>!` },
       { target: '#washBtn', isNew: true, handson: true, afterHatch: true, when: () => Game.pet() && !Game.pet().egg, wait: 'washed', skippable: true, done: 'Squeaky clean! {i:sparkle}', waitText: 'Waiting for you to wash it…', title: 'Wash it',
         text: () => `<b>Hold the Water</b> and drag it onto ${esc(petName())} to wash it. It cleans up any poop too and fills <b>Hygiene</b>.` },
-      { target: '#stage', place: 'top', isNew: true, handson: true, afterHatch: true, when: () => Game.pet() && !Game.pet().egg && !Game.pet().asleep, wait: 'rubbed', skippable: true, done: 'It loves you! {i:heart}', waitText: 'Waiting for you to rub it…', title: 'Rub it',
-        text: () => `Put your finger on ${esc(petName())} and <b>move it back and forth</b> to rub it.<br><br>You get <b>${Game.RUBS_PER_DAY} rubs a day</b>, and each one builds your bond.` },
+      { target: '#stage', place: 'top', isNew: true, handson: true, afterHatch: true, when: () => Game.pet() && !Game.pet().egg && !Game.pet().asleep, wait: 'rubbed', skippable: true, done: 'It loves you! {i:heart}', waitText: 'Waiting for you to pat it…', title: 'Pat it',
+        text: () => `Put your finger on ${esc(petName())} and <b>move it back and forth</b> to pat it.<br><br>You get <b>${Game.RUBS_PER_DAY} pats a day</b>, and each one builds your bond.` },
       { target: '#bars [data-k="ene"]', isNew: true, title: 'Sleep', text: () => `When <b>Energy</b> drops below ${Game.AUTO_SLEEP}, it gets tired and <b>falls asleep by itself</b>.<br><br>While it sleeps, <b>double-tap it</b> to wake it up.` },
       { target: '[data-act="bag"]', title: 'Bag', text: () => `Your items and the <b>Poké Mart</b>. Potions heal in dungeons, balls help you catch, and treasure sells for Pokécoins.${Game.itemCount('mysteryEgg') ? '<br><br>{i:egg_legend_0} There\'s a <b>bonus Mystery Egg</b> waiting in there!' : ''}` },
-      { target: '[data-act="explore"]', title: 'Explore', text: () => `Go on adventures!<br>• <b>Dungeons</b>: battle wild Pokémon, find treasure, and try to catch the boss at the bottom.<br>• <b>Training</b>: mini-games that make it stronger.<br><br>Both use some energy.` },
+      { target: '[data-act="explore"]', title: 'Explore', text: () => `Go on adventures!<br>• <b>Dungeons</b>: battle wild Pokémon with moves and elements, find treasure, and try to catch the boss at the bottom.<br>• <b>Training</b>: mini-games that make it stronger.<br><br>Both use some energy.` },
       { target: '[data-act="party"]', title: 'Party', text: () => `Keep up to 6 Pokémon. Choose which one is your main, bring a Backup when exploring, and store extras in the PC Box.` },
       { target: '[data-act="dex"]', title: 'Pokédex', text: () => `Every Pokémon you hatch, catch or evolve is recorded here. Can you collect them all, shinies too?` },
       { target: '#friendsBtn', isNew: true, title: 'Friends', text: () => `${newMode ? 'Friends has moved down here, where Care used to be. ' : ''}Sign in to save your progress online, add friends, trade Pokémon, and borrow a friend's Pokémon for exploring.` },
@@ -2096,7 +2173,7 @@ if (!code) {
     if (set.tourSeen && (set.tourVer || 1) >= TOUR_VER) return;
     if (!sheet.classList.contains('hidden') || !arena.classList.contains('hidden') || V.photo || V.visit) return setTimeout(offerTour, 8000);
     if (set.tourSeen) {          // they know the game: show just what changed
-      return dialog('New ways to care for your Pokémon', `Feeding, washing and sleep work differently now, and you can rub your Pokémon to build your bond. Want a quick hands-on look?`, [
+      return dialog('New ways to care for your Pokémon', `Feeding, washing and sleep work differently now, and you can pat your Pokémon to build your bond. Want a quick hands-on look?`, [
         { label: 'Not now', cls: 'alt', fn: () => { set.tourVer = TOUR_VER; Game.save(); } },
         { label: 'Show me', cls: 'red', fn: () => Tour.start({ only: 'new' }) },
       ]);
@@ -2113,9 +2190,10 @@ if (!code) {
       <p class="mintro">Raise a Pokémon that lives on your phone in real time. Keep it happy, help it grow and evolve, explore dungeons, and fill your Pokédex.</p>
       <div class="btns" style="margin:0 0 14px"><button class="btn red" id="manTour">{i:map} Take the guided tour</button></div>
       ${sec('egg_legend_0', 'Getting started', `<ul><li>Pick a starter. It arrives as an egg: <b>tap it 3 times</b> to hatch it.</li><li>Your Pokémon lives in real time. It keeps going while the app is closed (up to 2 weeks).</li><li>It grows <b>1 level every hour</b>, up to <b>Lv ${Game.LEVEL_CAP}</b>.</li></ul>`)}
-      ${sec('heart', 'Keeping it happy', `<ul><li>It has 4 needs: <b>Food, Happy, Energy, Hygiene</b>. They slowly go down.</li><li>{i:pecha} <b>Feed</b> (top left): tap it, then <b>hold a berry and drag it onto your Pokémon</b>. One berry is its hidden favourite (extra food, happiness and bond).</li><li>{i:bath} <b>Water</b>: hold it and drag it onto your Pokémon to wash it and clean up its poops.</li><li>{i:sleep} It <b>falls asleep by itself</b> when Energy drops below ${Game.AUTO_SLEEP}. <b>Double-tap it</b> to wake it up.</li><li>{i:hand} <b>Tap it</b> to pet it. <b>Rub it</b> (finger back and forth) up to ${Game.RUBS_PER_DAY} times a day to build your bond.</li><li>{i:warning} If a need drops to 10 or less, that's a <b>slip-up</b>: evolving takes a level longer.</li></ul>`)}
+      ${sec('heart', 'Keeping it happy', `<ul><li>It has 4 needs: <b>Food, Happy, Energy, Hygiene</b>. They slowly go down.</li><li>{i:pecha} <b>Feed</b> (top left): tap it, then <b>hold a berry and drag it onto your Pokémon</b>. One berry is its hidden favourite (extra food, happiness and bond).</li><li>{i:bath} <b>Water</b>: hold it and drag it onto your Pokémon to wash it and clean up its poops.</li><li>{i:sleep} It <b>falls asleep by itself</b> when Energy drops below ${Game.AUTO_SLEEP}. <b>Double-tap it</b> to wake it up.</li><li>{i:hand} <b>Tap it</b> to pet it. <b>Pat it</b> (finger back and forth) up to ${Game.RUBS_PER_DAY} times a day to build your bond.</li><li>{i:warning} If a need drops to 10 or less, that's a <b>slip-up</b>: evolving takes a level longer.</li></ul>`)}
       ${sec('up', 'Growing and evolving', `<ul><li>When it reaches its evolution level and every need is at least 40, an <b>Evolve</b> button appears. You choose to evolve or stay as you are.</li><li>Some Pokémon evolve with an item from the Bag instead, or at a certain time of day.</li><li>{i:sword} <b>Training</b> mini-games raise ATTACK, DEFENCE and SPEED.</li></ul>`)}
-      ${sec('map', 'Exploring dungeons', `<ul><li><b>Explore → Explore a dungeon</b>, then choose a map. Each map has its own Pokémon types and a rare legendary.</li><li>Pick a <b>Main</b> and a <b>Backup</b>. If your Main faints, the Backup jumps in.</li><li>Each floor can hold a wild battle, treasure, or nothing. Go deeper, or head home whenever you like.</li><li>Beat the <b>boss</b> on the last floor, then spin the catch wheel for one throw to catch it.</li><li>{i:oran} Only items in your Bag can be used in a dungeon, so pack Potions before you go!</li></ul>`)}
+      ${sec('map', 'Exploring dungeons', `<ul><li><b>Explore → Explore a dungeon</b>, then choose a map. Each map has its own Pokémon types, a difficulty, a recommended level and a rare legendary.</li><li>The <b>Get ready</b> screen shows the area's elements and your 3 best Pals for it, with a match % and why. Tap <b>Auto Select Best Pal</b> or pick your own.</li><li>Pick a <b>Main</b> and a <b>Backup</b>. Switch them in battle, or the Backup jumps in if your Main faints.</li><li>Each floor can hold a wild battle, treasure, or nothing. Go deeper, or head home whenever you like.</li><li>Beat the <b>boss</b> on the last floor, then spin the catch wheel for one throw to catch it.</li><li>{i:oran} Only items in your Bag can be used in a dungeon, so pack Potions before you go!</li></ul>`)}
+      ${sec('sword', 'Battles, moves and elements', `<ul><li>Tap <b>Fight</b> and pick one of its 4 moves. Each move has its own <b>PP</b>; with no PP left it uses Struggle.</li><li>8 elements: 🔥 Fire beats 🌿 Nature, 💧 Water beats 🔥 Fire, 🌿 Nature beats 🪨 Earth, ⚡ Electric beats 💧 Water, 🪨 Earth beats ⚡ Electric, and ☀️ Light and 🌙 Dark beat each other. ⭐ Neutral has no strengths or weaknesses.</li><li>Super effective: 2×. Not very effective: ½. A move of its own element: 1.5×.</li><li>Statuses: burn, poison, paralysis, sleep, freeze and flinch. Stat changes last until the battle ends.</li><li><b>AUTO</b> (top of the battle) lets your Pal pick its own moves.</li><li><b>Capture</b>: throw a Poké Ball at a weakened wild Pal. Bosses and legendaries use the catch wheel.</li><li>Battles give <b>EXP</b>. New moves unlock as it levels up: learn, replace or relearn them in <b>Party → Moves &amp; stats</b>.</li><li>HP and PP come back at home, faster while it sleeps.</li><li>Well cared-for Pals get small battle bonuses. At max bond, <b>Bond Awakening</b> powers it up once per battle.</li></ul>`)}
       ${sec('pokeball', 'Your team and the Pokédex', `<ul><li><b>Party</b>: up to 6 Pokémon. Tap one to make it your main or move it to the PC Box.</li><li><b>Pokédex</b>: everything you hatch, catch or evolve is recorded here.</li><li>Raise your main to Lv ${Game.NEW_EGG_LEVEL} to get a new egg.</li></ul>`)}
       ${sec('coin', 'Bag and Poké Mart', `<ul><li>Treasure from dungeons sells for <b>Pokécoins</b>.</li><li>Spend them on Potions, balls, evolution items and backgrounds.</li><li>{i:egg_legend_0} A <b>Mystery Egg</b> hatches into a random Pokémon.</li></ul>`)}
       ${sec('friends', 'Friends', `<ul><li>Tap <b>Friends</b> in the bottom bar and sign in to save online and play on any device.</li><li>Add friends, trade Pokémon, and lend each other a Pokémon for exploring.</li></ul>`)}
@@ -2146,7 +2224,7 @@ if (!code) {
     if (!V.press) return;
     const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     if (Math.hypot(x - V.press.x, y - V.press.y) > 14 && pressTimer) { clearTimeout(pressTimer); pressTimer = null; V.press.onPet = false; }
-    // rubbing: the finger goes back and forth across it (a few changes of direction) = one rub
+    // patting: the finger goes back and forth across it (a few changes of direction) = one pat
     const R = V.press.rub;
     if (R && hitPet(x, y)) {
       const dx = x - R.lx;
@@ -2163,12 +2241,12 @@ if (!code) {
     const p = Game.pet(); if (!p || p.egg) return;
     if (p.asleep) { if (!rubFullShown) { rubFullShown = true; toast('Shh… it\'s sleeping. Double-tap it to wake it up.'); } return; }
     const r = Game.rub();
-    if (r.error === 'max') { if (!rubFullShown) { rubFullShown = true; toast(`{i:heart} ${petName()} loved the rubs! You can rub it again tomorrow.`); } return; }
+    if (r.error === 'max') { if (!rubFullShown) { rubFullShown = true; Talk.say([['Happy', 'Hehe, that tickles! I loved all the pats today. Pat me again tomorrow, okay?']], { prio: 1 }); } return; }
     if (r.error) return;
     addHearts(5); Sound.play('pet'); V.hopAt = now(); V.blinkUntil = now() / 1000 + .4;
     for (let i = 0; i < 6; i++) V.fx.push({ kind: 'spark', x: x + (Math.random() - .5) * 40, y: y + (Math.random() - .5) * 30, vx: (Math.random() - .5) * 80, vy: -40 - Math.random() * 40, life: .7, age: 0, col: '#ffd86b' });
-    toast(r.left ? `{i:heart} Bond up! ${r.left} rub${r.left > 1 ? 's' : ''} left today` : '{i:heart} Bond up! That was the last rub for today');
-    if (Math.random() < .7) Talk.say('pet');
+    // it says how it feels (and how many pats are left) in its speech bubble
+    Talk.say([[r.left ? 'Happy' : 'Joyous', r.left ? `Ahh, that feels nice! ${r.left > 1 ? `${r.left} more pats today?` : 'One more pat today?'}` : 'That was the best! That\'s all my pats for today. I love you, {player}!']], { prio: 1 });
     Tour.event('rubbed');
   }
   let sleepTapAt = 0, sleepTapTimer = null, sleepHintAt = 0;
@@ -2339,6 +2417,7 @@ if (!code) {
     sheet.querySelectorAll('[data-adv]').forEach(b => b.addEventListener('click', () => {
       if (b.dataset.adv === 'training') return openGames();
       if (!ST().settings.exploreTipSeen) return exploreIntro();
+      if (!ST().settings.battleTipSeen) return battleIntro(openMaps);
       openMaps();
     }));
   }
@@ -2350,12 +2429,28 @@ if (!code) {
     ST().settings.exploreTipSeen = true; Game.save();
     openSheet(head('How exploring works') + `<div class="steps">
       <div class="stp"><i>1</i><div><b>Choose a map</b><small>Each map has its own Pokémon types and a rare legendary boss.</small></div></div>
-      <div class="stp"><i>2</i><div><b>Pick your team</b><small>A Main explores. A Backup jumps in if the Main faints.</small></div></div>
-      <div class="stp"><i>3</i><div><b>Go floor by floor</b><small>Battle wild Pokémon, open treasure chests, or head home any time.</small></div></div>
+      <div class="stp"><i>2</i><div><b>Get ready</b><small>See the area's Pals and which of yours suit it best. A Main explores; a Backup can switch in.</small></div></div>
+      <div class="stp"><i>3</i><div><b>Go floor by floor</b><small>Battle wild Pals with moves, open treasure chests, or head home any time.</small></div></div>
       <div class="stp"><i>4</i><div><b>Beat the boss</b><small>On the last floor, win the battle, then spin the catch wheel for one throw!</small></div></div>
       </div><p class="muted">{i:oran} Tip: only items in your Bag work in dungeons, so bring some Potions.</p>
       <div class="btns"><button class="btn red" id="exGo">{i:map} Choose a map</button></div>`);
-    $('#exGo').addEventListener('click', openMaps);
+    $('#exGo').addEventListener('click', () => battleIntro(openMaps));
+  }
+  /** shown once: how the Pokémon-style battles work (new players right after the explore guide, others after the update) */
+  function battleIntro(then) {
+    ST().settings.battleTipSeen = true; Game.save();
+    const chart = ['fire', 'water', 'nature', 'electric', 'earth', 'light', 'dark'].map(el => { const r = Battle.relations(el); return `<div class="row"><span>${elChip(el, true)}</span><b>beats ${r.strong.map(x => Battle.elInfo(x).icon).join(' ')} · weak to ${r.weak.map(x => Battle.elInfo(x).icon).join(' ')}</b></div>`; }).join('');
+    openSheet(head('How battles work') + `<div class="steps">
+      <div class="stp"><i>1</i><div><b>Pick a move</b><small>Tap <b>Fight</b>, then one of 4 moves. Each has its own <b>PP</b> (uses). Out of PP? It Struggles, and hurts itself.</small></div></div>
+      <div class="stp"><i>2</i><div><b>Use elements</b><small>A move strong against the foe's element does <b>2×</b> damage (▲), a weak one ½ (▼). Moves of its own element hit 1.5× harder.</small></div></div>
+      <div class="stp"><i>3</i><div><b>Bag, Switch, Capture, Run</b><small>Heal with items, swap in your Backup, or throw a Poké Ball at a weakened wild Pal.</small></div></div>
+      <div class="stp"><i>4</i><div><b>Auto</b><small>Tap <b>AUTO</b> at the top and your Pal picks its own moves.</small></div></div>
+      <div class="stp"><i>5</i><div><b>Bond Awakening</b><small>At max bond, unleash it once per battle: stronger, faster, more critical hits.</small></div></div>
+      </div>
+      <div class="rows">${chart}<div class="row"><span>${elChip('neutral', true)}</span><b>no strengths or weaknesses</b></div></div>
+      <p class="muted">Win battles for EXP. HP and PP come back while your Pals rest at home. Change moves in Party → Moves &amp; stats.</p>
+      <div class="btns"><button class="btn red" id="btGo">Got it!</button></div>`);
+    $('#btGo').addEventListener('click', () => (then ? then() : closeSheet()));
   }
   function openMaps() {
     EXPLORE_MAP_UI.forEach(m => { if (m.src) new Image().src = m.src; });   // start loading the big pictures now
@@ -2377,29 +2472,97 @@ if (!code) {
       <div class="maplist">${EXPLORE_MAP_UI.map(card).join('')}</div>
       <div class="btns"><button class="btn alt" id="mapBack">← Back</button></div>`);
     $('#mapBack').addEventListener('click', openAdventure);
-    sheet.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => openTeam(b.dataset.map)));
+    sheet.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => openPrep(b.dataset.map)));
+  }
+  // ---------- Explore: get ready — the area, its Pals, and which of yours suit it best ----------
+  let prepSel = null;   // { map, lead: key, sub: key | null } — kept while you look around (Change Pal and back)
+  function openPrep(mapId) {
+    const R = Game.recommend(mapId), info = R.info, list = R.list;
+    if (!list.length) { toast('Hatch your egg first!'); return; }
+    const map = EXPLORE_MAP_UI.find(m => m.id === mapId) || EXPLORE_MAP_UI[0];
+    const byKey = k => list.find(x => x.key === k);
+    const mainKey = Game.pet() && Game.pet().key;
+    if (!prepSel || prepSel.map !== mapId || !byKey(prepSel.lead)) {
+      const sub = list.find(x => x.key !== mainKey && x.eligible);
+      prepSel = { map: mapId, lead: mainKey, sub: Game.feature('teamBackup') && sub ? sub.key : null };
+    }
+    if (prepSel.sub && !byKey(prepSel.sub)) prepSel.sub = null;
+    const lead = byKey(prepSel.lead), sub = prepSel.sub ? byKey(prepSel.sub) : null;
+    const DIFF = { Easy: '#58b868', Normal: '#4f93c4', Hard: '#e8803a', Expert: '#d9336a' };
+    const face = x => { const f = portraitUrl(x.sp, x.m.shiny, 'Normal'); return f ? `<img class="face" src="${f}" alt="">` : miniCanvas(x.sp, { px: 48, shiny: x.m.shiny }); };
+    const bar = c => `<div class="compat"><i style="width:${c}%;background:${c >= 70 ? 'var(--hp-hi)' : c >= 45 ? 'var(--hp-mid)' : 'var(--hp-lo)'}"></i></div>`;
+    const recCard = (x, rank) => `<div class="reccard${x.key === prepSel.lead ? ' on' : ''}" data-rk="${esc(x.key)}" role="button" tabindex="0" aria-label="Make ${esc(x.name)} your Main">
+        <div class="rc-top">${face(x)}<div class="rc-id"><b>${rank ? `<i class="rk">#${rank}</i>` : ''}${esc(x.name)}</b><small>Lv ${x.level} · ${elChip(x.el, true)}</small></div><div class="rc-pc"><b>${x.compat}%</b><small>match</small></div></div>
+        ${bar(x.compat)}
+        <ul class="rc-why">${x.reasons.slice(0, 3).map(r => `<li class="ok">✓ ${esc(r.text)}</li>`).join('')}${x.warnings.slice(0, 2).map(w => `<li class="warn">⚠ ${esc(w)}</li>`).join('')}</ul>
+      </div>`;
+    const enemies = info.enemies.slice(0, 5).map(e => `<span class="enemy" style="--ec:${Battle.elInfo(e.el).color}">${Battle.elInfo(e.el).icon} ${Battle.elInfo(e.el).label} <small>${Math.round(e.share * 100)}%</small></span>`).join('');
+    const top3 = list.slice(0, 3);
+    const leadWarn = lead ? lead.warnings : [];
+    openSheet(head('Get ready') + `
+      <div class="prephead"><div><h3>{i:map} ${esc(map.name)}</h3><small>${Game.EXPLORE_MAX_FLOOR} floors · boss at the bottom</small></div>
+        <div class="prepdiff"><span class="pill" style="background:${DIFF[info.difficulty] || '#777'}">${esc(info.difficulty)}</span><small>Recommended Lv ${info.rec}+</small></div></div>
+      <h4 class="teamh">Pals you'll meet</h4><div class="enemies">${enemies}</div>
+      <div class="prepadv"><div><span>Strong here</span>${elIcons(info.good)}</div><div><span>At a disadvantage</span>${elIcons(info.bad)}</div></div>
+      <h4 class="teamh">Best of your Pals</h4>
+      <div class="reclist">${top3.map((x, i) => recCard(x, i + 1)).join('')}</div>
+      <h4 class="teamh">Your team</h4>
+      <div class="prepteam">
+        <div class="pt"><em class="tl">MAIN</em>${lead ? `${face(lead)}<b>${esc(lead.name)}</b><small>Lv ${lead.level} · ${lead.compat}% · HP ${Math.round((lead.hpFrac == null ? 1 : lead.hpFrac) * 100)}%</small>` : '—'}</div>
+        <div class="pt"><em class="ts">BACKUP</em>${sub ? `${face(sub)}<b>${esc(sub.name)}</b><small>Lv ${sub.level} · ${sub.compat}%</small>` : '<small>None</small>'}</div>
+      </div>
+      ${leadWarn.length ? `<div class="prepwarn">${leadWarn.map(w => `<div>⚠ ${esc(w)}</div>`).join('')}${lead && lead.eligible ? '<small>You can still go, at your own risk!</small>' : ''}</div>` : ''}
+      <div class="btns"><button class="btn alt" id="prepAuto">{i:sparkle} Auto Select Best Pal</button>${list.length > 1 || friendPicks().length ? '<button class="btn alt" id="prepChange">{i:arrow} Change Pal</button>' : ''}</div>
+      <div class="btns two"><button class="btn alt" id="prepBack">← Back</button><button class="btn red" id="prepGo">{i:map} Start Exploration</button></div>`);
+    $('#prepBack').addEventListener('click', () => { prepSel = null; openMaps(); });
+    $('#prepAuto').addEventListener('click', () => {
+      const ok = list.filter(x => x.eligible);
+      if (!ok.length) { toast('None of your Pals can explore right now. Let them eat and rest first.'); Sound.play('no'); return; }
+      prepSel.lead = ok[0].key; prepSel.sub = Game.feature('teamBackup') && ok[1] ? ok[1].key : null;
+      Sound.play('medal'); toast(`{i:sparkle} ${ok[0].name} leads${prepSel.sub ? `, with ${ok[1].name} as Backup` : ''}!`);
+      const y = sheet.scrollTop; openPrep(mapId); sheet.scrollTop = y;
+    });
+    const ch = $('#prepChange'); if (ch) ch.addEventListener('click', () => openTeam(mapId, prepSel));
+    sheet.querySelectorAll('[data-rk]').forEach(el => el.addEventListener('click', () => {   // tap a card: it leads
+      const x = byKey(el.dataset.rk); if (!x) return;
+      if (!x.eligible) { toast(`${x.name} can't lead: ${x.why.toLowerCase()}.`); Sound.play('no'); return; }
+      Sound.play('tap'); if (prepSel.sub === x.key) prepSel.sub = prepSel.lead !== x.key ? prepSel.lead : null;
+      prepSel.lead = x.key; const y = sheet.scrollTop; openPrep(mapId); sheet.scrollTop = y;
+    }));
+    $('#prepGo').addEventListener('click', () => {
+      if (!lead) return;
+      if (!lead.eligible) { toast(`${lead.name} can't explore: ${lead.why.toLowerCase()}.`); Sound.play('no'); return; }
+      if (lead.m !== Game.pet() && !Game.switchMain(Game.party().indexOf(lead.m))) { toast('Couldn\'t switch your Main right now.'); Sound.play('no'); return; }
+      const subM = sub && sub.m !== lead.m ? sub.m : null;
+      prepSel = null; closeSheet(); startExplore({ map: mapId, sub: subM });
+    });
   }
   // ---------- Explore: pick a team of two — a Main that explores and a Backup that takes over if it faints ----------
-  function openTeam(mapId) {
+  function openTeam(mapId, preset) {
     const main = Game.pet();
     const pool = [{ m: main, i: -1 }, ...Game.party().map((m, i) => ({ m, i }))].filter(x => x.m && !x.m.egg && !x.m.locked && SPECIES_BY_ID[x.m.sp]);
     const friendPool = () => friendPicks();
     let fpool = friendPool();
-    if (!Game.feature('teamBackup') || (pool.length < 2 && !fpool.length)) { closeSheet(); return startExplore({ map: mapId }); }   // backups switched off, or nobody to bring along
+    if (!Game.feature('teamBackup') || (pool.length < 2 && !fpool.length)) { if (preset) { toast('Tap a Pal on this screen to make it your Main.'); return openPrep(mapId); } closeSheet(); return startExplore({ map: mapId }); }   // backups switched off, or nobody to bring along
     // own Pokémon are pool[0..n-1]; friends' Pokémon follow at n.. (they can only be the Backup)
     const n = pool.length, all = () => pool.concat(fpool);
     const nm = x => x.friend ? x.c.name || SPECIES_BY_ID[x.c.sp].name : x.m.name || SPECIES_BY_ID[x.m.sp].name;
     const lv = x => x.friend ? x.c.level || 1 : x.i < 0 ? Game.level() : Game.memberLevel(x.m);
     const cfg = Game.config || {};
-    const whyNot = x => x.friend ? 'friend' : x.m.asleep ? 'Asleep' : x.m.ene < (cfg.exploreEnergy || 0) ? 'Too tired' : x.m.food < 20 ? 'Too hungry' : '';
+    const whyNot = x => x.friend ? 'friend' : Game.exploreBlock(x.m);
     let lead = 0, sub = n > 1 ? 1 : n, role = 'sub';   // no other Pokémon of your own: start with the first friend's
     if (sub >= all().length) sub = null;
+    if (preset) {                                       // what the Get ready screen picked
+      const li = pool.findIndex(x => x.m.key === preset.lead); if (li >= 0) lead = li;
+      const si = preset.sub ? pool.findIndex(x => x.m.key === preset.sub) : -1; sub = si >= 0 && si !== lead ? si : null;
+    }
     const render = () => {
       const A = all();
       const card = (x, k) => {
         const tag = k === lead ? '<em class="tl">MAIN</em>' : k === sub ? '<em class="ts">BACKUP</em>' : '', no = x.friend ? '' : whyNot(x);
         const sp = x.friend ? x.c.sp : x.m.sp, shiny = x.friend ? x.c.shiny : x.m.shiny;
-        const sub2 = x.friend ? `Lv ${lv(x)} · ${esc(x.owner)}${x.rec === 'helper' ? '' : ' · {i:sparkle}new pick'}` : `Lv ${lv(x)}${no ? ` · ${no}` : ''}`;
+        const elx = Battle.elInfo(Battle.elementOf(sp)).icon;
+        const sub2 = x.friend ? `${elx} Lv ${lv(x)} · ${esc(x.owner)}${x.rec === 'helper' ? '' : ' · {i:sparkle}new pick'}` : `${elx} Lv ${lv(x)}${no ? ` · ${no}` : ''}`;
         return `<button class="teamcard${k === lead ? ' lead' : k === sub ? ' sub' : ''}${x.friend ? ' friend' : ''}" data-k="${k}">${tag}${monFace(sp, shiny)}
           <b>${shiny ? '{i:sparkle}' : ''}${esc(nm(x))}</b><small>${sub2}</small></button>`;
       };
@@ -2427,7 +2590,7 @@ if (!code) {
         else sub = k;
         render();
       }));
-      $('#teamBack').addEventListener('click', openMaps);
+      $('#teamBack').addEventListener('click', () => { if (preset) { const L = pool[lead], S3 = sub == null || sub >= n ? null : pool[sub]; prepSel = { map: mapId, lead: L.m.key, sub: S3 ? S3.m.key : null }; return openPrep(mapId); } openMaps(); });
       $('#teamGo').addEventListener('click', () => {
         const L = pool[lead], S2 = sub == null ? null : all()[sub];
         if (L.i >= 0 && !Game.switchMain(Game.party().indexOf(L.m))) { toast('Couldn\'t switch your Main right now.'); Sound.play('no'); return; }
@@ -2487,7 +2650,7 @@ if (!code) {
     const r = acv.getBoundingClientRect(), d = Math.min(3, window.devicePixelRatio || 1);
     AW = r.width; AH = r.height; acv.width = AW * d; acv.height = AH * d; ac.setTransform(d, 0, 0, d, 0, 0);
   }
-  function closeArena() { Music.set('town'); arena.classList.add('hidden'); $('#arenaPanel').classList.add('hidden'); arenaGame = null; }
+  function closeArena() { const ab = $('#arenaAuto'); if (ab) { ab.classList.add('hidden'); ab.onclick = null; } Music.set('town'); arena.classList.add('hidden'); $('#arenaPanel').classList.add('hidden'); arenaGame = null; }
   $('#arenaClose').addEventListener('click', () => { if (arenaGame) arenaGame.finish(true); });
   const aPos = e => { const r = acv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   acv.addEventListener('pointerdown', e => arenaGame && arenaGame.down && arenaGame.down(aPos(e)));
@@ -3184,14 +3347,7 @@ if (!code) {
   }
   // where the Pokémon stand in a battle (share of the arena height): both on the floor of the picture
   const WILD_Y = .7, ME_Y = .86;
-  /** a strong bond (Game.ENDURE_BOND) lets your Pokémon hold on with 1% HP instead of fainting, once per battle */
-  function bondEndure(G, maxHp) {
-    const p = G.team ? G.team[G.cur].mon : Game.pet();   // exploring: whoever is fighting right now
-    if (G.meHp > 0 || G.endured || !p || p.egg || (p.bond || 0) < Game.ENDURE_BOND) return false;
-    G.endured = true; G.meHp = Math.max(1, Math.round(maxHp * .01)); G.endureAt = now();
-    setTimeout(() => Sound.play('pet'), 250);
-    return true;
-  }
+  // (enduring a knockout with a strong bond now happens in battle.js: canEndure)
   /** the heart that pops over your Pokémon when it endures */
   function drawEndure(G, ms, x, top) {
     const e = ms - (G.endureAt || -1e9); if (e > 1600) return;
@@ -3252,16 +3408,31 @@ if (!code) {
   }
   function say(html, sub) { epMsg.innerHTML = icons(html) + (sub ? `<small>${icons(sub)}</small>` : ''); }
   function buttons(list, wrap) {
+    epBtns.classList.remove('moves');
     epBtns.classList.toggle('wrap', !!wrap);
     epBtns.innerHTML = list.map((b, i) => `<button class="btn ${b.cls || ''}" data-b="${i}">${icons(b.label)}</button>`).join('');
     epBtns.querySelectorAll('[data-b]').forEach(el => el.addEventListener('click', () => { const b = list[+el.dataset.b]; epBtns.innerHTML = ''; b.fn(); }));
   }
   function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
-  function hpBox(g, x, y, w, name, lv, hp, max, showNums) {
+  /** b: the battler, for its element badge, status and Bond Awakening glow */
+  function hpBox(g, x, y, w, name, lv, hp, max, showNums, b) {
     const h = showNums ? 58 : 46;
-    roundRect(g, x, y, w, h, 10); g.fillStyle = '#fbf9ef'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#2f3448'; g.stroke();
+    if (b && b.vol && b.vol.awaken) { g.save(); g.shadowColor = '#ffd86b'; g.shadowBlur = 16; roundRect(g, x, y, w, h, 10); g.fillStyle = '#fbf9ef'; g.fill(); g.restore(); }
+    roundRect(g, x, y, w, h, 10); g.fillStyle = '#fbf9ef'; g.fill(); g.lineWidth = 3; g.strokeStyle = b && b.vol && b.vol.awaken ? '#e0a81f' : '#2f3448'; g.stroke();
+    let nx = x + 10;
+    if (b && b.elem) {                      // element badge: a coloured circle with its icon
+      const E = Battle.elInfo(b.elem);
+      g.fillStyle = E.color; g.beginPath(); g.arc(x + 19, y + 15, 10, 0, Math.PI * 2); g.fill(); g.lineWidth = 2; g.strokeStyle = '#2f3448'; g.stroke();
+      g.font = '12px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(E.icon, x + 19, y + 16); g.textBaseline = 'alphabetic';
+      nx = x + 34;
+    }
     g.fillStyle = '#2b2d42'; g.font = '800 16px \"Nunito\", system-ui, sans-serif'; g.textAlign = 'left';
-    g.fillText(name, x + 10, y + 20); g.textAlign = 'right'; g.font = '800 14px \"Nunito\", system-ui, sans-serif'; g.fillText('Lv' + lv, x + w - 10, y + 20); g.textAlign = 'left';
+    g.fillText(name.length > 16 ? name.slice(0, 15) + '…' : name, nx, y + 20); g.textAlign = 'right'; g.font = '800 14px \"Nunito\", system-ui, sans-serif'; g.fillText('Lv' + lv, x + w - 10, y + 20); g.textAlign = 'left';
+    if (b && b.status) {                    // BRN / PAR / SLP …
+      const col = { brn: '#e8503a', psn: '#a33ea1', par: '#e8b10f', slp: '#7a7f99', frz: '#5fc0e0' }[b.status] || '#777';
+      roundRect(g, x + w - 92, y + 6, 34, 16, 5); g.fillStyle = col; g.fill();
+      g.fillStyle = '#fff'; g.font = '900 10px \"Nunito\", system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(Battle.STATUS_TAG[b.status], x + w - 75, y + 18); g.textAlign = 'left';
+    }
     const bx = x + 34, by = y + 28, bw = w - 44, k = Math.max(0, hp / max);
     g.fillStyle = '#2f3448'; roundRect(g, x + 8, by - 1, 24, 12, 4); g.fill();
     g.fillStyle = '#ffcb05'; g.font = '800 10px \"Nunito\", system-ui, sans-serif'; g.fillText('HP', x + 12, by + 9);
@@ -3269,6 +3440,92 @@ if (!code) {
     if (k > 0) { roundRect(g, bx + 2, by + 2, (bw - 4) * k, 6, 3); g.fillStyle = k > .5 ? '#48d048' : k > .2 ? '#f8c030' : '#f85838'; g.fill(); }
     if (showNums) { g.fillStyle = '#2b2d42'; g.font = '800 13px \"Nunito\", system-ui, sans-serif'; g.textAlign = 'right'; g.fillText(`${Math.max(0, Math.ceil(hp))}/${max}`, x + w - 10, y + 52); g.textAlign = 'left'; }
   }
+
+
+  // ======================= battles: shared pieces (dungeons and friend battles) =======================
+  // The engine (battle.js) plays a whole turn at once and returns events; the screen shows them one by one.
+  const elChip = (el, small) => { const E = Battle.elInfo(el); return `<span class="elchip${small ? ' sm' : ''}" style="--ec:${E.color}">${E.icon} ${E.label}</span>`; };
+  const elIcons = list => list.length ? list.map(el => `<span class="elic" title="${Battle.elInfo(el).label}" style="--ec:${Battle.elInfo(el).color}">${Battle.elInfo(el).icon}</span>`).join('') : '<span class="muted">none</span>';
+  const CAT_LABEL = { phys: 'Physical', spec: 'Special', status: 'Status' };
+  /** the 2×2 move grid: element icon, name, PP and how well it works against the foe */
+  function moveGridHtml(b, foe, awakenOn) {
+    const cell = (x, i) => {
+      const mv = Battle.move(x.id), E = Battle.elInfo(mv.el), eff = Battle.isDamaging(mv) ? Battle.mult(mv.el, foe.elem) : null;
+      const tag = eff == null ? '<i class="mvtag st">Status</i>' : eff > 1 ? '<i class="mvtag up">▲ Super</i>' : eff < 1 ? '<i class="mvtag dn">▼ Weak</i>' : '';
+      return `<button class="mvbtn${x.pp <= 0 ? ' out' : ''}" data-mv="${i}" style="--ec:${E.color}" ${x.pp <= 0 ? 'disabled' : ''}>
+        <span class="mvn">${E.icon} ${esc(mv.name)}</span>${tag}
+        <small>PP ${x.pp}/${x.max} · ${CAT_LABEL[mv.cat]}${mv.power ? ' · ' + mv.power : ''}</small></button>`;
+    };
+    const slots = b.moves.map(cell);
+    while (slots.length < 4) slots.push('<span class="mvbtn empty">—</span>');
+    const aw = b.canAwaken && !b.vol.awakenUsed ? `<button class="btn ${awakenOn ? 'gold' : 'alt'}" data-awaken>{i:sparkle} Bond Awakening${awakenOn ? ': ON' : ''}</button>` : '';
+    return `<div class="movegrid">${slots.join('')}</div><div class="moverow">${aw}<button class="btn alt" data-mvback>← Back</button></div>`;
+  }
+  /** show a move's details while you hold it, choose it with a tap */
+  function showMoveGrid(b, foe, onPick, onBack) {
+    let awakenOn = false;
+    const render = () => {
+      epBtns.classList.remove('wrap'); epBtns.classList.add('moves');
+      epBtns.innerHTML = icons(moveGridHtml(b, foe, awakenOn));
+      epBtns.querySelectorAll('[data-mv]').forEach(el => {
+        const i = +el.dataset.mv;
+        el.addEventListener('click', () => { const x = b.moves[i]; if (!x || x.pp <= 0) return; Sound.play('tap'); epBtns.classList.remove('moves'); epBtns.innerHTML = ''; onPick({ type: 'move', idx: i, awaken: awakenOn }); });
+      });
+      const aw = epBtns.querySelector('[data-awaken]');
+      if (aw) aw.addEventListener('click', () => { awakenOn = !awakenOn; Sound.play(awakenOn ? 'medal' : 'tap'); render(); });
+      epBtns.querySelector('[data-mvback]').addEventListener('click', () => { Sound.play('tap'); epBtns.classList.remove('moves'); onBack(); });
+    };
+    if (b.vol.charging || b.vol.recharge) return onPick({ type: 'move', idx: 0 });   // it's busy: the turn just happens
+    if (!Battle.usable(b).length) {                                                   // no PP anywhere: Struggle
+      say(`${esc(b.name)} has no PP left!`, 'It can only Struggle (it hurts itself too).');
+      return buttons([{ label: '{i:sword} Struggle', cls: 'red', fn: () => onPick({ type: 'struggle' }) }, { label: '← Back', cls: 'alt', fn: onBack }]);
+    }
+    render();
+  }
+  /** what Auto picks: the smartest move, waking its Bond Awakening when things get tough */
+  function autoAction(b, foe) {
+    const a = Battle.choose(b, foe, 1);
+    if (b.canAwaken && !b.vol.awakenUsed && (b.hp / b.maxHp < .5 || foe.boss || foe.legend)) a.awaken = true;
+    return a;
+  }
+  /** play a turn's events one at a time; G.disp holds the HP shown on screen while it animates */
+  function playEvents(G, list, done, foeKey = 'wild') {
+    let i = 0, head = '';
+    const who = side => (side === 'me' ? 'me' : foeKey);
+    const step = () => {
+      if (arenaGame !== G) return;
+      if (i >= list.length) { G.disp = null; return done(); }
+      const e = list[i++]; let wait = 700;
+      if (e.hp != null && G.disp) G.disp[e.side === 'me' ? 'me' : 'foe'] = e.hp;
+      switch (e.t) {
+        case 'use': {
+          head = esc(e.text); G.act = who(e.side); G.actAt = now();
+          const mv = Battle.move(e.move); if (mv && Battle.isDamaging(mv)) Sound.attack(); else Sound.play('tap');
+          say(head); wait = 560; break;
+        }
+        case 'dmg':
+          G.hurt = who(e.side); G.hurtAt = now(); Sound.damage(e.crit);
+          say(head || '', `${e.hit ? `Hit ${e.hit}: ` : ''}${e.amount} damage${e.crit ? ' · a critical hit!' : ''}`); wait = e.hit ? 420 : 650; break;
+        case 'faint': Sound.play('sad'); say(esc(e.text)); wait = 900; break;
+        case 'endure': G.endureAt = now(); setTimeout(() => Sound.play('pet'), 200); say(head, `{i:heart} ${esc(e.text)}`); wait = 1100; break;
+        case 'awaken': G.awakenAt = now(); Sound.play('evolve'); say(`{i:sparkle} ${esc(e.text)}`, 'Stronger, faster and more likely to land critical hits for a few turns!'); wait = 1500; break;
+        case 'heal': Sound.play('level'); say(head || esc(e.text), esc(e.text)); break;
+        case 'dot': case 'recoil': G.hurt = who(e.side); G.hurtAt = now(); Sound.damage(false); say(esc(e.text), `${e.amount} damage`); head = ''; break;
+        case 'status': Sound.play('no'); say(head || esc(e.text), esc(e.text)); break;
+        case 'stat': Sound.play(e.delta > 0 ? 'level' : 'no'); say(head || esc(e.text), esc(e.text)); wait = 600; break;
+        default: say(head && e.t !== 'awakenEnd' ? head : esc(e.text), head && e.t !== 'awakenEnd' ? esc(e.text) : ''); break;
+      }
+      setTimeout(step, wait);
+    };
+    step();
+  }
+  /** one full turn: the foe's AI picks, the engine resolves, the screen plays it */
+  function runTurn(G, me, foe, myAct, smart, done, foeKey) {
+    G.disp = { me: me.hp, foe: foe.hp };
+    const ev = Battle.turn(me, foe, myAct, Battle.choose(foe, me, smart));
+    playEvents(G, ev, done, foeKey);
+  }
+  const shownHp = (G, side, real) => (G.disp && G.disp[side] != null ? G.disp[side] : real);
 
   function startExplore(opts = {}) {
     const chk = Game.exploreCheck();
@@ -3279,19 +3536,33 @@ if (!code) {
     const map = EXPLORE_MAP_UI.find(m => m.id === opts.map) || EXPLORE_MAP_UI[0];
     const caveName = map.id !== 'cave' ? map.name : typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS.assign && BACKGROUNDS.assign.explore ? 'Crystal Cave' : D.name;
     openArena(`{i:map} ${caveName}`);
-    const me = Game.battler(p.sp, Game.level(), true);
+    const me = Game.battleMon(p);                          // stats, moves and PP, and the HP it set out with
     const G = {
-      D, caveName, floor: 0, state: 'walk', at: now(), me, meHp: me.maxHp, wins: 0, finds: {}, wild: null, wildHp: 0,
+      D, caveName, floor: 0, state: 'walk', at: now(), me, wins: 0, finds: {}, wild: null, exp: 0,
       act: null, actAt: 0, hurt: null, hurtAt: 0, chest: null, over: false, seedInt: 1 + Math.floor(Math.random() * 100000), scroll: 0,
       map: map.id, bgSrc: map.src || null,
     };
     // the team: [0] the Main (your home Pokémon), [1] the Backup that takes over if the Main faints
     const fr = opts.sub && opts.sub.friend && opts.sub.card && SPECIES_BY_ID[opts.sub.card.sp] ? opts.sub : null;   // borrowed from a friend
     const subM = !fr && opts.sub && !opts.sub.egg && opts.sub !== p && SPECIES_BY_ID[opts.sub.sp] ? opts.sub : fr ? fr.card : null;
-    G.team = [{ mon: p, sp: p.sp, shiny: p.shiny, nm: () => petName() }];
-    if (fr) G.team.push({ mon: { bond: 0 }, sp: subM.sp, shiny: !!subM.shiny, owner: fr.owner, nm: () => subM.name || SPECIES_BY_ID[subM.sp].name, battler: Game.cardBattler(subM) });
-    else if (subM) G.team.push({ mon: subM, sp: subM.sp, shiny: subM.shiny, nm: () => subM.name || SPECIES_BY_ID[subM.sp].name, battler: Game.memberBattler(subM) });
+    G.team = [{ mon: p, own: true, sp: p.sp, shiny: p.shiny, nm: () => petName(), battler: me }];
+    if (fr) G.team.push({ mon: { bond: 0 }, own: false, sp: subM.sp, shiny: !!subM.shiny, owner: fr.owner, nm: () => subM.name || SPECIES_BY_ID[subM.sp].name, battler: Game.cardBattler(subM) });
+    else if (subM) G.team.push({ mon: subM, own: true, sp: subM.sp, shiny: subM.shiny, nm: () => subM.name || SPECIES_BY_ID[subM.sp].name, battler: Game.memberBattler(subM) });
+    G.team.forEach(M => { if (M.battler.hp <= 0) M.fainted = true; });
     G.cur = 0;
+    // HP lives on the battlers: G.meHp is whoever is fighting, G.wildHp the wild Pal (the drawing code reads these)
+    Object.defineProperty(G, 'meHp', { get: () => G.me.hp, set: v => { G.me.hp = Math.max(0, Math.min(G.me.maxHp, Math.round(v))); } });
+    Object.defineProperty(G, 'wildHp', { get: () => (G.wild ? G.wild.hp : 0), set: v => { if (G.wild) G.wild.hp = Math.max(0, Math.round(v)); } });
+    // Auto: your Pal picks its own moves in battle (you still choose where to go and what to use)
+    const autoBtn = $('#arenaAuto');
+    G.auto = !!ST().settings.autoBattle;
+    const paintAuto = () => { autoBtn.classList.toggle('on', G.auto); autoBtn.setAttribute('aria-pressed', G.auto ? 'true' : 'false'); autoBtn.textContent = G.auto ? 'AUTO ON' : 'AUTO'; };
+    autoBtn.classList.remove('hidden'); paintAuto();
+    autoBtn.onclick = () => {
+      G.auto = !G.auto; ST().settings.autoBattle = G.auto; Game.save(); paintAuto(); Sound.play(G.auto ? 'medal' : 'tap');
+      toast(G.auto ? 'Auto battle on: your Pal picks its own moves.' : 'Auto battle off.');
+      if (G.auto && G.awaitingMove) { G.awaitingMove = false; epBtns.classList.remove('moves'); epBtns.innerHTML = ''; doTurn(autoAction(G.me, G.wild)); }
+    };
     preloadSpecies(p.sp, p.shiny);
     if (subM) preloadSpecies(subM.sp, subM.shiny);
     Sound.play('wake'); Talk.say('exploreGo');
@@ -3335,13 +3606,16 @@ if (!code) {
     function encounter(preset) {
       G.endured = false;   // the bond endure works once per battle
       const w = preset || Game.rollWild(G.map), ws = SPECIES_BY_ID[w.sp];
-      G.wild = Object.assign(Game.battler(w.sp, w.level, false), { shiny: w.shiny, name: ws.name, legend: !!w.legend, boss: !!w.boss, raw: w });
-      if (w.legend && !w.boss) G.wild.maxHp = Math.round(G.wild.maxHp * 1.2);   // legendaries are a little tougher
+      const wb = Game.battler(w.sp, w.level, false);
+      if (w.legend && !w.boss) wb.maxHp = Math.round(wb.maxHp * 1.2);   // legendaries are a little tougher
       if (w.boss) {                                                    // floor boss: lots of HP and hits hard
-        G.wild.maxHp = Math.round(G.wild.maxHp * Game.config.bossHpMult);
-        G.wild.atk = Math.round(G.wild.atk * 1.15); G.wild.def = Math.round(G.wild.def * 1.15);
+        wb.maxHp = Math.round(wb.maxHp * Game.config.bossHpMult);
+        ['atk', 'def', 'spa', 'sdef'].forEach(k => { wb.stats[k] = Math.round(wb.stats[k] * 1.15); });
       }
-      G.wildHp = G.wild.maxHp; G.state = 'encounter'; G.at = now(); G.legendAt = w.boss && !w.legend ? now() : 0; G.throw = null; G.wheel = null;
+      wb.hp = wb.maxHp;
+      G.wild = Object.assign(wb, { shiny: w.shiny, name: ws.name, legend: !!w.legend, boss: !!w.boss, raw: w });
+      // a new battle: stat changes and one-turn effects reset (burns and other statuses stay)
+      G.team.forEach(M => { M.battler.stages = { atk: 0, def: 0, spa: 0, sdef: 0, spe: 0, acc: 0, eva: 0 }; M.battler.vol = {}; }); G.state = 'encounter'; G.at = now(); G.legendAt = w.boss && !w.legend ? now() : 0; G.throw = null; G.wheel = null;
       preloadSpecies(w.sp, w.shiny);
       G.wildFirst = false;
       if (w.legend) {                                   // legendary: a cinematic entrance before the fight
@@ -3365,76 +3639,135 @@ if (!code) {
         `Win the battle to spin the catch wheel.${frag ? ` You have ${frag}/${Game.FRAGMENTS_TO_SUMMON} of its fragments.` : ''}`);
       else if (w.boss) say(`{i:sword} The <b>floor boss</b> blocks the way! It's a mighty ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level})!`,
         (w.bossTier === 'final' ? '{i:sparkle} A very rare fully evolved boss! ' : w.bossTier === 'stage2' ? 'A rare evolved boss! ' : '') + 'It\'s much stronger than usual. Beat it to spin the catch wheel!');
-      else if (w.chase) say(`{i:star} The main chase! A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · the Pokémon everyone hunts on this map`);
-      else say(`A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${ELEMENTS[ws.el].label} type · ${esc(name())} is Lv ${G.me.level}`);
+      else if (w.chase) say(`{i:star} The main chase! A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${matchup()} · the Pokémon everyone hunts on this map`);
+      else say(`A wild ${w.shiny ? '{i:sparkle}' : ''}<b>${esc(ws.name)}</b> (Lv ${w.level}) appeared!`, `${matchup()} · ${esc(name())} is Lv ${G.me.level}`);
     }
+    /** the wild Pal's element, and how it matches up with yours */
+    function matchup() {
+      const fe = G.wild.elem, me2 = G.me.elem, E = Battle.elInfo(fe);
+      const hurtsIt = Battle.mult(me2, fe) > 1, hurtsMe = Battle.mult(fe, me2) > 1;
+      return `${E.icon} ${E.label}${hurtsIt ? ` · weak to your ${Battle.elInfo(me2).icon} ${Battle.elInfo(me2).label} moves!` : hurtsMe ? ` · careful, strong against ${Battle.elInfo(me2).label}` : ''}`;
+    }
+    const SMART = () => { const A = Battle.B.aiSmart; return G.wild.legend ? A.legend : G.wild.boss ? A.boss : A.wild; };
+    const BALL_ORDER = ['pokeBall', 'greatBall', 'ultraBall', 'masterBall'];
+    const canCapture = () => G.wild && !G.wild.boss && !G.wild.legend && BALL_ORDER.some(k => Game.itemCount(k));
+    const otherAlive = () => G.team.findIndex((M, i) => i !== G.cur && !M.fainted && M.battler.hp > 0);
+    /** Fight · Bag · Switch · Capture · Run */
     function encounterButtons() {
-      buttons([
-        { label: '{i:sword} Fight', cls: 'red', fn: () => fight(G.wildFirst) },
-        { label: '{i:oran} Items', cls: 'alt', fn: () => showItems(true) },
-        { label: '{i:speed} Run', cls: 'alt', fn: run },
-      ]);
+      G.state = 'encounter';
+      if (G.auto) { say(`${esc(name())} is battling on its own…`, 'Auto battle is on · tap AUTO to choose moves yourself'); return setTimeout(() => { if (arenaGame === G && G.wild && G.state === 'encounter') doTurn(autoAction(G.me, G.wild)); }, 650); }
+      const list = [
+        { label: '{i:sword} Fight', cls: 'red', fn: chooseMove },
+        { label: '{i:oran} Bag', cls: 'alt', fn: () => showItems(true) },
+      ];
+      if (otherAlive() >= 0) list.push({ label: '{i:arrow} Switch', cls: 'alt', fn: () => switchPal(otherAlive(), false) });
+      if (canCapture()) list.push({ label: '{i:pokeball} Capture', cls: 'gold', fn: showCapture });
+      list.push({ label: '{i:speed} Run', cls: 'alt', fn: run });
+      buttons(list, list.length > 3);
+    }
+    function chooseMove() {
+      say(`What will ${esc(name())} do?`, `${matchup()} · tap a move`);
+      G.awaitingMove = true;
+      showMoveGrid(G.me, G.wild, act => { G.awaitingMove = false; doTurn(act); }, () => { G.awaitingMove = false; encounterButtons(); });
+    }
+    function doTurn(myAct) {
+      G.state = 'battle'; buttons([]);
+      runTurn(G, G.me, G.wild, myAct, SMART(), afterTurn);
+    }
+    function afterTurn() {
+      if (arenaGame !== G || !G.wild) return;
+      if (G.wild.hp <= 0) return setTimeout(win, 300);
+      if (G.me.hp <= 0) {
+        const k = otherAlive();
+        return setTimeout(() => (k >= 0 ? switchPal(k, true) : lose()), 500);
+      }
+      encounterButtons();
     }
     function run() {
       if (Math.random() * 100 < Game.config.runChance) { say('Got away safely!'); Sound.play('wake'); G.wild = null; G.state = 'empty'; return afterFloor(); }
-      say(`Couldn't get away! The wild ${esc(G.wild.name)} attacks!`); fight(true);
-    }
-    function fight(wildFirst) {
-      G.state = 'battle'; buttons([]);
-      let turn = wildFirst ? 'wild' : (G.me.spd >= G.wild.spd ? 'me' : 'wild');
-      const step = () => {
-        if (arenaGame !== G) return;
-        const A = turn === 'me' ? G.me : G.wild, Dd = turn === 'me' ? G.wild : G.me;
-        const crit = Math.random() < .07;
-        const dmg = Math.max(2, Math.round((A.atk / Math.max(1, Dd.def)) * (A.level * .45 + 6) * (.85 + Math.random() * .3) * (crit ? 1.5 : 1)));
-        G.act = turn; G.actAt = now(); Sound.attack();
-        const an = turn === 'me' ? esc(name()) : `The wild ${esc(G.wild.name)}`;
-        setTimeout(() => {
-          if (arenaGame !== G) return;
-          if (turn === 'me') G.wildHp -= dmg; else G.meHp -= dmg;
-          const endured = turn !== 'me' && bondEndure(G, G.me.maxHp);
-          G.hurt = turn === 'me' ? 'wild' : 'me'; G.hurtAt = now(); Sound.damage(crit);
-          say(`${an} attacks!${crit ? ' A critical hit!' : ''}${endured ? ` {i:heart} ${esc(name())} endured the hit for you!` : ''}`, endured ? `${dmg} damage · its bond with you kept it standing at 1% HP` : `${dmg} damage`);
-          if (G.wildHp <= 0) return setTimeout(win, 700);
-          if (G.meHp <= 0) return setTimeout(G.cur === 0 && G.team[1] ? swapIn : lose, 700);
-          turn = turn === 'me' ? 'wild' : 'me';
-          setTimeout(step, 750);
-        }, 380);
-      };
-      setTimeout(step, 600);
+      say(`Couldn't get away!`); doTurn({ type: 'pass' });
     }
     function win() {
-      if (G.wild.legend || G.wild.boss) { G.wins++; return startWheel(); }
-      G.wins++; G.state = 'won'; G.at = now(); Sound.play('level');
-      let sub = `${esc(name())} feels proud!`;
-      if (Math.random() * 100 < Game.config.dropChance) { const k = Game.rollTreasure(G.floor); Game.addItem(k); G.finds[k] = (G.finds[k] || 0) + 1; sub = `It dropped ${/^[AEIOU]/.test(Game.ITEMS[k].name) ? 'an' : 'a'} {i:${Game.ITEMS[k].icon}} ${Game.ITEMS[k].name}!`; }
+      G.wins++;
+      // EXP for everyone of yours who came along (the one fighting gets it all, the other half)
+      const xp = Game.expFor(G.wild.raw, G.me.level), notes = [];
+      G.team.forEach((M, i) => {
+        if (!M.own || M.fainted) return;
+        Game.storeBattle(M.mon, M.battler);
+        const r = Game.gainExp(M.mon, i === G.cur ? xp : Math.round(xp / 2));
+        if (r.to > r.from) {
+          notes.push(`{i:up} ${esc(M.nm())} grew to Lv ${r.to}!`);
+          const nb = Game.battleMon(M.mon); nb.status = M.battler.status; M.battler = nb; if (i === G.cur) G.me = nb;
+        }
+        if (r.moves.length) notes.push(`${esc(M.nm())} can learn ${r.moves.map(id => Battle.move(id).name).join(', ')}!`);
+      });
+      G.exp += xp;
+      if (G.wild.legend || G.wild.boss) return startWheel(notes);
+      G.state = 'won'; G.at = now(); Sound.play('level');
+      let sub = `+${xp} EXP${notes.length ? ' · ' + notes.join(' ') : ` · ${esc(name())} feels proud!`}`;
+      if (Math.random() * 100 < Game.config.dropChance) { const k = Game.rollTreasure(G.floor); Game.addItem(k); G.finds[k] = (G.finds[k] || 0) + 1; sub += ` · It dropped ${/^[AEIOU]/.test(Game.ITEMS[k].name) ? 'an' : 'a'} {i:${Game.ITEMS[k].icon}} ${Game.ITEMS[k].name}!`; }
       say(`The wild ${esc(G.wild.name)} fainted! ${esc(name())} won!`, sub);
       afterFloor();
     }
-    /** the Main fainted: it's recalled and the Backup jumps into the battle at full HP */
-    function swapIn() {
-      if (arenaGame !== G) return;
-      const out = G.team[0], bk = G.team[1];
-      out.fainted = true; G.swapAt = now(); Sound.play('sad');
-      say(`${esc(out.nm())} fainted!`, `Hang in there… ${esc(bk.nm())}, it's your turn!`);
+    /** bring in the other Pal: after a faint (free), or by choice (the foe gets a free move) */
+    function switchPal(to, fainted) {
+      if (arenaGame !== G || to < 0) return;
+      const from = G.cur, out = G.team[from], bk = G.team[to];
+      if (fainted) out.fainted = true;
+      G.swapFrom = from; G.swapTo = to; G.swapAt = now(); G.state = 'swap'; buttons([]);
+      Sound.play(fainted ? 'sad' : 'tap');
+      say(fainted ? `${esc(out.nm())} fainted!` : `${esc(out.nm())}, come back!`, `${fainted ? 'Hang in there… ' : ''}${esc(bk.nm())}, it's your turn!`);
       setTimeout(() => {
         if (arenaGame !== G) return;
-        G.cur = 1; G.me = bk.battler; G.meHp = bk.battler.maxHp; G.endured = false; G.hurt = null; G.act = null;
+        G.cur = to; G.me = bk.battler; G.hurt = null; G.act = null;
         Sound.play('wake');
       }, SWAP_OUT_MS + 350);
       setTimeout(() => {
         if (arenaGame !== G) return;
         Sound.play('level');
-        say(`Go, <b>${esc(bk.nm())}</b>! ${bk.owner ? `${esc(bk.owner)}'s Pokémon jumps in to help!` : 'Your backup jumps in!'}`, `Lv ${bk.battler.level} · full HP · the battle goes on`);
-        G.state = 'encounter'; G.wildFirst = false;
-        encounterButtons();
+        say(`Go, <b>${esc(bk.nm())}</b>! ${bk.owner ? `${esc(bk.owner)}'s Pokémon jumps in to help!` : ''}`, `Lv ${bk.battler.level} · HP ${Math.round(bk.battler.hp / bk.battler.maxHp * 100)}% · ${matchup()}`);
+        G.swapAt = 0;
+        if (!G.wild) { G.state = 'empty'; return afterFloor(); }
+        if (fainted) return encounterButtons();
+        doTurn({ type: 'pass' });                                  // switching costs your turn
       }, SWAP_OUT_MS + SWAP_IN_MS);
     }
     function lose() {
       G.state = 'lost'; G.at = now(); Sound.play('sad');
+      G.team.forEach(M => { if (M.battler.hp <= 0) M.fainted = true; });
       if (G.team[1]) say(`${esc(G.team[1].nm())} is out of strength too…`, `${esc(G.team[0].nm())} and ${esc(G.team[1].nm())} head back home to rest.`);
       else say(`${esc(name())} is out of strength…`, 'It heads back home to rest.');
       buttons([{ label: '{i:map} Return home', cls: 'red', fn: () => finish(true, true) }]);
+    }
+    /** Capture: throw a ball from the Bag at a wild Pal (not bosses or legendaries: they use the catch wheel) */
+    function showCapture() {
+      const list = BALL_ORDER.filter(k => Game.itemCount(k)).map(k => {
+        const it = Game.ITEMS[k], ch = Math.round(Battle.catchChance(G.wild, BALLS[it.wheel].rate, Game.config.catchMult) * 100);
+        return { label: `{i:${it.icon}} ${it.name.replace(' Ball', '')} ×${Game.itemCount(k)} · ${ch}%`, cls: 'gold', fn: () => capture(k) };
+      });
+      say(`Throw a ball at ${esc(G.wild.name)}?`, 'Lower HP and a status (sleep, freeze, paralysis…) make it easier to catch.');
+      list.push({ label: '← Back', cls: 'alt', fn: encounterButtons });
+      buttons(list, list.length > 3);
+    }
+    function capture(k) {
+      const it = Game.ITEMS[k], kind = it.wheel; if (!Game.itemCount(k)) return encounterButtons();
+      Game.state.player.bag[k]--; Game.save();
+      const caught = Math.random() < Battle.catchChance(G.wild, BALLS[kind].rate, Game.config.catchMult);
+      G.state = 'throw'; G.at = now(); G.lastShake = -1; G.throw = { ball: it.icon, kind, caught, shakes: caught ? 3 : 1 + Math.floor(Math.random() * 3) };
+      Sound.play('tap'); say(`You threw ${/^[AEIOU]/.test(it.name) ? 'an' : 'a'} ${it.name}!`); buttons([]);
+      setTimeout(() => {
+        if (arenaGame !== G || !G.wild) return;
+        if (caught) {
+          const w = G.wild.raw, where = Game.keepPokemon(Game.makeCaughtReady(w.sp, w.level, w.shiny));
+          G.state = 'caught'; G.at = now(); Sound.play('evolve'); G.wins++;
+          say(`Gotcha! <b>${esc(G.wild.name)}</b> was caught! {i:sparkle}`, where === 'party' ? 'It joined your party.' : 'Your party is full: it was sent to your PC Box.');
+          G.wild = null;
+          return afterFloor();
+        }
+        G.state = 'battle'; G.throw = null; Sound.play('no');
+        say(['Oh no! It broke free!', 'Argh! Almost had it!', 'Aww! It appeared to be caught!'][Math.min(2, G.throwShakes || 0)]);
+        setTimeout(() => doTurn({ type: 'pass' }), 700);
+      }, 700 + 500 + G.throw.shakes * SHAKE_MS);
     }
     // ---- Ga-Olé style catch wheel: one spin, one throw ----
     const BALLS = {
@@ -3446,11 +3779,11 @@ if (!code) {
     const SEGS = ['poke', 'great', 'poke', 'ultra', 'poke', 'great', 'master', 'poke', 'great', 'ultra', 'poke', 'great'];
     const BALL_RANK = { poke: 0, great: 1, ultra: 2, master: 3 };
     const BALL_ITEMS = ['greatBall', 'ultraBall', 'masterBall'];
-    function startWheel() {
+    function startWheel(notes) {
       G.state = 'wheel'; G.at = now(); G.wheel = { offset: Math.floor(Math.random() * SEGS.length), spinning: false, result: null, segs: SEGS.slice(), boosted: null, boostAt: 0 };
       Sound.play('medal');
       const who = G.wild.legend ? `The legendary <b>${esc(G.wild.name)}</b>` : `The boss <b>${esc(G.wild.name)}</b>`;
-      say(`${esc(name())} won! ${who} is weakened…`, 'Spin the wheel to choose your ball — you get one throw! Got a ball in your bag? Use it first to upgrade the wheel.');
+      say(`${esc(name())} won! ${who} is weakened…`, `${notes && notes.length ? notes.join(' ') + ' · ' : ''}Spin the wheel to choose your ball — you get one throw! Got a ball in your bag? Use it first to upgrade the wheel.`);
       wheelButtons();
     }
     function wheelButtons() {
@@ -3621,7 +3954,7 @@ if (!code) {
       FLAVORS.forEach((f, i) => { if (Game.itemCount(f.icon)) list.push({ label: `{i:${f.icon}} ${f.label.replace(' Berry', '')} ×${Game.itemCount(f.icon)}`, cls: 'alt', fn: () => useInDungeon('berry', i) }); });
       if (Game.itemCount('poffin')) list.push({ label: `{i:poffin} Poffin ×${Game.itemCount('poffin')}`, cls: 'alt', fn: () => useInDungeon('poffin') });
       if (!list.length) say(`Your Bag has nothing to use here. <small>Potions, Oran and Sitrus Berries, Lemonade and Rare Candy can be used while exploring. Find them in chests or buy them at the Poké Mart.</small>`);
-      list.push({ label: '← Back', cls: 'red', fn: () => { if (inBattle) { say(`The wild ${esc(G.wild.name)} is waiting…`); encounterButtons(); } else { say('What next?'); afterFloor(); } } });
+      list.push({ label: '← Back', cls: 'red', fn: () => { if (inBattle && G.wild) { say(`The wild ${esc(G.wild.name)} is waiting…`); encounterButtons(); } else { say('What next?'); afterFloor(); } } });
       buttons(list, true);
     }
     function healHp(frac) { G.meHp = Math.min(G.me.maxHp, Math.max(0, G.meHp) + Math.round(G.me.maxHp * frac)); }
@@ -3656,14 +3989,18 @@ if (!code) {
         const ratio = Math.max(0, G.meHp) / G.me.maxHp, r = Game.useItem('rareCandy');
         if (r.error) { toast(r.error === 'none' ? 'You have none left.' : r.error); return showItems(); }
         const p = Game.pet();
-        if (G.cur === 0) { G.me = Game.battler(p.sp, Game.level(), true); G.meHp = Math.round(G.me.maxHp * ratio); }   // the candy levels your Main
+        if (G.cur === 0) {                                 // the candy levels your Main: new stats, same HP share and PP
+          Game.storeBattle(p, G.me); const nb = Game.battleMon(p);
+          nb.hp = Math.max(1, Math.round(nb.maxHp * ratio)); nb.status = G.me.status; nb.stages = G.me.stages;
+          G.me = nb; G.team[0].battler = nb;
+        }
         Sound.play('level'); msg = `${nm} grew to Lv ${Game.level()}! {i:sparkle} <small>Its battle stats went up</small>`;
       }
       G.tired = Game.pet().ene < 8;
       $('#arenaInfo').innerHTML = icons(`B${G.floor}F &nbsp;{i:energy}${Math.round(Game.pet().ene)}`);
-      if (G.itemsInBattle && G.wild) {           // mid-encounter: the wild Pokémon gets the first move
-        G.wildFirst = true; say(msg + `<small>The wild ${esc(G.wild.name)} is getting ready…</small>`);
-        return encounterButtons();
+      if (G.itemsInBattle && G.wild) {           // mid-battle: using an item takes your turn, then the wild Pal moves
+        say(msg);
+        return setTimeout(() => { if (arenaGame === G && G.wild) doTurn({ type: 'pass' }); }, 900);
       }
       say(msg);
       if (G.tired) return buttons([{ label: '{i:map} Too tired — go home', cls: 'gold', fn: () => finish(true) }]);
@@ -3671,6 +4008,8 @@ if (!code) {
     }
     function finish(early, lost) {
       if (G.over) return; G.over = true;
+      G.team.forEach(M => { if (M.own) Game.storeBattle(M.mon, M.battler); });   // HP and PP carry over (they come back at home)
+      autoBtn.classList.add('hidden'); autoBtn.onclick = null;
       Game.exploreEnd({ floor: G.floor, wins: G.wins, lost: !!lost });
       closeArena();
       const found = Object.entries(G.finds).map(([k, n]) => `{i:${Game.ITEMS[k].icon}}${n > 1 ? '×' + n : ''}`).join(' ');
@@ -3720,7 +4059,7 @@ if (!code) {
         pixelShadow(ac, wx + runX, wy, size * .8, size * .18, .22 * fade, size / 10);
         drawCreature(ac, G.wild.id, { x: wx + (att ? -size * .4 : 0) + runX, y: wy, size: size * (G.wild.boss ? 1.25 : .95) * pop, silhouette: throwing === 'flash' ? '#ffffff' : shadow ? '#0d0820' : false, t, maxH: AH * .26 * pop, shiny: G.wild.shiny, dir: fled ? 'right' : 'downleft', walking: fled,
           anim: hurt ? 'Hurt' : att ? 'Attack' : undefined, animT: hurt ? (ms - G.hurtAt) / 1000 : att ? (ms - G.actAt) / 1000 : undefined, alpha: (hurt && Math.floor(ms / 80) % 2 ? .4 : 1) * fade * (shadow ? Math.min(1, intro / 900) : 1) });
-        if (!['wheel', 'throw', 'fled'].includes(G.state) && !introOn) hpBox(ac, 10, 10, Math.min(250, AW * .62), (G.wild.legend ? '★ ' : G.wild.boss ? 'BOSS ' : '') + G.wild.name, G.wild.level, G.wildHp, G.wild.maxHp, false);
+        if (!['wheel', 'throw', 'fled'].includes(G.state) && !introOn) hpBox(ac, 10, 10, Math.min(250, AW * .62), (G.wild.legend ? '★ ' : G.wild.boss ? 'BOSS ' : '') + G.wild.name, G.wild.level, shownHp(G, 'foe', G.wildHp), G.wild.maxHp, false, G.wild);
       };
       // your team: the fighter in front, the Backup following along behind while exploring
       const A = G.team[G.cur];
@@ -3736,10 +4075,10 @@ if (!code) {
         const hurtMe = G.hurt === 'me' && ms - G.hurtAt < 450, attMe = G.act === 'me' && ms - G.actAt < 600;
         const baseDir = walking ? 'right' : celebrate ? 'front' : G.wild || G.state === 'won' || G.state === 'lost' ? 'upright' : 'downright';
         const sw = G.swapAt ? ms - G.swapAt : -1;
-        if (sw >= 0 && sw < SWAP_OUT_MS + SWAP_IN_MS) {
+        if (G.swapAt && sw >= 0 && sw < SWAP_OUT_MS + SWAP_IN_MS) {
           if (sw < SWAP_OUT_MS + 350) {             // the Main faints: slumps, flickers and fades away
             const k = Math.min(1, sw / SWAP_OUT_MS);
-            drawMember(G.team[0], meX, 1, { dir: 'upright', anim: 'Hurt', animT: Math.min(.6, sw / 1000), alpha: (1 - k) * (Math.floor(sw / 90) % 2 ? .5 : 1), hop: -k * size * .15 });
+            drawMember(G.team[G.swapFrom || 0], meX, 1, { dir: 'upright', anim: 'Hurt', animT: Math.min(.6, sw / 1000), alpha: (1 - k) * (Math.floor(sw / 90) % 2 ? .5 : 1), hop: -k * size * .15 });
           }
           if (sw >= SWAP_OUT_MS) {                  // the Backup dashes in from the left side of the screen
             const f = sw - SWAP_OUT_MS, runK = Math.min(1, f / 800), ease = 1 - Math.pow(1 - runK, 2);
@@ -3749,7 +4088,7 @@ if (!code) {
               ac.fillStyle = `rgba(230,225,210,${.45 * (1 - dk)})`; ac.beginPath(); ac.arc(x - size * (.5 + dk * .8), meY - 4 - dk * 10, size * (.12 + dk * .18), 0, Math.PI * 2); ac.fill();
             }
             const hop = arrived ? Math.abs(Math.sin(Math.min(1, (f - 800) / 400) * Math.PI)) * size * .4 : 0;   // a ready-to-fight hop on arrival
-            drawMember(G.team[1], x, 1, { dir: arrived ? 'upright' : 'right', walking: !arrived, hop });
+            drawMember(G.team[G.swapTo == null ? 1 : G.swapTo], x, 1, { dir: arrived ? 'upright' : 'right', walking: !arrived, hop });
           }
         } else {
           drawMember(A, meX + (attMe ? size * .4 : 0), 1, { dir: baseDir, walking, hop: jumpH,
@@ -3764,7 +4103,7 @@ if (!code) {
         drawEndure(G, ms, meX, meY - size * 2.2);
         if ((G.wild || G.state === 'won' || G.state === 'lost') && !introOn) {
           const bw = Math.min(250, AW * .62), bxp = AW - bw - 10;
-          hpBox(ac, bxp, AH - 70, bw, A.nm(), G.me.level, G.meHp, G.me.maxHp, true);
+          hpBox(ac, bxp, AH - 70, bw, A.nm(), G.me.level, shownHp(G, 'me', G.meHp), G.me.maxHp, true, G.me);
           if (G.team[1]) G.team.forEach((M, i) => {   // one ball per team member; a fainted one is dimmed
             ac.globalAlpha = M.fainted ? .3 : 1; drawBall(ac, 'poke', bxp + 14 + i * 20, AH - 80, 7); ac.globalAlpha = 1;
           });
@@ -4037,39 +4376,46 @@ if (!code) {
     panel.classList.remove('hidden');
     openArena(`{i:sword} vs ${friend.username}`);
     Music.set('boss');                                   // trainer battles get the boss theme (closeArena switches back)
-    const me = Game.battler(p.sp, Game.level(), true);
-    const opp = { id: theirs.sp, level: theirs.level, atk: theirs.atk, def: theirs.def, spd: theirs.spd, maxHp: Math.round(22 + theirs.level * 2.2 + theirs.def * .25), shiny: theirs.shiny, name: theirs.name || SPECIES_BY_ID[theirs.sp].name };
-    const G = { state: 'battle', at: now(), meHp: me.maxHp, oppHp: opp.maxHp, act: null, actAt: 0, hurt: null, hurtAt: 0, over: false };
+    // a friendly match: both Pals start fresh (full HP and PP), and nothing is used up
+    const me = Game.battleMon(p); me.hp = me.maxHp; me.moves.forEach(x => { x.pp = x.max; });
+    const opp = Game.cardBattler(theirs); opp.name = theirs.name || SPECIES_BY_ID[theirs.sp].name;
+    const G = { state: 'battle', at: now(), act: null, actAt: 0, hurt: null, hurtAt: 0, over: false, auto: !!ST().settings.autoBattle };
+    Object.defineProperty(G, 'meHp', { get: () => me.hp });
+    Object.defineProperty(G, 'oppHp', { get: () => opp.hp });
     preloadSpecies(opp.id, opp.shiny);
-    say(`<b>${esc(friend.username)}</b> sends out <b>${esc(opp.name)}</b> (Lv ${opp.level})!`, `Your ${esc(petName())} is Lv ${me.level}.`);
-    buttons([{ label: '{i:sword} Battle!', cls: 'red', fn: go }, { label: 'Not now', cls: 'alt', fn: () => G.finish(true) }]);
-    function go() {
-      let turn = me.spd >= opp.spd ? 'me' : 'opp';
-      const step = () => {
-        if (arenaGame !== G) return;
-        const A = turn === 'me' ? me : opp, D = turn === 'me' ? opp : me, crit = Math.random() < .07;
-        const dmg = Math.max(2, Math.round((A.atk / Math.max(1, D.def)) * (A.level * .45 + 6) * (.85 + Math.random() * .3) * (crit ? 1.5 : 1)));
-        G.act = turn; G.actAt = now(); Sound.attack();
-        setTimeout(() => {
-          if (arenaGame !== G) return;
-          if (turn === 'me') G.oppHp -= dmg; else G.meHp -= dmg;
-          const endured = turn !== 'me' && bondEndure(G, me.maxHp);
-          G.hurt = turn === 'me' ? 'opp' : 'me'; G.hurtAt = now(); Sound.damage(crit);
-          say(`${turn === 'me' ? esc(petName()) : `${esc(friend.username)}'s ${esc(opp.name)}`} attacks!${crit ? ' A critical hit!' : ''}${endured ? ` {i:heart} ${esc(petName())} endured the hit for you!` : ''}`, endured ? `${dmg} damage · its bond with you kept it standing at 1% HP` : `${dmg} damage`);
-          if (G.oppHp <= 0 || G.meHp <= 0) return setTimeout(() => end(G.oppHp <= 0), 700);
-          turn = turn === 'me' ? 'opp' : 'me'; setTimeout(step, 750);
-        }, 380);
-      };
-      setTimeout(step, 400);
+    const autoBtn = $('#arenaAuto');
+    const paintAuto = () => { autoBtn.classList.toggle('on', G.auto); autoBtn.textContent = G.auto ? 'AUTO ON' : 'AUTO'; autoBtn.setAttribute('aria-pressed', G.auto ? 'true' : 'false'); };
+    autoBtn.classList.remove('hidden'); paintAuto();
+    autoBtn.onclick = () => { G.auto = !G.auto; ST().settings.autoBattle = G.auto; Game.save(); paintAuto(); Sound.play('tap'); if (G.auto && G.awaitingMove) { G.awaitingMove = false; epBtns.classList.remove('moves'); epBtns.innerHTML = ''; turnWith(autoAction(me, opp)); } };
+    const E2 = Battle.elInfo(opp.elem);
+    say(`<b>${esc(friend.username)}</b> sends out <b>${esc(opp.name)}</b> (Lv ${opp.level})!`, `${E2.icon} ${E2.label} · your ${esc(petName())} is Lv ${me.level}`);
+    buttons([{ label: '{i:sword} Battle!', cls: 'red', fn: menu }, { label: 'Not now', cls: 'alt', fn: () => G.finish(true) }]);
+    function menu() {
+      if (arenaGame !== G) return;
+      if (G.auto) { say(`${esc(petName())} is battling on its own…`, 'Auto battle is on'); return setTimeout(() => { if (arenaGame === G && !G.over && G.state === 'battle') turnWith(autoAction(me, opp)); }, 600); }
+      buttons([
+        { label: '{i:sword} Fight', cls: 'red', fn: () => { say(`What will ${esc(petName())} do?`); G.awaitingMove = true; showMoveGrid(me, opp, a => { G.awaitingMove = false; turnWith(a); }, () => { G.awaitingMove = false; menu(); }); } },
+        { label: 'Give up', cls: 'alt', fn: () => end(false) },
+      ]);
+    }
+    function turnWith(a) {
+      buttons([]);
+      runTurn(G, me, opp, a, Battle.B.aiSmart.trainer, () => {
+        if (opp.hp <= 0 || me.hp <= 0) return setTimeout(() => end(opp.hp <= 0 && me.hp > 0), 500);
+        menu();
+      }, 'opp');
     }
     function end(won) {
+      if (G.state !== 'battle') return;
       G.state = won ? 'won' : 'lost'; G.at = now(); Sound.play(won ? 'level' : 'sad');
-      say(won ? `You beat ${esc(friend.username)}'s ${esc(opp.name)}!` : `${esc(friend.username)}'s ${esc(opp.name)} won this time…`, won ? `${esc(petName())} feels proud!` : 'Train in Explore → Training and try again.');
+      const xp = won ? Battle.B.exp.friend : 0, r = xp ? Game.gainExp(p, xp) : null;
+      say(won ? `You beat ${esc(friend.username)}'s ${esc(opp.name)}!` : `${esc(friend.username)}'s ${esc(opp.name)} won this time…`,
+        won ? `${esc(petName())} feels proud! +${xp} EXP${r && r.to > r.from ? ` · grew to Lv ${r.to}!` : ''}` : 'Try different moves (Party → your Pal → Moves), or train and try again.');
       Online.recordBattle(friend, won, { sp: p.sp, level: me.level, shiny: !!p.shiny }, { sp: opp.id, level: opp.level, shiny: !!opp.shiny }).catch(() => {});
       Game.exploreEnd({ floor: 0, wins: won ? 1 : 0, lost: !won });
       buttons([{ label: 'Done', cls: 'red', fn: () => G.finish(true) }]);
     }
-    G.finish = () => { if (G.over) return; G.over = true; closeArena(); Talk.say(G.state === 'won' ? 'exploreBack' : G.state === 'lost' ? 'exploreLose' : 'pet', { prio: 2 }); };
+    G.finish = () => { if (G.over) return; G.over = true; autoBtn.classList.add('hidden'); autoBtn.onclick = null; closeArena(); Talk.say(G.state === 'won' ? 'exploreBack' : G.state === 'lost' ? 'exploreLose' : 'pet', { prio: 2 }); };
     G.loop = () => {
       if (arenaGame !== G) return;
       requestAnimationFrame(G.loop);
@@ -4081,8 +4427,8 @@ if (!code) {
       drawCreature(ac, opp.id, { x: wx + (oa ? -size * .4 : 0), y: wy, size: size * .95, t, maxH: AH * .26, shiny: opp.shiny, dir: 'downleft', anim: oh ? 'Hurt' : oa ? 'Attack' : undefined, animT: oh ? (ms - G.hurtAt) / 1000 : oa ? (ms - G.actAt) / 1000 : undefined, alpha: (oh && Math.floor(ms / 80) % 2 ? .4 : 1) * (G.state === 'won' ? Math.max(0, 1 - (ms - G.at) / 800) : 1) });
       drawCreature(ac, p.sp, { x: mx + (ma ? size * .4 : 0), y: my, size, t, maxH: AH * .3, shiny: p.shiny, dir: 'upright', anim: mh ? 'Hurt' : ma ? 'Attack' : G.state === 'won' ? 'Hop' : undefined, animT: mh ? (ms - G.hurtAt) / 1000 : ma ? (ms - G.actAt) / 1000 : G.state === 'won' ? ((ms - G.at) / 1000) % Math.max(.4, animLength(p.sp, 'Hop') + .3) : undefined, alpha: mh && Math.floor(ms / 80) % 2 ? .4 : 1 });
       drawEndure(G, ms, mx, my - size * 2.2);
-      hpBox(ac, 10, 10, Math.min(250, AW * .62), `${friend.username}'s ${opp.name}`.slice(0, 22), opp.level, G.oppHp, opp.maxHp, false);
-      hpBox(ac, AW - Math.min(250, AW * .62) - 10, AH - 70, Math.min(250, AW * .62), petName(), me.level, G.meHp, me.maxHp, true);
+      hpBox(ac, 10, 10, Math.min(250, AW * .62), `${friend.username}'s ${opp.name}`.slice(0, 22), opp.level, shownHp(G, 'foe', G.oppHp), opp.maxHp, false, opp);
+      hpBox(ac, AW - Math.min(250, AW * .62) - 10, AH - 70, Math.min(250, AW * .62), petName(), me.level, shownHp(G, 'me', G.meHp), me.maxHp, true, me);
     };
     arenaGame = G; requestAnimationFrame(G.loop);
   }
@@ -4099,23 +4445,29 @@ if (!code) {
     else if (ev === 'slip') { toast('{i:warning} Slip-up! A need hit rock bottom — evolution delayed.', 3500); Sound.play('sad'); Talk.say('slip', { prio: 2 }); }
     else if (ev === 'def') { toast('{i:shield} 12 h of great care: DEF +1'); }
     else if (ev === 'hatch') { onHatched(); Tour.event('hatch'); }
+    else if (ev === 'learn') {
+      const nm = d.moves.map(id => Battle.move(id).name).join(', ');
+      toast(`{i:sparkle} ${memberName(d.m)} can learn ${nm}! ${d.m.moves.length < 4 ? 'It learned it straight away.' : 'Party → Moves & stats'}`, 4500);
+    }
     else if (ev === 'autosleep') {
       Sound.play('sleep'); Talk.clear();
       toast(`{i:sleep} ${petName()} was worn out and fell asleep. Double-tap it to wake it up.`, 4500);
     }
     else if (ev === 'away') {
+      // your Pokémon tells you what happened while you were gone (in its speech bubble, not a big notice)
       const a = d.before, b = d.after;
-      let msg = `While you were away (${fmtDur(d.minutes)})`;
-      if (a && b) {
-        if (a.egg && !b.egg) msg += `: your egg hatched into ${SPECIES_BY_ID[b.sp].name}!`;
-        else if (!b.egg && b.level > a.level) msg += `: it grew to Lv ${b.level}.`;
-        else msg += '.';
-        if (!b.egg && Math.min(b.food, b.joy, b.ene, b.hyg) < 25) msg += ' It really needs you now!';
-        if (!b.egg && d.woke) msg += ` It slept the whole time and woke up rested (energy ${b.ene}).`;
-        else if (!b.egg && d.asleep) msg += ` It's still asleep, recharging (energy ${b.ene}).`;
-      }
-      toast(msg, 5000);
-      if (b && !b.egg && !Game.pet().asleep) { awayGreeted = true; Talk.say(Math.min(b.food, b.joy, b.ene, b.hyg) < 25 ? 'backNeedy' : 'backHappy', { prio: 2 }); }
+      if (!a || !b) return;
+      if (a.egg && !b.egg) { toast(`While you were away (${fmtDur(d.minutes)}), your egg hatched into ${SPECIES_BY_ID[b.sp].name}!`, 4000); return; }
+      if (b.egg) return;
+      const lines = [];
+      const gone = fmtDur(d.minutes);
+      if (d.woke) lines.push(['Happy', `You were gone ${gone}! I slept the whole time, so my energy is back up to ${Math.round(b.ene)}!`]);
+      else if (d.asleep) lines.push(['Normal', `*yawn*... You were gone ${gone}. I'm still sleepy... energy ${Math.round(b.ene)}. Zzz...`]);
+      else lines.push(['Happy', `You were gone ${gone}! I had a good long rest.`]);
+      if (b.level > a.level) lines.push(['Joyous', `And guess what? I grew to Lv ${b.level}!`]);
+      if (Math.min(b.food, b.joy, b.ene, b.hyg) < 25) lines.push(['Worried', b.food < 25 ? 'I\'m really hungry now...' : b.hyg < 25 ? 'I could really use a wash...' : 'I really need you now...']);
+      awayGreeted = true;
+      Talk.say(lines, { prio: 2 });
     }
   });
 

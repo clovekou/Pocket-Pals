@@ -20,7 +20,8 @@ const ITEM_DATA = {
   superPotion: { name: 'Super Potion', icon: 'superPotion', pic: true, kind: 'basic', heal: .65, buy: 350, sell: 90,  find: 7,  desc: 'Restores 65% HP while exploring.' },
   hyperPotion: { name: 'Hyper Potion', icon: 'hyperPotion', pic: true, kind: 'basic', heal: 1,   buy: 900, sell: 250, find: 2,  desc: 'Fully restores HP while exploring.' },
   // ---- catch-wheel balls: use one before spinning (after beating a floor boss or a legendary)
-  greatBall:  { name: 'Great Ball',  icon: 'greatball',  kind: 'ball', wheel: 'great',  buy: 400,  sell: 0, find: 5,   desc: 'Use it on the catch wheel: every Poké Ball slot becomes a Great Ball.' },
+  pokeBall:   { name: 'Poké Ball',   icon: 'pokeball',   kind: 'ball', wheel: 'poke',   buy: 200,  sell: 0, find: 6,   desc: 'In a wild battle, tap Capture and throw it. Weaken the Pal first for a better chance.' },
+  greatBall:  { name: 'Great Ball',  icon: 'greatball',  kind: 'ball', wheel: 'great',  buy: 400,  sell: 0, find: 5,   desc: 'Capture wild Pals with a better chance, or use it on the catch wheel: every Poké Ball slot becomes a Great Ball.' },
   ultraBall:  { name: 'Ultra Ball',  icon: 'ultraball',  kind: 'ball', wheel: 'ultra',  buy: 1500, sell: 0, find: 1,   desc: 'Very rare. On the catch wheel, every weaker slot becomes an Ultra Ball.' },
   masterBall: { name: 'Master Ball', icon: 'masterball', kind: 'ball', wheel: 'master', buy: 0,    sell: 0, find: .08, desc: 'Extremely rare. Turns the whole catch wheel into Master Balls — a sure catch!' },
 

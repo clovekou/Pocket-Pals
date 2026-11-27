@@ -156,6 +156,7 @@ if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: sta
   <div class="arena-top">
     <div id="arenaTitle"></div>
     <div id="arenaInfo"></div>
+    <button id="arenaAuto" class="glass chip hidden" aria-pressed="false" aria-label="Auto battle: your Pal picks its own moves">AUTO</button>
     <button id="arenaClose" class="glass chip icon" aria-label="Stop">✕</button>
   </div>
   <canvas id="arenaCanvas"></canvas>
@@ -169,11 +170,13 @@ if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: sta
 <script src="evodata.js"></script>
 <script src="species.js"></script>
 <script src="evolution.js"></script>
+<script src="battle-data.js"></script>
 <script src="pixelart.js"></script>
 <script src="sprites.js"></script>
 <script src="backgrounds.js"></script>
 <script src="creatures.js"></script>
 <script src="maps.js"></script>
+<script src="battle.js"></script>
 <script src="game.js"></script>
 <script src="online-config.js"></script>
 <script src="online.js"></script>

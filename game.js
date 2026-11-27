@@ -152,6 +152,7 @@ const Game = (() => {
     if (S.pet && !known(S.pet.sp)) { S.pet = null; S.ceremony = null; S.player.starterPicked = false; }
     if (S.ceremony) finishEnding();
     ensureKeys();
+    allPets().forEach(ensureBattle);           // older saves: give every Pal its moves and full HP
     // a broken streak shows as 0 straight away
     if (S.player.lastCareDay && dayNum() > S.player.lastCareDay + 1) { S.player.streak = 0; S.player.lastMilestone = 0; }
     // the app was closed without saying goodbye (killed / crashed): it fell asleep the moment you left
@@ -223,6 +224,12 @@ const Game = (() => {
     p.ageMin++;
     if (p.egg) { if (p.ageMin >= EGG_AUTO_HATCH) hatch(); return; }
     const levelUp = p.ageMin % MIN_PER_LEVEL === 0 && p.ageMin <= (LEVEL_CAP - 1) * MIN_PER_LEVEL;   // no level-ups past the cap
+    // HP and PP come back at home: your main (faster while it sleeps) and the Pals resting in the party and PC
+    regenMin++;
+    regen(p, p.asleep);
+    for (const m of S.player.party) regen(m, false);
+    if (regenMin % 5 === 0) for (const m of S.player.box) { if (m && m.hpFrac < 1) m.hpFrac = 1; }
+    if (levelUp) { const nw = learnAt(p, level() - 1, level()); if (nw.length) emit('learn', { m: p, moves: nw }); }
 
     if (p.asleep) {
       p.ene = clamp(p.ene + 6); restMins++;
@@ -340,6 +347,7 @@ const Game = (() => {
       declinedLevel: 0, farewellAt: FAREWELL_AGE, hatchedAt: Date.now(), key: newKey(), ot: trainer(),
     };
     register(e.sp, e.shiny);
+    ensureBattle(S.pet);
     checkMedals();
     save();
     emit('hatch', { sp: e.sp, shiny: e.shiny });
@@ -678,6 +686,124 @@ const Game = (() => {
   }
   const memberLevel = m => lvOf(m.ageMin);
 
+  // ---------------- moves, HP, PP and EXP (battle.js does the fighting) ----------------
+  const BT = typeof Battle !== 'undefined' ? Battle : null;
+  const BB = BT ? BT.B : null;
+  /** make sure a Pal has its moves and an HP share (old saves, hatching, catching, trading) */
+  function ensureBattle(m) {
+    if (!BT || !m || m.egg || !SPECIES_BY_ID[m.sp]) return;
+    BT.ensureMoves(m, memberLevel(m));
+    if (typeof m.hpFrac !== 'number' || !(m.hpFrac >= 0)) m.hpFrac = 1;
+    m.hpFrac = clamp01(m.hpFrac);
+  }
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  /** HP and PP come back over time at home (faster asleep) */
+  let regenMin = 0;
+  function regen(m, asleep) {
+    if (!BB || !m || m.egg) return;
+    const R = BB.regen;
+    if (typeof m.hpFrac === 'number' && m.hpFrac < 1) m.hpFrac = clamp01(m.hpFrac + (asleep ? R.hpAsleep : R.hpAwake));
+    if (m.moves && regenMin % (asleep ? R.ppEveryAsleep : R.ppEveryAwake) === 0)
+      m.moves.forEach(x => { const mv = BT.D.MOVES[x.id]; if (mv && x.pp < mv.pp) x.pp++; });
+  }
+  /** the battle version of one of your Pals: stats, moves and PP, HP, and its care and bond bonuses */
+  function battleMon(m) {
+    ensureBattle(m);
+    return BT.make({ sp: m.sp, level: memberLevel(m), genes: m.genes, tr: m.tr, moves: m.moves, hpFrac: m.hpFrac, name: m.name || SPECIES_BY_ID[m.sp].name,
+      shiny: m.shiny, bond: m.bond || 0, care: { food: m.food, joy: m.joy, ene: m.ene, hyg: m.hyg }, mine: true });
+  }
+  /** after a battle or an exploration: keep the HP and PP it ended with */
+  function storeBattle(m, b) {
+    if (!m || !b || m.egg) return;
+    m.hpFrac = clamp01(b.hp / Math.max(1, b.maxHp));
+    const left = {}; b.moves.forEach(x => { left[x.id] = x.pp; });
+    (m.moves || []).forEach(x => { if (x.id in left) x.pp = left[x.id]; });
+    save();
+  }
+  /** moves it knows how to use (relearn any of them), and the ones still to come */
+  function learnable(m) {
+    if (!BT || !m || m.egg) return { now: [], later: [] };
+    const lv = memberLevel(m), all = BT.learnset(m.sp);
+    return { now: all.filter(x => x.lv <= lv), later: all.filter(x => x.lv > lv) };
+  }
+  /** put move `id` in slot `slot` (0-3; the next free slot adds it). A move it knew before keeps the PP it had. */
+  function setMove(m, slot, id) {
+    ensureBattle(m);
+    if (!learnable(m).now.some(x => x.id === id)) return { error: 'It can\'t learn that move yet.' };
+    if (m.moves.some(x => x.id === id)) return { error: 'It already knows that move.' };
+    m.ppMemo = m.ppMemo || {};
+    const full = BT.D.MOVES[id].pp, pp = id in m.ppMemo ? Math.min(full, m.ppMemo[id]) : full;
+    if (slot >= m.moves.length) { if (m.moves.length >= 4) return { error: 'It already knows 4 moves.' }; m.moves.push({ id, pp }); }
+    else { const old = m.moves[slot]; m.ppMemo[old.id] = old.pp; m.moves[slot] = { id, pp }; }
+    delete m.ppMemo[id];
+    save(); emit('change');
+    return { ok: true };
+  }
+  function forgetMove(m, slot) {
+    ensureBattle(m);
+    if (m.moves.length <= 1) return { error: 'It needs at least one move.' };
+    const old = m.moves.splice(slot, 1)[0]; if (old) { m.ppMemo = m.ppMemo || {}; m.ppMemo[old.id] = old.pp; }
+    save(); emit('change'); return { ok: true };
+  }
+  /** moves it can learn at exactly level lv; an empty slot is filled straight away */
+  function learnAt(m, lvFrom, lvTo) {
+    if (!BT || !m || m.egg) return [];
+    const fresh = BT.learnset(m.sp).filter(x => x.lv > lvFrom && x.lv <= lvTo).map(x => x.id).filter(id => !(m.moves || []).some(x => x.id === id));
+    fresh.forEach(id => { if (m.moves.length < 4) m.moves.push({ id, pp: BT.D.MOVES[id].pp }); });
+    return fresh;
+  }
+  /** battle EXP: game-minutes of growth (60 = 1 level). Returns { from, to, moves } */
+  function gainExp(m, mins) {
+    if (!m || m.egg || mins <= 0) return { from: 0, to: 0, moves: [] };
+    const from = memberLevel(m);
+    if (from >= LEVEL_CAP) return { from, to: from, moves: [] };
+    m.ageMin = Math.min((LEVEL_CAP - 1) * MIN_PER_LEVEL, m.ageMin + Math.round(mins));
+    const to = memberLevel(m), moves = learnAt(m, from, to);
+    if (m === S.pet && to > from) { for (let l = from + 1; l <= to; l++) emit('level', l); checkMedals(); }
+    if (moves.length) emit('learn', { m, moves });
+    save();
+    return { from, to, moves };
+  }
+  /** EXP for beating a wild Pal (more for higher levels, bosses and legendaries) */
+  function expFor(w, myLv) {
+    const X = BB ? BB.exp : { wild: 8, perLevelOver: 1, boss: 30, legend: 45, max: 90 };
+    let x = w.legend ? X.legend : w.boss ? X.boss : X.wild;
+    x += Math.max(0, (w.level || 1) - myLv) * X.perLevelOver * 2 + Math.round((w.level || 1) / 5);
+    return Math.min(X.max, Math.round(x));
+  }
+  /** how much EXP it has into the current level (0-59), or null at the cap */
+  const expInLevel = m => (memberLevel(m) >= LEVEL_CAP ? null : (m.ageMin % MIN_PER_LEVEL));
+
+  // ---------------- explore areas: difficulty, enemies, recommendations ----------------
+  function areaInfo(mapId) {
+    const m = EXPLORE_MAPS[mapId] || firstMap(), D2 = BT ? BT.D : null;
+    const a = D2 ? Object.assign({}, D2.AREA_DEFAULT, D2.AREAS[mapId] || {}) : { difficulty: 'Normal', rec: 1 };
+    const extra = [];
+    if (m.chase && SPECIES_BY_ID[m.chase] && m.chaseChance > 0 && BT) extra.push([BT.elementOf(m.chase), Object.values(m.types || { x: 10 }).reduce((x, y) => x + y, 0) * m.chaseChance / 100]);
+    const enemies = BT ? BT.enemyElements(m.types, extra) : [];
+    const advice = BT ? BT.areaAdvice(enemies) : { good: [], bad: [] };
+    return { id: mapId, difficulty: a.difficulty, rec: a.rec, enemies, good: advice.good, bad: advice.bad };
+  }
+  /** why a Pal can't lead an exploration right now ('' = it can) */
+  function exploreBlock(m) {
+    if (!m || m.egg) return 'Still an egg';
+    if (m.locked) return 'In a trade';
+    if (m.asleep) return 'Asleep';
+    if ((m.ene || 0) < CFG.exploreEnergy) return 'Too tired';
+    if ((m.food || 0) < 20) return 'Too hungry';
+    if (typeof m.hpFrac === 'number' && m.hpFrac <= 0) return 'Fainted: resting at home';
+    return '';
+  }
+  /** your Pals (main + party), scored for an area, best first */
+  function recommend(mapId) {
+    const info = areaInfo(mapId);
+    const list = [S.pet, ...S.player.party].filter(m => m && !m.egg && SPECIES_BY_ID[m.sp]);
+    list.forEach(ensureBattle);
+    const cands = list.map(m => ({ key: m.key, m, name: m.name || SPECIES_BY_ID[m.sp].name, sp: m.sp, level: memberLevel(m), moves: m.moves,
+      hpFrac: m.hpFrac, ene: m.ene, bond: m.bond || 0, eligible: !exploreBlock(m), why: exploreBlock(m) }));
+    return { info, list: BT ? BT.recommend(info.enemies, info.rec, cands) : cands };
+  }
+
   // ---------------- explore ----------------
   // every item (items.js); which Pokémon evolve how is in evodata.js / evolution.js
   const ITEMS = typeof ITEM_DATA !== 'undefined' ? ITEM_DATA : {};
@@ -821,8 +947,10 @@ const Game = (() => {
     return mine.length ? mine : list;
   }
   /** a wild Pokémon 3–5 levels below your main (never legendary), suited to the map */
+  /** wild Pals on a hard map are at least around its recommended level (battle-data.js AREAS) */
+  const areaFloor = map => { const a = BT && (BT.D.AREAS[map] || BT.D.AREA_DEFAULT); return a ? Math.floor(a.rec * BT.D.LEVEL_FLOOR) : 1; };
   function rollWild(map) {
-    const lv = Math.max(1, level() - (3 + rnd(3)));
+    const lv = Math.min(LEVEL_CAP, Math.max(1, level() - (3 + rnd(3)), areaFloor(map) - rnd(3)));
     const mm = EXPLORE_MAPS[map];
     if (mm && mm.chase && SPECIES_BY_ID[mm.chase] && Math.random() * 100 < mm.chaseChance) {   // the map's main chase
       const leg = isSpecial(mm.chase);
@@ -860,22 +988,16 @@ const Game = (() => {
     let tier = 'stage1', pool = normal.filter(s => s.stage === 1 && !s.prev);
     for (const [t, upTo, list] of pools) if (r < upTo && list.length) { tier = t; pool = list; break; }
     const s = pool[rnd(pool.length)];
-    return { sp: s.id, level: Math.max(5, level() + (tier === 'legend' ? 3 : 2)), shiny: oneIn(150, CFG.bossShinyMult), boss: true, bossTier: tier, legend: tier === 'legend' };
+    return { sp: s.id, level: Math.min(LEVEL_CAP, Math.max(5, level() + (tier === 'legend' ? 3 : 2), areaFloor(map) + 2)), shiny: oneIn(150, CFG.bossShinyMult), boss: true, bossTier: tier, legend: tier === 'legend' };
   }
   /** battle numbers for any Pokémon at a level (mine uses genes + training) */
   function battler(id, lv, mine) {
-    const s = SPECIES_BY_ID[id], p = S.pet;
-    const st = k => mine ? stat(k) : Math.floor(s.base[{ atk: 0, def: 1, spd: 2 }[k]] * (90 + rnd(21)) / 100) + lv;
-    const def = st('def');
-    return { id, level: lv, atk: st('atk'), def, spd: st('spd'), maxHp: Math.round(22 + lv * 2.2 + def * .25) };
+    if (mine && S.pet && !S.pet.egg) return battleMon(S.pet);
+    const g = () => 90 + rnd(21);
+    return BT.make({ sp: id, level: lv, genes: { atk: g(), def: g(), spd: g() } });
   }
   /** battle numbers for one of your party Pokémon (the explore backup): its own genes, training and level */
-  function memberBattler(m) {
-    const s = SPECIES_BY_ID[m.sp], lv = memberLevel(m), g = m.genes || {}, tr = m.tr || {};
-    const st = k => Math.floor(s.base[{ atk: 0, def: 1, spd: 2 }[k]] * (g[k] || 100) / 100) + lv + (tr[k] || 0);
-    const def = st('def');
-    return { id: m.sp, level: lv, atk: st('atk'), def, spd: st('spd'), maxHp: Math.round(22 + lv * 2.2 + def * .25) };
-  }
+  function memberBattler(m) { return battleMon(m); }
   function addItem(k, n = 1) { S.player.bag[k] = (S.player.bag[k] || 0) + n; save(); }
   function itemCount(k) { return S.player.bag[k] || 0; }
 
@@ -955,8 +1077,10 @@ const Game = (() => {
       key: newKey(), ot: trainer(),
     };
   }
+  function makeCaughtReady(id, lv, shiny) { const m = makeCaught(id, lv, shiny); ensureBattle(m); return m; }
   /** add to the party if there's room, otherwise to the PC box */
   function keepPokemon(m) {
+    ensureBattle(m);
     S.player.caught = (S.player.caught || 0) + 1;
     if (S.player.party.length + 1 < PARTY_MAX) { S.player.party.push(m); save(); emit('party'); return 'party'; }
     S.player.box.push(m); save(); emit('party'); return 'box';
@@ -1013,7 +1137,8 @@ const Game = (() => {
     S.player.wildWins += r.wins || 0;
     registerCare();
     if (r.lost) { p.ene = clamp(p.ene - 15); p.joy = clamp(p.joy - 8); }
-    else { p.joy = clamp(p.joy + 6 + (r.wins || 0) * 3); addBond(2); }
+    else { p.joy = clamp(p.joy + 6 + (r.wins || 0) * 3); addBond(2 + Math.min(4, r.wins || 0)); }   // exploring and winning battles build the bond
+    if (r.lost) addBond(1);                                          // even a tough day out together counts
     afterCare();
   }
 
@@ -1052,6 +1177,7 @@ const Game = (() => {
     const m = tradeCopy(incoming);
     m.key = m.key || newKey(); m.receivedFrom = fromTrainer; m.receivedAt = Date.now(); m.asleep = false;
     if (!m.ot) m.ot = fromTrainer;
+    ensureBattle(m);
     register(m.sp, m.shiny);
     if (S.player.party.length + 1 < PARTY_MAX) S.player.party.push(m); else S.player.box.push(m);
     S.player.trades = (S.player.trades || 0) + 1;
@@ -1076,8 +1202,8 @@ const Game = (() => {
   function showcase() {
     const card = m => m && !m.egg ? { sp: m.sp, shiny: !!m.shiny, name: m.name || '', level: memberLevel(m), ot: m.ot || null, id: m.key || '' } : null;
     // party cards carry their battle numbers too, so a friend can borrow one for exploring
-    const withStats = m => { const c = card(m); if (!c) return null; const b = memberBattler(m); return Object.assign(c, { atk: b.atk, def: b.def, spd: b.spd }); };
-    const main = S.pet && !S.pet.egg ? Object.assign(card(S.pet), { atk: stat('atk'), def: stat('def'), spd: stat('spd') }) : null;
+    const withStats = m => { const c = card(m); if (!c) return null; const b = memberBattler(m); return Object.assign(c, { atk: b.stats.atk, def: b.stats.def, spd: b.stats.spe, moves: (m.moves || []).map(x => x.id) }); };
+    const main = S.pet && !S.pet.egg ? withStats(S.pet) : null;
     const party = S.player.party.map(withStats).filter(Boolean);
     const hk = helperKey(), helper = (main && main.id === hk && main) || party.find(c => c.id === hk) || null;
     // the home background they picked, so friends who visit see their place as they set it up
@@ -1116,10 +1242,11 @@ const Game = (() => {
     const used = borrowedToday(); used[uid] = [...new Set([...(used[uid] || []), id])]; save();
   }
   /** battle numbers for a friend's Pokémon from its showcase card */
+  /** a friend's Pal (from their showcase card): its level and moves; older cards get the moves it would know */
   function cardBattler(c) {
-    if (!(c.atk > 0 && c.def > 0 && c.spd > 0)) return battler(c.sp, c.level || 5, false);
-    const lv = c.level || 5;
-    return { id: c.sp, level: lv, atk: c.atk, def: c.def, spd: c.spd, maxHp: Math.round(22 + lv * 2.2 + c.def * .25) };
+    const lv = Math.max(1, Math.min(LEVEL_CAP, c.level || 5));
+    const moves = Array.isArray(c.moves) ? c.moves.filter(id => typeof id === 'string' && BT.D.MOVES[id]).slice(0, 4).map(id => ({ id, pp: BT.D.MOVES[id].pp })) : null;
+    return BT.make({ sp: c.sp, level: lv, moves, name: c.name || SPECIES_BY_ID[c.sp].name, shiny: !!c.shiny });
   }
 
   // ---------------- battle stats ----------------
@@ -1143,7 +1270,8 @@ const Game = (() => {
     box, boxToParty, partyToBox, releaseBox, exploreCheck,
     setTrainer, findPet, tradeable, lockPet, unlockTrade, snapshot: tradeCopy, completeTrade, exportSave, importSave, showcase, exploreStep, rollFloor, rollTreasure, rollWild, battler, memberBattler, cardBattler, helperKey, setHelper, borrowedToday, markBorrowed, addItem, itemCount, useItem, useHeal, exploreEnd,
     resume, canFarewell, postponeFarewell, farewellIn, canRunaway, startEnding, finishEnding,
-    stat, registered, registeredCount, shinyCount, careBonus, isFinal,
+    stat, ensureBattle, battleMon, storeBattle, learnable, setMove, forgetMove, gainExp, expFor, expInLevel, areaInfo, recommend, exploreBlock, makeCaughtReady, keepPokemon,
+    registered, registeredCount, shinyCount, careBonus, isFinal,
     LEGEND_UNLOCK, FAREWELL_AGE,
     _tick: tick, // for testing
   };
