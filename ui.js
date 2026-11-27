@@ -2647,9 +2647,16 @@ if (!code) {
   let AW = 1, AH = 1, arenaGame = null;
   function openArena(title) {
     $('#arenaTitle').innerHTML = icons(esc(title)); arena.classList.remove('hidden');
-    const r = acv.getBoundingClientRect(), d = Math.min(3, window.devicePixelRatio || 1);
-    AW = r.width; AH = r.height; acv.width = AW * d; acv.height = AH * d; ac.setTransform(d, 0, 0, d, 0, 0);
+    AW = 0; fitArena();
   }
+  // whenever the picture's box changes size (rotation, the panel, the address bar), redraw at the new size
+  function fitArena() {
+    const r = acv.getBoundingClientRect(), d = Math.min(3, window.devicePixelRatio || 1);
+    if (!r.width || !r.height || (Math.round(r.width) === Math.round(AW) && Math.round(r.height) === Math.round(AH) && acv.width === Math.round(r.width * d))) return;
+    AW = r.width; AH = r.height; acv.width = Math.round(AW * d); acv.height = Math.round(AH * d); ac.setTransform(d, 0, 0, d, 0, 0);
+  }
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { if (!arena.classList.contains('hidden')) fitArena(); }).observe($('#arenaView'));
+  else window.addEventListener('resize', () => { if (!arena.classList.contains('hidden')) fitArena(); });
   function closeArena() { const ab = $('#arenaAuto'); if (ab) { ab.classList.add('hidden'); ab.onclick = null; } Music.set('town'); arena.classList.add('hidden'); $('#arenaPanel').classList.add('hidden'); arenaGame = null; }
   $('#arenaClose').addEventListener('click', () => { if (arenaGame) arenaGame.finish(true); });
   const aPos = e => { const r = acv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
@@ -3409,7 +3416,9 @@ if (!code) {
   function say(html, sub) { epMsg.innerHTML = icons(html) + (sub ? `<small>${icons(sub)}</small>` : ''); }
   function buttons(list, wrap) {
     epBtns.classList.remove('moves');
-    epBtns.classList.toggle('wrap', !!wrap);
+    epBtns.classList.toggle('menu', wrap === 'menu');
+    epBtns.style.setProperty('--n', Math.max(1, list.length - 1));
+    epBtns.classList.toggle('wrap', !!wrap && wrap !== 'menu');
     epBtns.innerHTML = list.map((b, i) => `<button class="btn ${b.cls || ''}" data-b="${i}">${icons(b.label)}</button>`).join('');
     epBtns.querySelectorAll('[data-b]').forEach(el => el.addEventListener('click', () => { const b = list[+el.dataset.b]; epBtns.innerHTML = ''; b.fn(); }));
   }
@@ -3465,7 +3474,7 @@ if (!code) {
   function showMoveGrid(b, foe, onPick, onBack) {
     let awakenOn = false;
     const render = () => {
-      epBtns.classList.remove('wrap'); epBtns.classList.add('moves');
+      epBtns.classList.remove('wrap', 'menu'); epBtns.classList.add('moves');
       epBtns.innerHTML = icons(moveGridHtml(b, foe, awakenOn));
       epBtns.querySelectorAll('[data-mv]').forEach(el => {
         const i = +el.dataset.mv;
@@ -3655,7 +3664,7 @@ if (!code) {
     /** Fight · Bag · Switch · Capture · Run */
     function encounterButtons() {
       G.state = 'encounter';
-      if (G.auto) { say(`${esc(name())} is battling on its own…`, 'Auto battle is on · tap AUTO to choose moves yourself'); return setTimeout(() => { if (arenaGame === G && G.wild && G.state === 'encounter') doTurn(autoAction(G.me, G.wild)); }, 650); }
+      if (G.auto) { say(`${esc(name())} is battling on its own…`, 'Auto is on · tap AUTO to pick moves yourself'); return setTimeout(() => { if (arenaGame === G && G.wild && G.state === 'encounter') doTurn(autoAction(G.me, G.wild)); }, 650); }
       const list = [
         { label: '{i:sword} Fight', cls: 'red', fn: chooseMove },
         { label: '{i:oran} Bag', cls: 'alt', fn: () => showItems(true) },
@@ -3663,10 +3672,10 @@ if (!code) {
       if (otherAlive() >= 0) list.push({ label: '{i:arrow} Switch', cls: 'alt', fn: () => switchPal(otherAlive(), false) });
       if (canCapture()) list.push({ label: '{i:pokeball} Capture', cls: 'gold', fn: showCapture });
       list.push({ label: '{i:speed} Run', cls: 'alt', fn: run });
-      buttons(list, list.length > 3);
+      buttons(list, 'menu');
     }
     function chooseMove() {
-      say(`What will ${esc(name())} do?`, `${matchup()} · tap a move`);
+      say(`What will ${esc(name())} do?`, matchup());
       G.awaitingMove = true;
       showMoveGrid(G.me, G.wild, act => { G.awaitingMove = false; doTurn(act); }, () => { G.awaitingMove = false; encounterButtons(); });
     }
@@ -4012,10 +4021,15 @@ if (!code) {
       autoBtn.classList.add('hidden'); autoBtn.onclick = null;
       Game.exploreEnd({ floor: G.floor, wins: G.wins, lost: !!lost });
       closeArena();
-      const found = Object.entries(G.finds).map(([k, n]) => `{i:${Game.ITEMS[k].icon}}${n > 1 ? '×' + n : ''}`).join(' ');
-      const thanks = G.team[1] && G.team[1].owner ? ` · thanks, ${esc(G.team[1].owner)}'s ${esc(G.team[1].nm())}!` : '';
-      toast(`Explored to B${G.floor}F${G.wins ? ` · won ${G.wins} battle${G.wins > 1 ? 's' : ''}` : ''}${found ? ' · found ' + found : ''}${thanks}`, 5000);
-      Talk.clear(); setTimeout(() => Talk.say(lost ? 'exploreLose' : 'exploreBack', { prio: 2 }), 300);
+      const found = Object.entries(G.finds).map(([k, n]) => { const nm = Game.ITEMS[k].name; return n > 1 ? `${n} ${nm.replace(/y$/, 'ie')}s` : `${/^[AEIOU]/.test(nm) ? 'an' : 'a'} ${nm}`; });
+      const list = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '';
+      const lines = [];
+      lines.push(lost ? ['Sad', `We made it to B${G.floor}F, but I ran out of strength…${G.wins ? ` At least we won ${G.wins} battle${G.wins > 1 ? 's' : ''}.` : ''}`]
+        : ['Happy', G.floor ? `We explored all the way to B${G.floor}F${G.wins ? ` and won ${G.wins} battle${G.wins > 1 ? 's' : ''}` : ''}!` : 'We\'re back home!']);
+      if (G.exp) lines.push(['Joyous', `I got ${G.exp} EXP from battling!`]);
+      if (found.length) lines.push(['Joyous', `Look what I found: ${list(found)}! It's all in the Bag.`]);
+      if (G.team[1] && G.team[1].owner) lines.push(['Happy', `Thanks for the help, ${G.team[1].owner}'s ${G.team[1].nm()}!`]);
+      Talk.clear(); setTimeout(() => Talk.say(lines, { prio: 2 }), 300);
     }
     G.finish = early => finish(early, false);
 
@@ -4396,7 +4410,7 @@ if (!code) {
       buttons([
         { label: '{i:sword} Fight', cls: 'red', fn: () => { say(`What will ${esc(petName())} do?`); G.awaitingMove = true; showMoveGrid(me, opp, a => { G.awaitingMove = false; turnWith(a); }, () => { G.awaitingMove = false; menu(); }); } },
         { label: 'Give up', cls: 'alt', fn: () => end(false) },
-      ]);
+      ], 'menu');
     }
     function turnWith(a) {
       buttons([]);
