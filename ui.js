@@ -1155,7 +1155,7 @@
       els.name.dataset.sig = nameSig;
       els.name.innerHTML = esc(petName()) + (p.shiny && !p.egg ? ic('sparkle') : '');
       const s = SPECIES_BY_ID[p.sp];
-      els.sub.innerHTML = p.egg ? esc(`${TIER_LABEL[s.tier || 'common']} egg`) : `${p.name ? esc(s.name) + ' ' : ''}<span class="typ" style="background:${ELEMENTS[s.el].color}">${ELEMENTS[s.el].label}</span>`;
+      els.sub.innerHTML = p.egg ? esc(`${TIER_LABEL[s.tier || 'common']} egg`) : `${p.name ? esc(s.name) + ' ' : ''}${Battle.typesOf(s.id).map(t => `<span class="typ" style="background:${ELEMENTS[t].color}">${ELEMENTS[t].label}</span>`).join(' ')}`;
       const face = !p.egg && portraitUrl(p.sp, p.shiny, 'Normal');
       els.avatar.className = face ? '' : 'egg';
       els.avatar.src = face || PX.url(`egg_${s.tier || 'common'}_0`);
@@ -1344,7 +1344,7 @@ if (!code) {
     gateOpen = false;
     openSheet(`<h2 style="margin:0 0 4px">${STARTERS.length > 1 ? 'Choose your first partner' : 'Meet your partner'}</h2>
       <p class="muted">Raise it, evolve it, and fill your Dex with all ${SPECIES.length} creatures (shinies too!).</p>
-      <div class="starters">${STARTERS.map(id => { const s = SPECIES_BY_ID[id]; return `<button data-st="${id}">${miniCanvas(id, { px: 96 })}${esc(s.name)}<small>${ELEMENTS[s.el].label}</small></button>`; }).join('')}</div>`, { dialog: true, locked: true });
+      <div class="starters">${STARTERS.map(id => { const s = SPECIES_BY_ID[id]; return `<button data-st="${id}">${miniCanvas(id, { px: 96 })}${esc(s.name)}<small>${Battle.typesOf(id).map(t => ELEMENTS[t].label).join(' / ')}</small></button>`; }).join('')}</div>`, { dialog: true, locked: true });
     sheet.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => {
       const nm = SPECIES_BY_ID[+b.dataset.st].name;
       Game.pickStarter(+b.dataset.st); closeSheet(); Sound.play('hatch');
@@ -1472,9 +1472,10 @@ if (!code) {
       <small>${E.label} · ${CAT_LABEL[mv.cat]}${mv.power ? ` · Power ${mv.power}` : ''} · ${mv.acc ? `Acc ${mv.acc}%` : 'Never misses'}${mv.pri ? ` · Priority ${mv.pri > 0 ? '+' : ''}${mv.pri}` : ''}</small>
       <p>${esc(mv.desc)}</p>${extra}</div>`;
   }
-  function relationsHtml(el) {
-    const r = Battle.relations(el);
-    return `<div class="rels"><div><span>Strong against</span>${elIcons(r.strong)}</div><div><span>Weak to</span>${elIcons(r.weak)}</div><div><span>Resists</span>${elIcons(r.resist)}</div></div>`;
+  /** strong against · weak to (4× marked) · resists · immune to, for a Pal's types */
+  function relationsHtml(types) {
+    const r = Battle.relations(types), weak = r.weak.map(t => r.weak4.includes(t) ? `<span class="x4">${elIcons([t])}<i>4×</i></span>` : elIcons([t])).join('') || '<span class="muted">none</span>';
+    return `<div class="rels"><div><span>Strong against</span>${elIcons(r.strong)}</div><div><span>Weak to</span>${weak}</div><div><span>Resists</span>${elIcons(r.resist)}</div>${r.immune.length ? `<div><span>Immune to</span>${elIcons(r.immune)}</div>` : ''}</div>`;
   }
   function palInfoHtml(m) {
     Game.ensureBattle(m);
@@ -1487,8 +1488,8 @@ if (!code) {
     const bonus = [b.cared ? '{i:heart} Well cared for: +5% battle stats' : '', b.happy ? '{i:sparkle} Happy: lands critical hits more often' : '',
       b.canAwaken ? '{i:sparkle} Max bond: <b>Bond Awakening</b> ready in battle' : b.canEndure ? '{i:heart} Strong bond: can endure a knockout once per battle' : ''].filter(Boolean);
     return `<div class="palinfo">
-      <div class="pi-el">${elChip(b.elem)}<small>Type ${ELEMENTS[SPECIES_BY_ID[m.sp].el].label}</small></div>
-      ${relationsHtml(b.elem)}
+      <div class="pi-el">${typeChips(b.types)}</div>
+      ${relationsHtml(b.types)}
       <div class="pi-bars">
         <div class="pb"><span>Lv ${lv}${lv >= Game.LEVEL_CAP ? ' (max)' : ''}</span><div class="trk"><i style="width:${xp == null ? 100 : xp / 60 * 100}%;background:#4f93c4"></i></div><small>${xp == null ? 'MAX' : `EXP ${xp}/60`}</small></div>
         <div class="pb"><span>HP</span><div class="trk"><i style="width:${hpPct}%;background:${hpPct > 50 ? 'var(--hp-hi)' : hpPct > 20 ? 'var(--hp-mid)' : 'var(--hp-lo)'}"></i></div><small>${b.hp}/${b.maxHp}</small></div>
@@ -1568,7 +1569,7 @@ if (!code) {
       const pic = m.egg ? `<img class="face" src="${PX.url(`egg_${s.tier || 'common'}_${Math.min(2, m.taps || 0)}`)}" alt="">` : face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny });
       const badges = (isMain ? '<i class="pb main">Main</i>' : '') + (isHelper(m) ? '<i class="pb helper">Helper</i>' : '') + (m.locked ? '<i class="pb lock">Trading</i>' : '');
       return `<button class="prow ${isMain ? 'main' : ''}" data-pm="${i}">${pic}<span class="pi"><b>${m.egg ? 'Egg' : esc(memberName(m))}${m.shiny && !m.egg ? '{i:sparkle}' : ''}</b>
-        <small>${m.egg ? 'Waiting to hatch' : `${Battle.elInfo(Battle.elementOf(m.sp)).icon} ${Battle.elInfo(Battle.elementOf(m.sp)).label} · Lv ${Game.memberLevel(m)} · HP ${Math.round((m.hpFrac == null ? 1 : m.hpFrac) * 100)}%`}</small>${needBar(m)}</span>
+        <small>${m.egg ? 'Waiting to hatch' : `${typeLabel(m.sp)} · Lv ${Game.memberLevel(m)} · HP ${Math.round((m.hpFrac == null ? 1 : m.hpFrac) * 100)}%`}</small>${needBar(m)}</span>
         <span class="pbs">${badges}</span><span class="chev" aria-hidden="true">›</span></button>`;
     };
     const roomInParty = party.length + 1 < Game.PARTY_MAX;
@@ -1576,7 +1577,7 @@ if (!code) {
     const boxSlot = (m, i) => {
       const s = SPECIES_BY_ID[m.sp], face = portraitUrl(m.sp, m.shiny, 'Normal');
       return `<button class="boxtile ${m.locked ? 'locked' : ''}" data-box="${i}">${face ? `<img class="face" src="${face}" alt="">` : miniCanvas(m.sp, { px: 56, shiny: m.shiny })}
-        <b>${esc(memberName(m))}</b><small>Lv ${Game.memberLevel(m)} · ${Battle.elInfo(Battle.elementOf(m.sp)).icon} ${Battle.elInfo(Battle.elementOf(m.sp)).label}</small>
+        <b>${esc(memberName(m))}</b><small>Lv ${Game.memberLevel(m)} · ${Battle.typesOf(m.sp).map(t => Battle.elInfo(t).icon).join('')}</small>
         ${m.shiny ? '<span class="boxshiny">{i:sparkle}</span>' : ''}${m.fav ? '<span class="boxfav">{i:star}</span>' : ''}${m.locked ? '<span class="boxlock">{i:lock}</span>' : ''}</button>`;
     };
     const empties = Math.max(0, Game.PARTY_MAX - 1 - party.length);
@@ -1606,7 +1607,7 @@ if (!code) {
       acts.push({ label: '{i:sword} Moves &amp; stats', cls: 'alt', fn: () => openPalInfo(m, openParty) });
       if (!isMain) acts.push({ label: 'Move to PC Box', cls: 'alt', fn: () => { Game.partyToBox(i); openParty(); } });
       const note = isMain ? 'Your main Pokémon' : isHelper(m) ? 'Resting · your friends can take it exploring' : 'Resting in your party';
-      monMenu({ m, meta: `${Battle.elInfo(Battle.elementOf(m.sp)).icon} ${Battle.elInfo(Battle.elementOf(m.sp)).label} · Lv ${Game.memberLevel(m)}`, note, actions: acts, onClose: openParty });
+      monMenu({ m, meta: `${typeLabel(m.sp)} · Lv ${Game.memberLevel(m)}`, note, actions: acts, onClose: openParty });
     }));
     const sortSel = sheet.querySelector('#boxSortSel');
     if (sortSel) sortSel.addEventListener('change', () => {
@@ -1620,7 +1621,7 @@ if (!code) {
       const nm = esc(memberName(m));
       Sound.play('tap');
       const show = () => monMenu({
-        m, meta: `${ELEMENTS[s.el].label} · Lv ${Game.memberLevel(m)}`, note: 'Resting in your PC Box',
+        m, meta: `${typeLabel(m.sp)} · Lv ${Game.memberLevel(m)}`, note: 'Resting in your PC Box',
         actions: [{ label: '{i:pokeball} Add to party', cls: 'red', fn: () => { if (!roomInParty) { toast('Your party is full.'); return openParty(); } Game.boxToParty(i); Sound.play('tap'); openParty(); } },
           { label: '{i:sword} Moves &amp; stats', cls: 'alt', fn: () => openPalInfo(m, openParty) }],
         fav: { on: !!m.fav, fn: () => { m.fav = !m.fav; Game.save(); Sound.play(m.fav ? 'medal' : 'tap'); show(); } },
@@ -1667,7 +1668,7 @@ if (!code) {
       body = `<div class="hero">${face ? `<img class="portrait" src="${face}" alt="">` : miniCanvas(p.sp, { px: 104, shiny: p.shiny })}<div>
           <h3>${esc(petName())} ${p.shiny ? '<span style="color:#e0a81f">{i:sparkle}</span>' : ''}</h3>
           <div class="muted">${s.name} · Lv ${Game.level()}</div>
-          <span class="pill" style="background:${el.color}">${el.label}</span> ${elChip(Battle.elementOf(p.sp), true)}
+          ${typeChips(Battle.typesOf(p.sp), true)}
         </div></div>
         <div class="renamer"><input id="nameIn" maxlength="12" placeholder="Give it a nickname" value="${esc(p.name)}"><button id="nameSave">Save</button></div>
         <div class="rows" style="margin-top:8px">
@@ -1780,8 +1781,7 @@ if (!code) {
     openSheet(head(`#${String(s.of || id).padStart(2, '0')} ${s.name}`) + `
       <div class="pair"><figure>${miniCanvas(id, { px: 120 })}Normal</figure><figure>${miniCanvas(id, { px: 120, shiny: true, sil: !hasShiny })}${hasShiny ? 'Shiny {i:sparkle}' : 'Shiny ???'}</figure></div>
       <div class="rows">
-        <div class="row"><span>Type</span><b><span class="pill" style="background:${el.color}">${el.label}</span></b></div>
-        <div class="row"><span>Element</span><b>${elChip(Battle.elementOf(id))}</b></div>
+        <div class="row"><span>Type</span><b>${typeChips(Battle.typesOf(id))}</b></div>
         <div class="row"><span>Egg rarity</span><b>${TIER_LABEL[SPECIES_BY_ID[s.lineBase].tier]}</b></div>
         <div class="row"><span>Evolves</span><b>${evoText(id) || 'Final form'}</b></div>
         <div class="row"><span>Favourite berry</span><b>${S.player.favKnown[id] ? FLAVORS[s.fav].label : '???'}</b></div>
@@ -1790,7 +1790,7 @@ if (!code) {
         <div class="row"><span>Raised</span><b>${S.player.dex[id]}×${S.player.shiny[id] ? ` (${S.player.shiny[id]} shiny)` : ''}</b></div>
         <div class="row"><span>Line</span><b>${line.map(x => Game.registered(x.id) ? x.name : '???').join(' → ')}</b></div>
       </div>
-      ${relationsHtml(Battle.elementOf(id))}
+      ${relationsHtml(Battle.typesOf(id))}
       <h4 class="teamh">Moves it learns</h4>
       <div class="soon">${Battle.learnset(id).map(x => { const mv = Battle.move(x.id); return `<span style="--ec:${Battle.elInfo(mv.el).color}">Lv ${x.lv} · ${Battle.elInfo(mv.el).icon} ${esc(mv.name)}</span>`; }).join('')}</div>
       <div class="btns"><button class="btn alt" id="dexBack">← Back to Dex</button></div>`);
@@ -2193,7 +2193,7 @@ if (!code) {
       ${sec('heart', 'Keeping it happy', `<ul><li>It has 4 needs: <b>Food, Happy, Energy, Hygiene</b>. They slowly go down.</li><li>{i:pecha} <b>Feed</b> (top left): tap it, then <b>hold a berry and drag it onto your Pokémon</b>. One berry is its hidden favourite (extra food, happiness and bond).</li><li>{i:bath} <b>Water</b>: hold it and drag it onto your Pokémon to wash it and clean up its poops.</li><li>{i:sleep} It <b>falls asleep by itself</b> when Energy drops below ${Game.AUTO_SLEEP}. <b>Double-tap it</b> to wake it up.</li><li>{i:hand} <b>Tap it</b> to pet it. <b>Pat it</b> (finger back and forth) up to ${Game.RUBS_PER_DAY} times a day to build your bond.</li><li>{i:warning} If a need drops to 10 or less, that's a <b>slip-up</b>: evolving takes a level longer.</li></ul>`)}
       ${sec('up', 'Growing and evolving', `<ul><li>When it reaches its evolution level and every need is at least 40, an <b>Evolve</b> button appears. You choose to evolve or stay as you are.</li><li>Some Pokémon evolve with an item from the Bag instead, or at a certain time of day.</li><li>{i:sword} <b>Training</b> mini-games raise ATTACK, DEFENCE and SPEED.</li></ul>`)}
       ${sec('map', 'Exploring dungeons', `<ul><li><b>Explore → Explore a dungeon</b>, then choose a map. Each map has its own Pokémon types, a difficulty, a recommended level and a rare legendary.</li><li>The <b>Get ready</b> screen shows the area's elements and your 3 best Pals for it, with a match % and why. Tap <b>Auto Select Best Pal</b> or pick your own.</li><li>Pick a <b>Main</b> and a <b>Backup</b>. Switch them in battle, or the Backup jumps in if your Main faints.</li><li>Each floor can hold a wild battle, treasure, or nothing. Go deeper, or head home whenever you like.</li><li>Beat the <b>boss</b> on the last floor, then spin the catch wheel for one throw to catch it.</li><li>{i:oran} Only items in your Bag can be used in a dungeon, so pack Potions before you go!</li></ul>`)}
-      ${sec('sword', 'Battles, moves and elements', `<ul><li>Tap <b>Fight</b> and pick one of its 4 moves. Each move has its own <b>PP</b>; with no PP left it uses Struggle.</li><li>8 elements: 🔥 Fire beats 🌿 Nature, 💧 Water beats 🔥 Fire, 🌿 Nature beats 🪨 Earth, ⚡ Electric beats 💧 Water, 🪨 Earth beats ⚡ Electric, and ☀️ Light and 🌙 Dark beat each other. ⭐ Neutral has no strengths or weaknesses.</li><li>Super effective: 2×. Not very effective: ½. A move of its own element: 1.5×.</li><li>Statuses: burn, poison, paralysis, sleep, freeze and flinch. Stat changes last until the battle ends.</li><li><b>AUTO</b> (top of the battle) lets your Pal pick its own moves.</li><li><b>Capture</b>: throw a Poké Ball at a weakened wild Pal. Bosses and legendaries use the catch wheel.</li><li>Battles give <b>EXP</b>. New moves unlock as it levels up: learn, replace or relearn them in <b>Party → Moves &amp; stats</b>.</li><li>HP and PP come back at home, faster while it sleeps.</li><li>Well cared-for Pals get small battle bonuses. At max bond, <b>Bond Awakening</b> powers it up once per battle.</li></ul>`)}
+      ${sec('sword', 'Battles, moves and elements', `<ul><li>Tap <b>Fight</b> and pick one of its 4 moves. Each move has its own <b>PP</b>; with no PP left it uses Struggle.</li><li>Every Pal has its real Pokémon type, or two types (like Charizard: Fire / Flying). Matchups follow the Pokémon type chart: Water beats Fire, Fire beats Grass, Electric can't touch Ground, and so on.</li><li>Super effective: 2× (4× if both of its types are weak). Not very effective: ½ (or ¼). Some moves have no effect at all. A move of its own type: 1.5×.</li><li>Statuses: burn, poison, paralysis, sleep, freeze and flinch. Stat changes last until the battle ends.</li><li><b>AUTO</b> (top of the battle) lets your Pal pick its own moves.</li><li><b>Capture</b>: throw a Poké Ball at a weakened wild Pal. Bosses and legendaries use the catch wheel.</li><li>Battles give <b>EXP</b>. New moves unlock as it levels up: learn, replace or relearn them in <b>Party → Moves &amp; stats</b>.</li><li>HP and PP come back at home, faster while it sleeps.</li><li>Well cared-for Pals get small battle bonuses. At max bond, <b>Bond Awakening</b> powers it up once per battle.</li></ul>`)}
       ${sec('pokeball', 'Your team and the Pokédex', `<ul><li><b>Party</b>: up to 6 Pokémon. Tap one to make it your main or move it to the PC Box.</li><li><b>Pokédex</b>: everything you hatch, catch or evolve is recorded here.</li><li>Raise your main to Lv ${Game.NEW_EGG_LEVEL} to get a new egg.</li></ul>`)}
       ${sec('coin', 'Bag and Poké Mart', `<ul><li>Treasure from dungeons sells for <b>Pokécoins</b>.</li><li>Spend them on Potions, balls, evolution items and backgrounds.</li><li>{i:egg_legend_0} A <b>Mystery Egg</b> hatches into a random Pokémon.</li></ul>`)}
       ${sec('friends', 'Friends', `<ul><li>Tap <b>Friends</b> in the bottom bar and sign in to save online and play on any device.</li><li>Add friends, trade Pokémon, and lend each other a Pokémon for exploring.</li></ul>`)}
@@ -2439,15 +2439,16 @@ if (!code) {
   /** shown once: how the Pokémon-style battles work (new players right after the explore guide, others after the update) */
   function battleIntro(then) {
     ST().settings.battleTipSeen = true; Game.save();
-    const chart = ['fire', 'water', 'nature', 'electric', 'earth', 'light', 'dark'].map(el => { const r = Battle.relations(el); return `<div class="row"><span>${elChip(el, true)}</span><b>beats ${r.strong.map(x => Battle.elInfo(x).icon).join(' ')} · weak to ${r.weak.map(x => Battle.elInfo(x).icon).join(' ')}</b></div>`; }).join('');
+    const chart = Battle.EL_IDS.map(el => { const r = Battle.relations([el]); return `<div class="row"><span>${elChip(el, true)}</span><b>${r.strong.length ? 'beats ' + r.strong.map(x => Battle.elInfo(x).icon).join('') : '—'}${r.weak.length ? ' · weak to ' + r.weak.map(x => Battle.elInfo(x).icon).join('') : ''}</b></div>`; }).join('');
     openSheet(head('How battles work') + `<div class="steps">
       <div class="stp"><i>1</i><div><b>Pick a move</b><small>Tap <b>Fight</b>, then one of 4 moves. Each has its own <b>PP</b> (uses). Out of PP? It Struggles, and hurts itself.</small></div></div>
-      <div class="stp"><i>2</i><div><b>Use elements</b><small>A move strong against the foe's element does <b>2×</b> damage (▲), a weak one ½ (▼). Moves of its own element hit 1.5× harder.</small></div></div>
+      <div class="stp"><i>2</i><div><b>Use types</b><small>Every Pal has one or two Pokémon types. A super effective move does <b>2×</b> (or 4× against two weak types) ▲, a weak one ½ ▼, and some do nothing at all. Moves of its own type hit 1.5× harder.</small></div></div>
       <div class="stp"><i>3</i><div><b>Bag, Switch, Capture, Run</b><small>Heal with items, swap in your Backup, or throw a Poké Ball at a weakened wild Pal.</small></div></div>
       <div class="stp"><i>4</i><div><b>Auto</b><small>Tap <b>AUTO</b> at the top and your Pal picks its own moves.</small></div></div>
       <div class="stp"><i>5</i><div><b>Bond Awakening</b><small>At max bond, unleash it once per battle: stronger, faster, more critical hits.</small></div></div>
       </div>
-      <div class="rows">${chart}<div class="row"><span>${elChip('neutral', true)}</span><b>no strengths or weaknesses</b></div></div>
+      <h4 class="teamh">Type chart <small>Pals with two types: the numbers multiply (up to 4×, or 0× if immune)</small></h4>
+      <div class="rows">${chart}</div>
       <p class="muted">Win battles for EXP. HP and PP come back while your Pals rest at home. Change moves in Party → Moves &amp; stats.</p>
       <div class="btns"><button class="btn red" id="btGo">Got it!</button></div>`);
     $('#btGo').addEventListener('click', () => (then ? then() : closeSheet()));
@@ -2492,7 +2493,7 @@ if (!code) {
     const face = x => { const f = portraitUrl(x.sp, x.m.shiny, 'Normal'); return f ? `<img class="face" src="${f}" alt="">` : miniCanvas(x.sp, { px: 48, shiny: x.m.shiny }); };
     const bar = c => `<div class="compat"><i style="width:${c}%;background:${c >= 70 ? 'var(--hp-hi)' : c >= 45 ? 'var(--hp-mid)' : 'var(--hp-lo)'}"></i></div>`;
     const recCard = (x, rank) => `<div class="reccard${x.key === prepSel.lead ? ' on' : ''}" data-rk="${esc(x.key)}" role="button" tabindex="0" aria-label="Make ${esc(x.name)} your Main">
-        <div class="rc-top">${face(x)}<div class="rc-id"><b>${rank ? `<i class="rk">#${rank}</i>` : ''}${esc(x.name)}</b><small>Lv ${x.level} · ${elChip(x.el, true)}</small></div><div class="rc-pc"><b>${x.compat}%</b><small>match</small></div></div>
+        <div class="rc-top">${face(x)}<div class="rc-id"><b>${rank ? `<i class="rk">#${rank}</i>` : ''}${esc(x.name)}</b><small>Lv ${x.level} · ${typeChips(x.types, true)}</small></div><div class="rc-pc"><b>${x.compat}%</b><small>match</small></div></div>
         ${bar(x.compat)}
         <ul class="rc-why">${x.reasons.slice(0, 3).map(r => `<li class="ok">✓ ${esc(r.text)}</li>`).join('')}${x.warnings.slice(0, 2).map(w => `<li class="warn">⚠ ${esc(w)}</li>`).join('')}</ul>
       </div>`;
@@ -2561,7 +2562,7 @@ if (!code) {
       const card = (x, k) => {
         const tag = k === lead ? '<em class="tl">MAIN</em>' : k === sub ? '<em class="ts">BACKUP</em>' : '', no = x.friend ? '' : whyNot(x);
         const sp = x.friend ? x.c.sp : x.m.sp, shiny = x.friend ? x.c.shiny : x.m.shiny;
-        const elx = Battle.elInfo(Battle.elementOf(sp)).icon;
+        const elx = Battle.typesOf(sp).map(t => Battle.elInfo(t).icon).join('');
         const sub2 = x.friend ? `${elx} Lv ${lv(x)} · ${esc(x.owner)}${x.rec === 'helper' ? '' : ' · {i:sparkle}new pick'}` : `${elx} Lv ${lv(x)}${no ? ` · ${no}` : ''}`;
         return `<button class="teamcard${k === lead ? ' lead' : k === sub ? ' sub' : ''}${x.friend ? ' friend' : ''}" data-k="${k}">${tag}${monFace(sp, shiny)}
           <b>${shiny ? '{i:sparkle}' : ''}${esc(nm(x))}</b><small>${sub2}</small></button>`;
@@ -3429,11 +3430,13 @@ if (!code) {
     if (b && b.vol && b.vol.awaken) { g.save(); g.shadowColor = '#ffd86b'; g.shadowBlur = 16; roundRect(g, x, y, w, h, 10); g.fillStyle = '#fbf9ef'; g.fill(); g.restore(); }
     roundRect(g, x, y, w, h, 10); g.fillStyle = '#fbf9ef'; g.fill(); g.lineWidth = 3; g.strokeStyle = b && b.vol && b.vol.awaken ? '#e0a81f' : '#2f3448'; g.stroke();
     let nx = x + 10;
-    if (b && b.elem) {                      // element badge: a coloured circle with its icon
-      const E = Battle.elInfo(b.elem);
-      g.fillStyle = E.color; g.beginPath(); g.arc(x + 19, y + 15, 10, 0, Math.PI * 2); g.fill(); g.lineWidth = 2; g.strokeStyle = '#2f3448'; g.stroke();
-      g.font = '12px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(E.icon, x + 19, y + 16); g.textBaseline = 'alphabetic';
-      nx = x + 34;
+    if (b && b.types) {                     // type badges: a coloured circle with its icon, one per type
+      b.types.forEach((t, i) => {
+        const E = Battle.elInfo(t), cx2 = x + 19 + i * 22;
+        g.fillStyle = E.color; g.beginPath(); g.arc(cx2, y + 15, 10, 0, Math.PI * 2); g.fill(); g.lineWidth = 2; g.strokeStyle = '#2f3448'; g.stroke();
+        g.font = '12px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(E.icon, cx2, y + 16); g.textBaseline = 'alphabetic';
+      });
+      nx = x + 12 + b.types.length * 22;
     }
     g.fillStyle = '#2b2d42'; g.font = '800 16px \"Nunito\", system-ui, sans-serif'; g.textAlign = 'left';
     g.fillText(name.length > 16 ? name.slice(0, 15) + '…' : name, nx, y + 20); g.textAlign = 'right'; g.font = '800 14px \"Nunito\", system-ui, sans-serif'; g.fillText('Lv' + lv, x + w - 10, y + 20); g.textAlign = 'left';
@@ -3454,13 +3457,16 @@ if (!code) {
   // ======================= battles: shared pieces (dungeons and friend battles) =======================
   // The engine (battle.js) plays a whole turn at once and returns events; the screen shows them one by one.
   const elChip = (el, small) => { const E = Battle.elInfo(el); return `<span class="elchip${small ? ' sm' : ''}" style="--ec:${E.color}">${E.icon} ${E.label}</span>`; };
+  const typeChips = (types, small) => types.map(t => elChip(t, small)).join(' ');
+  /** "🔥 Fire / 🪶 Flying" for a species */
+  const typeLabel = sp => Battle.typesOf(sp).map(t => `${Battle.elInfo(t).icon} ${Battle.elInfo(t).label}`).join(' / ');
   const elIcons = list => list.length ? list.map(el => `<span class="elic" title="${Battle.elInfo(el).label}" style="--ec:${Battle.elInfo(el).color}">${Battle.elInfo(el).icon}</span>`).join('') : '<span class="muted">none</span>';
   const CAT_LABEL = { phys: 'Physical', spec: 'Special', status: 'Status' };
   /** the 2×2 move grid: element icon, name, PP and how well it works against the foe */
   function moveGridHtml(b, foe, awakenOn) {
     const cell = (x, i) => {
-      const mv = Battle.move(x.id), E = Battle.elInfo(mv.el), eff = Battle.isDamaging(mv) ? Battle.mult(mv.el, foe.elem) : null;
-      const tag = eff == null ? '<i class="mvtag st">Status</i>' : eff > 1 ? '<i class="mvtag up">▲ Super</i>' : eff < 1 ? '<i class="mvtag dn">▼ Weak</i>' : '';
+      const mv = Battle.move(x.id), E = Battle.elInfo(mv.el), eff = Battle.isDamaging(mv) ? Battle.mult(mv.el, foe.types) : null;
+      const tag = eff == null ? '<i class="mvtag st">Status</i>' : eff === 0 ? '<i class="mvtag no">✕ No effect</i>' : eff >= 4 ? '<i class="mvtag up">▲ 4×</i>' : eff > 1 ? '<i class="mvtag up">▲ Super</i>' : eff < 1 ? '<i class="mvtag dn">▼ Weak</i>' : '';
       return `<button class="mvbtn${x.pp <= 0 ? ' out' : ''}" data-mv="${i}" style="--ec:${E.color}" ${x.pp <= 0 ? 'disabled' : ''}>
         <span class="mvn">${E.icon} ${esc(mv.name)}</span>${tag}
         <small>PP ${x.pp}/${x.max} · ${CAT_LABEL[mv.cat]}${mv.power ? ' · ' + mv.power : ''}</small></button>`;
@@ -3653,9 +3659,10 @@ if (!code) {
     }
     /** the wild Pal's element, and how it matches up with yours */
     function matchup() {
-      const fe = G.wild.elem, me2 = G.me.elem, E = Battle.elInfo(fe);
-      const hurtsIt = Battle.mult(me2, fe) > 1, hurtsMe = Battle.mult(fe, me2) > 1;
-      return `${E.icon} ${E.label}${hurtsIt ? ` · weak to your ${Battle.elInfo(me2).icon} ${Battle.elInfo(me2).label} moves!` : hurtsMe ? ` · careful, strong against ${Battle.elInfo(me2).label}` : ''}`;
+      const ft = G.wild.types, mine = G.me.types;
+      const hits = mine.filter(t => Battle.mult(t, ft) > 1), threat = ft.filter(t => Battle.mult(t, mine) > 1);
+      const label = ft.map(t => `${Battle.elInfo(t).icon} ${Battle.elInfo(t).label}`).join(' / ');
+      return `${label}${hits.length ? ` · weak to your ${hits.map(t => Battle.elInfo(t).label).join('/')} moves!` : threat.length ? ` · careful, its ${threat.map(t => Battle.elInfo(t).label).join('/')} moves hit you hard` : ''}`;
     }
     const SMART = () => { const A = Battle.B.aiSmart; return G.wild.legend ? A.legend : G.wild.boss ? A.boss : A.wild; };
     const BALL_ORDER = ['pokeBall', 'greatBall', 'ultraBall', 'masterBall'];
@@ -4401,8 +4408,7 @@ if (!code) {
     const paintAuto = () => { autoBtn.classList.toggle('on', G.auto); autoBtn.textContent = G.auto ? 'AUTO ON' : 'AUTO'; autoBtn.setAttribute('aria-pressed', G.auto ? 'true' : 'false'); };
     autoBtn.classList.remove('hidden'); paintAuto();
     autoBtn.onclick = () => { G.auto = !G.auto; ST().settings.autoBattle = G.auto; Game.save(); paintAuto(); Sound.play('tap'); if (G.auto && G.awaitingMove) { G.awaitingMove = false; epBtns.classList.remove('moves'); epBtns.innerHTML = ''; turnWith(autoAction(me, opp)); } };
-    const E2 = Battle.elInfo(opp.elem);
-    say(`<b>${esc(friend.username)}</b> sends out <b>${esc(opp.name)}</b> (Lv ${opp.level})!`, `${E2.icon} ${E2.label} · your ${esc(petName())} is Lv ${me.level}`);
+    say(`<b>${esc(friend.username)}</b> sends out <b>${esc(opp.name)}</b> (Lv ${opp.level})!`, `${typeLabel(opp.id)} · your ${esc(petName())} is Lv ${me.level}`);
     buttons([{ label: '{i:sword} Battle!', cls: 'red', fn: menu }, { label: 'Not now', cls: 'alt', fn: () => G.finish(true) }]);
     function menu() {
       if (arenaGame !== G) return;

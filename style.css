@@ -996,3 +996,8 @@ body.visiting #toasts { top: calc(66px + var(--safe-t)); }
 .moverow { margin-top: 6px; gap: 6px; }
 .moverow .btn { padding: 6px; font-size: 12px; }
 .moverow [data-mvback] { flex: 0 0 auto; padding: 6px 14px; }
+
+.mvtag.no { background: #2b2d42; color: #fff; }
+.rels { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
+.x4 { position: relative; display: inline-block; }
+.x4 i { position: absolute; right: -4px; bottom: -4px; font-style: normal; font-size: 9px; font-weight: 900; background: #c9573f; color: #fff; border-radius: 6px; padding: 0 3px; }

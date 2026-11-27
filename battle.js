@@ -16,25 +16,37 @@ const Battle = (() => {
   let rng = Math.random;
   const R = () => rng();
 
-  // ---------------- elements ----------------
-  function elementOf(spId) {
+  // ---------------- types (the Pokémon type chart in battle-data.js) ----------------
+  /** a species' types: [first] or [first, second] (species.js el / el2) */
+  function typesOf(spId) {
     const s = typeof SPECIES_BY_ID !== 'undefined' ? SPECIES_BY_ID[spId] : null;
-    if (D.SPECIES_ELEMENT[spId] && E[D.SPECIES_ELEMENT[spId]]) return D.SPECIES_ELEMENT[spId];
-    return (s && D.TYPE_TO_ELEMENT[s.el]) || 'neutral';
+    const a = s && E[s.el] ? s.el : 'normal', b = s && s.el2 && E[s.el2] && s.el2 !== a ? s.el2 : null;
+    return b ? [a, b] : [a];
   }
-  /** how hard an attack of element a hits a Pal of element d */
+  const elementOf = spId => typesOf(spId)[0];
+  /** one attacking type against one defending type: 2, 1, ½ or 0 */
+  function single(a, d) {
+    const A = E[a]; if (!A || !E[d]) return 1;
+    if (A.none.includes(d)) return B.noEffect;
+    if (A.se.includes(d)) return B.superEffective;
+    if (A.nve.includes(d)) return B.notVeryEffective;
+    return 1;
+  }
+  /** an attack of type a against a Pal with type(s) d (a string or a list): the numbers multiply (4×, ¼×, 0×…) */
   function mult(a, d) {
-    if (!a || !E[a] || !E[d]) return B.normal;
-    if (E[a].strong.includes(d)) return B.superEffective;
-    if (E[d].strong.includes(a)) return B.notVeryEffective;
-    if (a === d && E[a].resistSelf) return B.notVeryEffective;
-    return B.normal;
+    if (!a || !E[a]) return 1;
+    return (Array.isArray(d) ? d : [d]).reduce((m, t) => m * single(a, t), 1);
   }
-  /** strong: its attacks do 2× to · weak: takes 2× from · resist: takes 0.5× from */
-  function relations(el) {
-    return { strong: EL_IDS.filter(d => mult(el, d) > 1), weak: EL_IDS.filter(a => mult(a, el) > 1), resist: EL_IDS.filter(a => mult(a, el) < 1) };
+  /** for a Pal with these types: strong (its types hit these hard), weak (takes 2× or 4×), resist (½ or ¼), immune (0×) */
+  function relations(types) {
+    const T = Array.isArray(types) ? types : [types];
+    return {
+      strong: EL_IDS.filter(d => T.some(t => single(t, d) > 1)),
+      weak4: EL_IDS.filter(a => mult(a, T) >= 4), weak: EL_IDS.filter(a => mult(a, T) > 1),
+      resist: EL_IDS.filter(a => mult(a, T) > 0 && mult(a, T) < 1), immune: EL_IDS.filter(a => mult(a, T) === 0),
+    };
   }
-  const elInfo = el => E[el] || E.neutral;
+  const elInfo = el => E[el] || E.normal;
 
   // ---------------- moves ----------------
   function move(id) {
@@ -49,7 +61,7 @@ const Battle = (() => {
   function baseStats(spId) {
     if (baseCache[spId]) return baseCache[spId];
     const s = SPECIES_BY_ID[spId], [A, Df, S] = (s && s.base) || [50, 50, 50];
-    const el = elementOf(spId), lean = (B.specialLean[el] || 1) * (.95 + (hash(spId) % 11) / 100);
+    const ts = typesOf(spId), lean = ts.reduce((a, t) => a + (B.specialLean[t] || 1), 0) / ts.length * (.95 + (hash(spId) % 11) / 100);
     const out = {
       hp: Math.round((A + Df) / 2 + 18 + hash(spId * 7) % 14),
       atk: Math.round(A * (2 - lean)), spa: Math.round(A * lean),
@@ -78,25 +90,26 @@ const Battle = (() => {
   function learnset(spId) {
     if (learnCache[spId]) return learnCache[spId];
     const s = SPECIES_BY_ID[spId]; if (!s) return [];
-    const L = D.LEARN, el = elementOf(spId), type = s.el, b = baseStats(spId), h = hash(spId);
+    const L = D.LEARN, ts = typesOf(spId), el = ts[0], b = baseStats(spId), h = hash(spId);
     const [A, Df, Sp] = s.base || [50, 50, 50];
     const fast = Sp >= 70, sturdy = Df >= 70, strong = A >= 80, special = b.spa > b.atk;
     const out = [], add = (lv, id) => { if (D.MOVES[id]) out.push({ lv, id }); };
     add(L.start, h % 2 ? 'scratch' : 'tackle');
     add(L.support1, A >= Df ? 'growl' : 'tailWhip');
     (D.ELEMENT_MOVES[el] || []).forEach((id, i) => add(L.element[i] || 50, id));
+    if (ts[1]) (D.ELEMENT_MOVES[ts[1]] || []).slice(0, 3).forEach((id, i) => add(L.second[i] || 50, id));   // its second type
     add(L.build, fast ? 'quickAttack' : sturdy ? 'harden' : A >= Df ? 'tailWhip' : 'growl');
-    const tm = D.TYPE_MOVES[type] || [];
+    const tm = (D.TYPE_MOVES[el] || []).concat(ts[1] ? (D.TYPE_MOVES[ts[1]] || []).slice(0, 1) : []);
     if (tm[0]) add(L.type1, tm[0]);
     if (tm[1]) add(L.type2, tm[1]);
     if (tm[2]) add(L.type2 + 8, tm[2]);
     add(L.support2, fast ? 'agility' : special ? 'calmMind' : sturdy ? 'protect' : 'harden');
     add(L.bulk, strong ? 'takeDown' : 'bodySlam');
-    if (el !== 'neutral') add(L.element[1] + 4, 'swift');
+    if (el !== 'normal') add(L.element[1] + 4, 'swift');
     add(L.extra, 'protect');
-    if (s.tier === 'legend' || el === 'light') add(40, 'recover');
+    if (s.tier === 'legend' || ts.includes('fairy') || ts.includes('psychic')) add(40, 'recover');
     if (A + Df + Sp >= 230 || s.tier === 'legend') add(L.finale, 'hyperBeam');
-    if (el === 'fire' && strong) add(L.element[2] + 6, 'flareBlitz');
+    if (ts.includes('fire') && strong) add(L.element[2] + 6, 'flareBlitz');
     const seen = {}, list = [];
     out.sort((a, c) => a.lv - c.lv).forEach(x => { if (!seen[x.id]) { seen[x.id] = 1; list.push(x); } });
     return (learnCache[spId] = list);
@@ -104,10 +117,10 @@ const Battle = (() => {
   const learnedBy = (spId, level) => learnset(spId).filter(x => x.lv <= level).map(x => x.id);
   /** a sensible set of four: its newest strong moves of different elements, plus one support move */
   function defaultMoves(spId, level) {
-    const ids = learnedBy(spId, level).reverse(), el = elementOf(spId);
+    const ids = learnedBy(spId, level).reverse(), ts = typesOf(spId);
     const dmg = ids.filter(id => isDamaging(D.MOVES[id])), sup = ids.filter(id => !isDamaging(D.MOVES[id]));
     const pick = [];
-    const stab = dmg.filter(id => D.MOVES[id].el === el);
+    const stab = dmg.filter(id => ts.includes(D.MOVES[id].el));
     if (stab[0]) pick.push(stab[0]);
     dmg.forEach(id => { if (pick.length < 3 && !pick.includes(id) && !pick.some(p => D.MOVES[p].el === D.MOVES[id].el && D.MOVES[p].power >= D.MOVES[id].power)) pick.push(id); });
     if (stab[1] && pick.length < 3 && !pick.includes(stab[1])) pick.push(stab[1]);
@@ -127,7 +140,7 @@ const Battle = (() => {
   // ---------------- battlers ----------------
   /** o: { sp, level, genes, tr, moves: [{id, pp}], hpFrac, name, shiny, bond, care: {food, joy, ene, hyg}, mine } */
   function make(o) {
-    const lv = clamp(o.level | 0, 1, 100), st = stats(o.sp, lv, o.genes, o.tr), el = elementOf(o.sp);
+    const lv = clamp(o.level | 0, 1, 100), st = stats(o.sp, lv, o.genes, o.tr), types = typesOf(o.sp), el = types[0];
     const care = o.care, avg = care ? (care.food + care.joy + care.ene + care.hyg) / 4 : 0;
     const cared = !!(o.mine && care && avg >= B.care.goodAvg), happy = !!(o.mine && care && care.joy >= B.care.happyJoy);
     const moves = (o.moves && o.moves.length ? o.moves : defaultMoves(o.sp, lv).map(id => ({ id, pp: D.MOVES[id].pp })))
@@ -135,7 +148,7 @@ const Battle = (() => {
     const bond = o.mine ? o.bond || 0 : 0;
     const maxHp = st.hp, frac = o.hpFrac == null ? 1 : clamp(o.hpFrac, 0, 1);
     return {
-      id: o.sp, sp: o.sp, name: o.name || (SPECIES_BY_ID[o.sp] || {}).name || '?', shiny: !!o.shiny, level: lv, elem: el,
+      id: o.sp, sp: o.sp, name: o.name || (SPECIES_BY_ID[o.sp] || {}).name || '?', shiny: !!o.shiny, level: lv, elem: el, types,
       stats: st, maxHp, hp: Math.max(frac > 0 ? 1 : 0, Math.round(maxHp * frac)), moves,
       stages: { atk: 0, def: 0, spa: 0, sdef: 0, spe: 0, acc: 0, eva: 0 }, status: null, slpTurns: 0, vol: {},
       mine: !!o.mine, bond, cared, happy, statMult: cared ? 1 + B.care.goodBonus : 1, critBonus: happy ? B.care.happyCrit : 0,
@@ -160,8 +173,9 @@ const Battle = (() => {
     let atk = (phys ? s.stats.atk : s.stats.spa) * stageMult(crit ? Math.max(0, aS) : aS) * s.statMult * (s.vol.awaken ? B.awaken.mult : 1);
     const def = (phys ? t.stats.def : t.stats.sdef) * stageMult(crit ? Math.min(0, dS) : dS) * t.statMult;
     const base = Math.floor(Math.floor(Math.floor(2 * s.level / 5 + 2) * mv.power * atk / Math.max(1, def)) / 50) + 2;
-    const eff = mv.struggle ? 1 : mult(mv.el, t.elem), stab = !mv.struggle && mv.el === s.elem ? B.stab : 1;
+    const eff = mv.struggle ? 1 : mult(mv.el, t.types), stab = !mv.struggle && s.types.includes(mv.el) ? B.stab : 1;
     const burn = phys && s.status === 'brn' ? B.burnPhysical : 1;
+    if (eff === 0) return { dmg: 0, eff, stab: stab > 1 };
     const dmg = Math.max(1, Math.floor(base * stab * eff * (crit ? B.critMult : 1) * roll * burn * (B.damageScale || 1)));
     return { dmg, eff, stab: stab > 1 };
   }
@@ -253,10 +267,13 @@ const Battle = (() => {
     }
     if (mv.self) stageChange(s, mv.self, side, ev);
     if (!isDamaging(mv)) {
+      if (mv.el === 'electric' && ['slp', 'par', 'psn', 'brn', 'frz'].some(k => mv[k]) && mult('electric', t.types) === 0) { ev.push({ t: 'msg', side: other, text: `It doesn't affect ${t.name}…` }); return; }
       if (mv.foe) stageChange(t, mv.foe, other, ev, true);
       ['slp', 'par', 'psn', 'brn', 'frz'].forEach(k => { if (mv[k]) inflict(t, k, other, ev, true); });
       return;
     }
+    // a type that can't touch it (Ground vs Flying, Normal vs Ghost…): nothing happens
+    if (!mv.struggle && mult(mv.el, t.types) === 0) { ev.push({ t: 'msg', side: other, text: `It doesn't affect ${t.name}…` }); return; }
     // damage, hit by hit
     const hits = mv.hits ? mv.hits[0] + Math.floor(R() * (mv.hits[1] - mv.hits[0] + 1)) : 1;
     let total = 0, n = 0;
@@ -271,8 +288,8 @@ const Battle = (() => {
         text: crit ? 'A critical hit!' : '' });
       if (endured) ev.push({ t: 'endure', side: other, text: `${t.name} endured the hit thanks to its bond with you!` });
     }
-    const eff = mult(mv.el, t.elem);
-    if (!mv.struggle && eff > 1) ev.push({ t: 'msg', side: other, text: 'It\'s super effective!' });
+    const eff = mult(mv.el, t.types);
+    if (!mv.struggle && eff > 1) ev.push({ t: 'msg', side: other, text: eff >= 4 ? 'It\'s extremely effective!' : 'It\'s super effective!' });
     else if (!mv.struggle && eff < 1) ev.push({ t: 'msg', side: other, text: 'It\'s not very effective…' });
     if (hits > 1) ev.push({ t: 'msg', side, text: `Hit ${n} time${n > 1 ? 's' : ''}!` });
     if (t.hp <= 0) ev.push({ t: 'faint', side: other, text: `${t.name} fainted!` });
@@ -294,7 +311,7 @@ const Battle = (() => {
   function inflict(t, k, side, ev, loud) {
     if (t.hp <= 0) return;
     if (t.status) { if (loud) ev.push({ t: 'msg', side, text: 'But it failed!' }); return; }
-    if ((k === 'brn' && t.elem === 'fire') || (k === 'par' && t.elem === 'electric')) { if (loud) ev.push({ t: 'msg', side, text: `It doesn't affect ${t.name}…` }); return; }
+    if ((D.STATUS_IMMUNE[k] || []).some(ty => t.types.includes(ty))) { if (loud) ev.push({ t: 'msg', side, text: `It doesn't affect ${t.name}…` }); return; }
     t.status = k;
     if (k === 'slp') t.slpTurns = B.sleepTurns[0] + Math.floor(R() * (B.sleepTurns[1] - B.sleepTurns[0] + 1));
     ev.push({ t: 'status', side, status: k, text: `${t.name} is ${k === 'slp' ? 'now asleep' : STATUS_LABEL[k]}!` });
@@ -326,7 +343,7 @@ const Battle = (() => {
         if (mv.charge) sc *= .55; if (mv.recharge) sc *= est >= t.hp ? 1 : .6;
         if (mv.drain && hpK < .6) sc *= 1.25;
         if (mv.recoil && hpK < .3) sc *= .7;
-        if (mult(mv.el, t.elem) < 1) sc *= .8;
+        if (mult(mv.el, t.types) === 0) sc = 0; else if (mult(mv.el, t.types) < 1) sc *= .8;
       } else {
         if (mv.heal) sc = hpK < .45 ? 70 : hpK < .7 ? 15 : 0;
         else if (mv.protect) sc = s.vol.protectedLast ? 0 : (t.status === 'psn' || t.status === 'brn' ? 30 : 8);
@@ -351,44 +368,55 @@ const Battle = (() => {
   }
 
   // ---------------- explore recommendations ----------------
-  /** enemy element shares for a set of type weights ({ grass: 6, bug: 5 }), or the whole roster when null */
-  function enemyElements(types, extra) {
-    const w = {};
-    if (types) Object.entries(types).forEach(([ty, n]) => { const el = D.TYPE_TO_ELEMENT[ty] || 'neutral'; w[el] = (w[el] || 0) + n; });
-    else SPECIES.forEach(s => { const el = elementOf(s.id); w[el] = (w[el] || 0) + 1; });
-    (extra || []).forEach(([el, n]) => { if (n > 0) w[el] = (w[el] || 0) + n; });
-    const tot = Object.values(w).reduce((a, b) => a + b, 0) || 1;
-    return Object.entries(w).map(([el, n]) => ({ el, share: n / tot })).sort((a, b) => b.share - a.share);
+  /** pool: [{ types: [a, b?], share }] — the Pals you can meet in an area (shares add up to 1).
+   *  Returns the same combos merged, plus how common each single type is there. */
+  function enemyPool(pool) {
+    const combos = {}, byType = {};
+    pool.forEach(p => {
+      const k = p.types.join('/'); combos[k] = combos[k] || { types: p.types, share: 0 }; combos[k].share += p.share;
+      p.types.forEach(t => { byType[t] = (byType[t] || 0) + p.share; });
+    });
+    const tot = Object.values(byType).reduce((a, b) => a + b, 0) || 1;
+    return {
+      combos: Object.values(combos).sort((a, b) => b.share - a.share),
+      byType: Object.entries(byType).map(([el, n]) => ({ el, share: n / tot })).sort((a, b) => b.share - a.share),
+    };
   }
-  /** elements that hit the area hard and take little back, and elements that struggle there */
-  function areaAdvice(enemies) {
-    const atk = el => enemies.reduce((a, e) => a + e.share * mult(el, e.el), 0);
-    const tak = el => enemies.reduce((a, e) => a + e.share * mult(e.el, el), 0);
-    const rows = EL_IDS.map(el => ({ el, atk: atk(el), tak: tak(el), score: atk(el) - tak(el) }));
-    const good = rows.filter(r => r.score > .05).sort((a, b) => b.score - a.score).slice(0, 3).map(r => r.el);
-    const bad = rows.filter(r => r.tak > 1.08 || r.score < -.15).sort((a, b) => a.score - b.score).slice(0, 3).map(r => r.el);
+  /** what an area's Pals do to you: the worst of their types against yours */
+  const taken = (combo, mine) => Math.max(...combo.types.map(t => mult(t, mine)));
+  /** types that hit the area hard and take little back, and types that struggle there */
+  function areaAdvice(E2) {
+    const rows = EL_IDS.map(el => {
+      const atk = E2.combos.reduce((a, c) => a + c.share * mult(el, c.types), 0);
+      const tak = E2.combos.reduce((a, c) => a + c.share * taken(c, [el]), 0);
+      return { el, atk, tak, score: atk - tak };
+    });
+    const good = rows.filter(r => r.score > .1 && r.atk > 1).sort((a, b) => b.score - a.score).slice(0, 3).map(r => r.el);
+    const bad = rows.filter(r => r.tak > 1.15).sort((a, b) => b.tak - a.tak).slice(0, 3).map(r => r.el);
     return { good, bad };
   }
   /**
    * score Pals for an area. c: [{ key, name, sp, level, moves, hpFrac, ene, bond, eligible, why }]
-   * returns the same list with { compat 0-100, reasons: [{ good, text }], warnings: [text] }, best first
+   * returns the same list with { types, compat 0-100, reasons: [{ good, text }], warnings: [text] }, best first
    */
-  function recommend(enemies, rec, cands) {
-    const top = enemies[0];
+  function recommend(E2, rec, cands) {
+    const top = E2.byType[0];
     return cands.map(c => {
-      const el = elementOf(c.sp), reasons = [], warnings = [];
+      const ts = typesOf(c.sp), reasons = [], warnings = [];
       const mv = (c.moves || []).map(x => ({ x, m: move(x.id) })).filter(o => o.m);
       const dm = mv.filter(o => isDamaging(o.m) && o.x.pp > 0);
-      // offence: its best move against each enemy element (element match, STAB and a bit of power)
-      let off = 0, bestTop = null;
-      enemies.forEach(e => {
-        let best = 0, who = null;
-        dm.forEach(o => { const v = mult(o.m.el, e.el) * (o.m.el === el ? B.stab : 1) * Math.min(1.2, o.m.power / 80); if (v > best) { best = v; who = o.m; } });
-        off += e.share * Math.min(3, best) / 3;
-        if (e === top) bestTop = { v: best, m: who };
+      // offence: its best usable move against each kind of Pal there (type match, STAB and a bit of power)
+      let off = 0;
+      E2.combos.forEach(cb => {
+        let best = 0;
+        dm.forEach(o => { const v = mult(o.m.el, cb.types) * (ts.includes(o.m.el) ? B.stab : 1) * Math.min(1.2, o.m.power / 80); if (v > best) best = v; });
+        off += cb.share * Math.min(3, best) / 3;
       });
-      const take = enemies.reduce((a, e) => a + e.share * mult(e.el, el), 0);
-      const def = clamp((2 - take) / 1.5, 0, 1);
+      let bestTop = null;
+      if (top) dm.forEach(o => { const v = mult(o.m.el, [top.el]) * (ts.includes(o.m.el) ? B.stab : 1); if (!bestTop || v > bestTop.v) bestTop = { v, m: o.m }; });
+      // defence: how hard their types hit it
+      const take = E2.combos.reduce((a, cb) => a + cb.share * taken(cb, ts), 0);
+      const def = clamp(1 - (take - .25) / 2.5, 0, 1);
       const lvK = clamp(c.level / Math.max(1, rec), 0, 1.25) / 1.25;
       const ppAll = mv.filter(o => isDamaging(o.m)), ppK = ppAll.length ? ppAll.reduce((a, o) => a + o.x.pp / o.m.pp, 0) / ppAll.length : 0;
       const hpK = clamp(c.hpFrac == null ? 1 : c.hpFrac, 0, 1), eneK = clamp((c.ene || 0) / 100, 0, 1), bondK = clamp((c.bond || 0) / 100, 0, 1);
@@ -396,28 +424,28 @@ const Battle = (() => {
       if (!c.eligible) compat *= .5;
       compat = Math.round(clamp(compat, 1, 99));
       // why
-      if (bestTop && bestTop.m && bestTop.v >= 2) reasons.push({ good: true, text: `${bestTop.m.name} hits ${elInfo(top.el).label} Pals hard` });
-      else if (bestTop && bestTop.m && bestTop.v >= 1.4) reasons.push({ good: true, text: `${bestTop.m.name} lands solid hits` });
-      if (mult(top.el, el) < 1) reasons.push({ good: true, text: `Resists ${elInfo(top.el).label} attacks` });
+      if (top && bestTop && bestTop.v >= 2) reasons.push({ good: true, text: `${bestTop.m.name} is super effective on ${elInfo(top.el).label} Pals` });
+      else if (top && bestTop && bestTop.v >= 1.5) reasons.push({ good: true, text: `${bestTop.m.name} lands solid hits` });
+      if (top) { const m = mult(top.el, ts); if (m === 0) reasons.push({ good: true, text: `Immune to ${elInfo(top.el).label} moves` }); else if (m < 1) reasons.push({ good: true, text: `Resists ${elInfo(top.el).label} moves` }); }
       if (c.level >= rec) reasons.push({ good: true, text: `Lv ${c.level} meets the recommended Lv ${rec}` });
       if (c.bond >= B.awakenBond) reasons.push({ good: true, text: 'Max bond: Bond Awakening ready' });
       else if (c.bond >= B.endureBond) reasons.push({ good: true, text: `Strong bond (${c.bond})` });
-      const weakTo = enemies.filter(e => e.share >= .15 && mult(e.el, el) > 1);
-      if (weakTo.length) warnings.push(`Weak to ${weakTo.map(e => elInfo(e.el).label).join(' and ')} Pals here`);
+      const weakTo = E2.byType.filter(e => e.share >= .15 && mult(e.el, ts) > 1);
+      if (weakTo.length) warnings.push(`${weakTo.some(e => mult(e.el, ts) >= 4) ? 'Very weak' : 'Weak'} to ${weakTo.map(e => elInfo(e.el).label).join(' and ')} Pals here`);
       if (c.level < rec) warnings.push(`Lv ${c.level} is below the recommended Lv ${rec}`);
       if (hpK < .5) warnings.push(`Low HP (${Math.round(hpK * 100)}%)`);
       if (ppAll.length && ppK < .35) warnings.push('Low PP: rest at home to restore it');
       if (!dm.length) warnings.push('No attacking moves with PP left');
       if (!c.eligible) warnings.push(c.why || 'Can\'t explore right now');
       if (!reasons.length) reasons.push({ good: true, text: 'A steady all-rounder' });
-      return Object.assign({}, c, { el, compat, reasons, warnings });
+      return Object.assign({}, c, { types: ts, el: ts[0], compat, reasons, warnings });
     }).sort((a, b) => (b.eligible - a.eligible) || b.compat - a.compat);
   }
 
   return {
-    ELEMENTS: E, EL_IDS, STAT_LABEL, STATUS_TAG, elementOf, elInfo, mult, relations, move, isDamaging, baseStats, stats,
+    ELEMENTS: E, EL_IDS, STAT_LABEL, STATUS_TAG, typesOf, elementOf, elInfo, mult, relations, move, isDamaging, baseStats, stats,
     learnset, learnedBy, defaultMoves, ensureMoves, make, turn, choose, estimate, speedOf, usable, catchChance,
-    enemyElements, areaAdvice, recommend, B, D,
+    enemyPool, areaAdvice, recommend, B, D,
     _seed(f) { rng = typeof f === 'function' ? f : Math.random; },   // tests: a predictable random
   };
 })();

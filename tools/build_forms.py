@@ -57,6 +57,7 @@ def main():
     ptype = {}
     for r in rows('pokemon_types.csv'):
         if r['slot'] == '1': ptype[int(r['pokemon_id'])] = types[r['type_id']]
+    ptype2 = {int(r['pokemon_id']): types[r['type_id']] for r in rows('pokemon_types.csv') if r['slot'] == '2'}
     stats = {}
     for r in rows('pokemon_stats.csv'):
         stats.setdefault(int(r['pokemon_id']), {})[r['stat_id']] = int(r['base_stat'])
@@ -87,6 +88,7 @@ def main():
                 'base': [st.get('2', base['base'][0]), st.get('3', base['base'][1]), st.get('6', base['base'][2])],
                 'of': num, 'sub': sub, 'fr': fr,
             }
+            if ptype2.get(pid) and ptype2[pid] != entry['el']: entry['el2'] = ptype2[pid]
             old = by_id.get(pid)
             if old:   # keep what the dashboard may have changed (tier, starter, stats, evolutions)
                 for k in ('tier', 'starter', 'base', 'next', 'evo', 'name', 'el'): entry[k] = old.get(k, entry[k])

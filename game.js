@@ -692,6 +692,8 @@ const Game = (() => {
   /** make sure a Pal has its moves and an HP share (old saves, hatching, catching, trading) */
   function ensureBattle(m) {
     if (!BT || !m || m.egg || !SPECIES_BY_ID[m.sp]) return;
+    // v2 movesets follow the real Pokémon types (one or two per Pal): pick a fresh set of 4 once
+    if (m.mv !== 2) { m.moves = null; m.ppMemo = {}; m.mv = 2; }
     BT.ensureMoves(m, memberLevel(m));
     if (typeof m.hpFrac !== 'number' || !(m.hpFrac >= 0)) m.hpFrac = 1;
     m.hpFrac = clamp01(m.hpFrac);
@@ -775,14 +777,25 @@ const Game = (() => {
   const expInLevel = m => (memberLevel(m) >= LEVEL_CAP ? null : (m.ageMin % MIN_PER_LEVEL));
 
   // ---------------- explore areas: difficulty, enemies, recommendations ----------------
+  /** the Pals an area's wild battles pick from (the same rules as rollWild), as [{ types, share }] */
+  function areaPool(mapId) {
+    const m = EXPLORE_MAPS[mapId] || firstMap(), list = SPECIES.filter(s => !isSpecial(s.id)), pool = [];
+    const chase = m.chase && SPECIES_BY_ID[m.chase] && m.chaseChance > 0 && !(isSpecial(m.chase) && m.noLegend) ? Math.min(100, m.chaseChance) / 100 : 0;
+    const add = (arr, share) => { if (!arr.length) return; arr.forEach(s => pool.push({ types: BT.typesOf(s.id), share: share / arr.length })); };
+    if (!m.types) add(list, 1 - chase);
+    else {
+      const W = Object.values(m.types).reduce((a, b) => a + b, 0) || 1;
+      Object.entries(m.types).forEach(([el, w]) => { const mine = list.filter(s => s.el === el); add(mine.length ? mine : list, (1 - chase) * w / W); });
+    }
+    if (chase) pool.push({ types: BT.typesOf(m.chase), share: chase });
+    return pool;
+  }
   function areaInfo(mapId) {
-    const m = EXPLORE_MAPS[mapId] || firstMap(), D2 = BT ? BT.D : null;
+    const D2 = BT ? BT.D : null;
     const a = D2 ? Object.assign({}, D2.AREA_DEFAULT, D2.AREAS[mapId] || {}) : { difficulty: 'Normal', rec: 1 };
-    const extra = [];
-    if (m.chase && SPECIES_BY_ID[m.chase] && m.chaseChance > 0 && BT) extra.push([BT.elementOf(m.chase), Object.values(m.types || { x: 10 }).reduce((x, y) => x + y, 0) * m.chaseChance / 100]);
-    const enemies = BT ? BT.enemyElements(m.types, extra) : [];
-    const advice = BT ? BT.areaAdvice(enemies) : { good: [], bad: [] };
-    return { id: mapId, difficulty: a.difficulty, rec: a.rec, enemies, good: advice.good, bad: advice.bad };
+    const pool = BT ? BT.enemyPool(areaPool(mapId)) : { combos: [], byType: [] };
+    const advice = BT ? BT.areaAdvice(pool) : { good: [], bad: [] };
+    return { id: mapId, difficulty: a.difficulty, rec: a.rec, enemies: pool.byType, pool, good: advice.good, bad: advice.bad };
   }
   /** why a Pal can't lead an exploration right now ('' = it can) */
   function exploreBlock(m) {
@@ -801,7 +814,7 @@ const Game = (() => {
     list.forEach(ensureBattle);
     const cands = list.map(m => ({ key: m.key, m, name: m.name || SPECIES_BY_ID[m.sp].name, sp: m.sp, level: memberLevel(m), moves: m.moves,
       hpFrac: m.hpFrac, ene: m.ene, bond: m.bond || 0, eligible: !exploreBlock(m), why: exploreBlock(m) }));
-    return { info, list: BT ? BT.recommend(info.enemies, info.rec, cands) : cands };
+    return { info, list: BT ? BT.recommend(info.pool, info.rec, cands) : cands };
   }
 
   // ---------------- explore ----------------

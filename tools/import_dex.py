@@ -36,7 +36,10 @@ def main(force=False):
     species = {int(r['id']): r for r in rows('pokemon_species')}
     types = {r['id']: r['identifier'] for r in rows('types')}
     ptype = {}
+    ptype2 = {}
     for r in rows('pokemon_types'):
+        if r['slot'] == '2':
+            ptype2[int(r['pokemon_id'])] = types.get(r['type_id'], '')
         if r['slot'] == '1':
             ptype[int(r['pokemon_id'])] = types.get(r['type_id'], 'normal')
     stats = {}
@@ -78,6 +81,8 @@ def main(force=False):
             'next': [], 'evo': 0, 'tier': tier, 'starter': sid in STARTERS,
             'base': [st.get('2', 50), st.get('3', 50), st.get('6', 50)], '_prev': prev,
         }
+        if ptype2.get(sid) in GAME_TYPES and ptype2[sid] != entries[sid]['el']:
+            entries[sid]['el2'] = ptype2[sid]
     for sid, e in entries.items():
         if e['_prev'] is not None:
             parent = entries[e['_prev']]

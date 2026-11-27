@@ -3,6 +3,16 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 117, date: '2026-11-27', title: 'Real Pokémon types',
+    notes: [
+      'Every Pokémon now has its real type, or both of its types: Charizard is Fire / Flying, Gyarados is Water / Flying, Magnemite is Electric / Steel, and so on (543 Pokémon have two).',
+      'Battles use the Pokémon type chart: Water beats Fire, Fire beats Grass, Grass beats Water… With two types the numbers multiply, so a move can be 4× super effective, or have no effect at all (Electric on Ground, Normal on Ghost).',
+      'New moves for every type: Flying, Psychic, Fighting, Bug, Ghost, Dragon, Steel, Ice, Rock, Ground and Poison, and moves now have their real types (Shadow Ball is Ghost, Mud-Slap is Ground…).',
+      'Your Pokémon learn moves from both of their types. Everyone got a fresh set of 4 moves to match; change them any time in Party → Moves & stats.',
+      'The Get ready screen now works out the best Pals from the actual Pokémon on each map, using both of their types.',
+    ],
+  },
+  {
     version: 115, date: '2026-11-27', title: 'Pokémon-style battles',
     notes: [
       '8 elements: Fire, Water, Nature, Electric, Earth, Light, Dark and Neutral. Super effective moves do 2×, weak ones ½, and moves of your own element 1.5×.',

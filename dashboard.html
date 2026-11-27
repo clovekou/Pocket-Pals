@@ -457,6 +457,7 @@ function speciesCard(s) {
     <div class="wide no">#${String(s.id).padStart(4, '0')}${prev != null && B[prev] ? ` · evolves from ${esc(B[prev].name)}` : ' · first stage (hatches from eggs)'}</div>
     <label class="f">Name<input type="text" data-k="name" maxlength="24" value="${esc(s.name)}"></label>
     <label class="f">Type<select data-k="el">${Object.keys(ELEMENTS).map(k => `<option value="${k}" ${k === s.el ? 'selected' : ''}>${cap(k)}</option>`).join('')}</select></label>
+    <label class="f">Second type<select data-k="el2"><option value="">— none —</option>${Object.keys(ELEMENTS).map(k => `<option value="${k}" ${k === s.el2 ? 'selected' : ''}>${cap(k)}</option>`).join('')}</select></label>
     ${prev == null ? `<label class="f">Egg rarity<select data-k="tier">${Object.entries(TIERS).map(([k, v]) => `<option value="${k}" ${k === s.tier ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
     <label class="f check" style="align-self:end;padding-bottom:8px"><input type="checkbox" data-k="starter" ${s.starter ? 'checked' : ''}> Starter choice</label>` : ''}
     <div class="f wide">Evolves into
@@ -487,6 +488,7 @@ function speciesCard(s) {
     inp.addEventListener(ev, () => {
       if (k === 'starter') s.starter = inp.checked;
       else if (k === 'evo') s.evo = parseInt(inp.value) || 0;
+      else if (k === 'el2') { if (inp.value && inp.value !== s.el) s.el2 = inp.value; else delete s.el2; }
       else s[k] = inp.value;
       el.classList.toggle('dirty', JSON.stringify(saved.find(x => x.id === s.id)) !== JSON.stringify(s));
       if (k === 'name' || k === 'tier' || k === 'starter' || k === 'evo') renderLines();

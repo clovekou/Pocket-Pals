@@ -203,6 +203,8 @@ def validate_species(species, sprite_ids):
             base.append(50)
         out.append({'id': sid, 'name': name, 'el': el, 'next': nxt, 'evo': evo if nxt else 0,
                     'tier': tier, 'starter': bool(s.get('starter')), 'base': base})
+        el2 = s.get('el2')               # a second type (tools/build_types.py), kept when it's a real, different type
+        if el2 in ELEMENTS and el2 != el: out[-1]['el2'] = el2
         for k in ('of', 'sub', 'fr'):   # regional forms (tools/build_forms.py): where their sprites live
             if s.get(k) not in (None, ''): out[-1][k] = s[k]
     by = {s['id']: s for s in out}
