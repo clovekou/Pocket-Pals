@@ -106,6 +106,38 @@ img.px { image-rendering: pixelated; width: 28px; height: 28px; flex: none; }
 .cb-farewell { background: var(--yellow); color: var(--ink); }
 .cb-runaway { background: #3a3f58; color: #fff; }
 @keyframes bob { 50% { transform: translateY(-4px); } }
+/* quick care, top-left corner of the scene (opposite the mail): Feed opens the berry tray, Water is dragged onto the Pokémon */
+#quickCare { position: absolute; top: 10px; left: 10px; z-index: 3; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+#quickCare .qc { width: 52px; padding: 0; border: 0; background: none; display: flex; flex-direction: column; align-items: center; cursor: pointer;
+  touch-action: none; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#quickCare .qc .dk { width: 40px; height: 40px; pointer-events: none; display: block; transition: transform .15s; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .45)); }
+#quickCare .qc span { margin-top: -1px; font-family: var(--pixel); font-weight: 900; font-size: 11px; color: #fff; pointer-events: none;
+  text-shadow: 0 1px 0 #2b2f45, 1px 0 0 #2b2f45, -1px 0 0 #2b2f45, 0 -1px 0 #2b2f45, 0 2px 3px rgba(0, 0, 0, .4); }
+#quickCare .qc:active .dk, #quickCare .qc.on .dk { transform: scale(.9); }
+#quickCare .qc.off { opacity: .5; }
+#quickCare .qc.lifted .dk { opacity: .35; }
+#feedTray { position: absolute; left: 58px; top: 0; display: flex; gap: 6px; padding: 6px; border-radius: 16px; background: var(--cream);
+  border: 3px solid var(--line); box-shadow: inset 0 0 0 2px #fff, 0 3px 0 rgba(0, 0, 0, .3); animation: trayIn .18s ease-out; max-width: calc(100vw - 110px); flex-wrap: wrap; }
+#feedTray.hidden { display: none; }
+#feedTray .tb { width: 50px; padding: 3px 0 2px; border: 0; border-radius: 12px; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; position: relative; }
+#feedTray .tb img { width: 34px; height: 34px; image-rendering: pixelated; pointer-events: none; }
+#feedTray .tb small { font-size: 10px; font-weight: 800; color: var(--ink); pointer-events: none; }
+#feedTray .tb .fav { position: absolute; top: -4px; right: -3px; pointer-events: none; }
+#feedTray .tb .fav .ic { width: 16px; height: 16px; }
+#feedTray .tb.lifted { opacity: .35; }
+@keyframes trayIn { from { opacity: 0; transform: translateX(-8px) scale(.96); } }
+/* what you're dragging follows your finger */
+#dragGhost { position: fixed; left: 0; top: 0; z-index: 30; width: 56px; height: 56px; margin: -40px 0 0 -28px; pointer-events: none; display: grid; place-items: center;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .35)); transition: transform .12s; }
+#dragGhost.hidden { display: none; }
+#dragGhost img { width: 48px; height: 48px; image-rendering: pixelated; }
+#dragGhost .dk { width: 46px; height: 46px; }
+#dragGhost.over { transform: scale(1.18); }
+#dragGhost.water::after { content: ''; position: absolute; left: 50%; top: 80%; width: 6px; height: 10px; margin-left: -3px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: #62c9ff; animation: drip .5s linear infinite; }
+#dragGhost.water.over::after { animation-duration: .25s; }
+@keyframes drip { from { transform: translateY(0); opacity: 1; } to { transform: translateY(26px); opacity: 0; } }
 /* developer mail (patch notes), top-right corner of the scene */
 #mailBtn { position: absolute; top: 10px; right: 10px; z-index: 3; width: 48px; height: 48px; padding: 0; border: 0; background: none;
   display: grid; place-items: center; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -342,6 +374,7 @@ p { line-height: 1.55; margin: 6px 0; }
 
 /* online */
 #friendsBtn { position: relative; }
+#actions #friendsBadge { top: 2px; right: calc(50% - 26px); }
 .badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--red); color: #fff;
   font-family: var(--pixel); font-style: normal; font-size: 12px; line-height: 16px; border: 2px solid var(--line); text-align: center; }
 .trainer { display: flex; align-items: center; gap: 10px; background: #fff; border: 3px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; }
@@ -741,6 +774,7 @@ details.more[open] > summary::before { content: '▾ '; }
 #tour .tr-hole { position: absolute; pointer-events: none; box-shadow: 0 0 0 9999px rgba(10, 14, 36, .72); outline: 3px solid #ffcb05; outline-offset: 0;
   transition: left .3s, top .3s, width .3s, height .3s, border-radius .3s; animation: trGlow 1.6s ease-in-out infinite; }
 @keyframes trGlow { 50% { outline-color: #fff1a8; } }
+#tour.handson .tr-hole { box-shadow: 0 0 0 9999px rgba(10, 14, 36, .28); }
 #tour .tr-card { position: absolute; pointer-events: auto; width: min(340px, calc(100vw - 24px)); background: #fff; color: var(--ink); border-radius: 20px;
   padding: 16px 16px 14px; box-shadow: 0 18px 50px rgba(5, 8, 25, .45); font-family: var(--font); transition: top .3s, left .3s; }
 #tour .tr-card.in { animation: trIn .25s ease-out; }
@@ -817,8 +851,8 @@ details.more[open] > summary::before { content: '▾ '; }
 .eg-when { font-weight: 600; }
 
 /* ---------- party photo & visiting friends: only the scene is left on screen ---------- */
-body.photo #top, body.photo #bars, body.photo #actions, body.photo #mailBtn, body.photo #cerBtns, body.photo #toasts, body.photo #hint, body.photo #talk, body.photo #updateBar, body.photo #installBar,
-body.visiting #top, body.visiting #bars, body.visiting #actions, body.visiting #mailBtn, body.visiting #cerBtns, body.visiting #hint, body.visiting #talk, body.visiting #installBar { display: none !important; }
+body.photo #top, body.photo #bars, body.photo #actions, body.photo #mailBtn, body.photo #quickCare, body.photo #dragGhost, body.photo #cerBtns, body.photo #toasts, body.photo #hint, body.photo #talk, body.photo #updateBar, body.photo #installBar,
+body.visiting #top, body.visiting #bars, body.visiting #actions, body.visiting #mailBtn, body.visiting #quickCare, body.visiting #dragGhost, body.visiting #cerBtns, body.visiting #hint, body.visiting #talk, body.visiting #installBar { display: none !important; }
 body.photo #app, body.visiting #app { padding-top: 0; }
 body.photo #stage, body.visiting #stage { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 body.visiting #toasts { top: calc(66px + var(--safe-t)); }

@@ -3,6 +3,18 @@
 // commit will get (the pre-commit hook adds 1 to the number in version.js). Players see a red dot until they read it.
 window.PATCH_NOTES = [
   {
+    version: 114, date: '2026-11-27', title: 'Hands-on care',
+    notes: [
+      'New Feed button (top left): tap it, then hold a berry and drag it onto your Pokémon. It jumps when it sees the food, then eats it.',
+      'Bath is now the Water button, just under Feed. Hold it and drag it onto your Pokémon to wash it.',
+      'Your Pokémon falls asleep by itself when its Energy drops below 30. Double-tap it to wake it up.',
+      'Rub your Pokémon (finger back and forth) up to 3 times a day to build your bond.',
+      'Friends has moved to the bottom bar, where Care used to be.',
+      'Pokémon now stop at Lv 100.',
+      'There\'s a short "What\'s new" tour to try it all out (Options → What\'s new tour).',
+    ],
+  },
+  {
     version: 113, date: '2026-11-25', title: 'Photo poses and friends\' backgrounds',
     notes: [
       'Party photo now has poses: Play, Look here (everyone lines up and faces the camera), Jump! (everyone hops together) and Sleep.',

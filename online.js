@@ -336,7 +336,7 @@ const Online = (() => {
   }
   function describe(s) {
     const p = s.pet, sp = p && SPECIES_BY_ID[p.sp];
-    return { name: !p ? 'No Pokémon' : p.egg ? 'An egg' : `${p.name || (sp ? sp.name : '?')} Lv ${1 + Math.floor(p.ageMin / 60)}`, dex: Object.keys((s.player && s.player.dex) || {}).length, party: ((s.player && s.player.party) || []).length };
+    return { name: !p ? 'No Pokémon' : p.egg ? 'An egg' : `${p.name || (sp ? sp.name : '?')} Lv ${Math.min(100, 1 + Math.floor(p.ageMin / 60))}`, dex: Object.keys((s.player && s.player.dex) || {}).length, party: ((s.player && s.player.party) || []).length };
   }
   async function resolveConflict(useCloud) {
     const c = st.conflict; st.conflict = null;

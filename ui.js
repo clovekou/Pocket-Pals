@@ -658,7 +658,9 @@
       if (V.tx < minX) V.tx = minX + Math.random() * .1;
       if (V.x < minX - .02) { V.x += Math.min(minX - V.x, dt * .35); V.flip = false; }
     }
-    if (p && !p.egg && !p.asleep && !V.anim && now() > V.eatUntil && now() > V.bathUntil && !V.press && !photoPose()) {
+    if (V.drag && p && !p.egg && !p.asleep && !V.anim) {    // holding a berry or the water: it stops and watches your hand
+      V.tx = V.x; V.flip = V.drag.sx < V.x * W;
+    } else if (p && !p.egg && !p.asleep && !V.anim && now() > V.eatUntil && now() > V.bathUntil && !V.press && !photoPose()) {
       if (t > V.nextMove) { V.tx = .22 + Math.random() * .56; V.nextMove = t + 3 + Math.random() * 5; }
       const sad = Game.lowest() < 25;
       const sp = (sad ? .035 : .07) * dt * (p.weight > 50 ? .6 : 1);
@@ -1171,7 +1173,7 @@
     const asleep = !p.egg && p.asleep;
     document.querySelectorAll('#actions button').forEach(b => {
       const a = b.dataset.act;
-      const off = (p.egg && a !== 'dex' && a !== 'party') || (asleep && a === 'explore');
+      const off = (p.egg && a !== 'dex' && a !== 'party' && a !== 'friends') || (asleep && a === 'explore');
       b.classList.toggle('off', off);
       if (b.classList.contains('cur') && performance.now() > curUntil && $('#scrim').classList.contains('hidden') && $('#arena').classList.contains('hidden')) b.classList.remove('cur');
     });
@@ -1230,7 +1232,7 @@
     });
   }
   // fix the dex-grid canvases to stretch
-  const blockedMsg = { egg: 'Hatch the egg first!', asleep: 'Shh… it\'s sleeping. Wake it up first.', busy: 'Not right now.' };
+  const blockedMsg = { egg: 'Hatch the egg first!', asleep: 'Shh… it\'s sleeping. Double-tap it to wake it up.', busy: 'Not right now.' };
   function guard(needAwake = true) {
     const p = Game.pet();
     if (!p || V.anim) return false;
@@ -1365,22 +1367,26 @@ if (!code) {
       <button class="food" data-f="candy">${ic('poffin').replace('class="ic"', 'class="px"')}<span><b>Poffin</b><small>Treat · +12 happy, fattening</small></span></button>
       </div><p class="muted" style="margin-top:12px">${known ? `Its favourite is the ${FLAVORS[s.fav].label} (${FLAVORS[s.fav].taste.toLowerCase()}).` : 'Every Pokémon has a hidden favourite berry. Try them all!'}</p>`);
     wireBagTabs();
-    sheet.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
-      const f = b.dataset.f; closeSheet();
-      const foodBefore = Game.pet().food;
-      if (f === 'candy') {
-        const r = Game.feedCandy(); if (r.error) return;
-        startEat('#ff8fb3', 'poffin');
-        toast(Game.pet().weight > 50 ? 'Yum! …but it\'s getting chubby (sluggish).' : 'Yum! +Happy');
-        Talk.say(Game.pet().weight > 50 ? 'candyHeavy' : 'candy');
-      } else {
-        const r = Game.feedBerry(+f); if (r.error) return;
-        startEat(FLAVORS[+f].color, FLAVORS[+f].icon);
-        const berry = FLAVORS[+f].label;
-        if (r.fav) { addHearts(6); toast(r.first ? `{i:heart} It LOVES ${berry}s! Favourite found.` : '{i:heart} Its favourite!'); Talk.say(r.first ? 'favFirst' : 'fav', { vars: { berry } }); }
-        else { toast('+25 food'); Talk.say(foodBefore >= 90 ? 'berryFull' : 'berry'); }
-      }
-    }));
+    sheet.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => { closeSheet(); feedItem(b.dataset.f); }));
+  }
+  /** give it a berry (index into FLAVORS) or a Poffin ('candy'): from the Feed list or dragged onto it */
+  function feedItem(f) {
+    if (!guard()) return false;
+    const foodBefore = Game.pet().food;
+    if (f === 'candy') {
+      const r = Game.feedCandy(); if (r.error) return false;
+      startEat('#ff8fb3', 'poffin');
+      toast(Game.pet().weight > 50 ? 'Yum! …but it\'s getting chubby (sluggish).' : 'Yum! +Happy');
+      Talk.say(Game.pet().weight > 50 ? 'candyHeavy' : 'candy');
+    } else {
+      const r = Game.feedBerry(+f); if (r.error) return false;
+      startEat(FLAVORS[+f].color, FLAVORS[+f].icon);
+      const berry = FLAVORS[+f].label;
+      if (r.fav) { addHearts(6); toast(r.first ? `{i:heart} It LOVES ${berry}s! Favourite found.` : '{i:heart} Its favourite!'); Talk.say(r.first ? 'favFirst' : 'fav', { vars: { berry } }); }
+      else { toast('+25 food'); Talk.say(foodBefore >= 90 ? 'berryFull' : 'berry'); }
+    }
+    Tour.event('fed');
+    return true;
   }
   function startEat(color, icon) { V.eatUntil = now() + 2500; V.eatColor = color; V.eatIcon = icon; Sound.play('eat'); }
 
@@ -1724,7 +1730,7 @@ if (!code) {
       <label class="toggle"><span><b>Music volume</b><small id="setMusicVolTxt">${S.settings.musicVol == null ? 60 : S.settings.musicVol}%</small></span><input type="range" id="setMusicVol" min="0" max="100" step="5" value="${S.settings.musicVol == null ? 60 : S.settings.musicVol}" style="width:150px;accent-color:#e3350d"></label>
       <label class="toggle"><span><b>Sound effects</b><small>Retro beeps and battle sounds</small></span><span class="sw"><input type="checkbox" id="setSound" ${S.settings.sound ? 'checked' : ''}><i></i></span></label>
       <label class="toggle"><span><b>Sound effects volume</b><small id="setSfxVolTxt">${S.settings.sfxVol == null ? 80 : S.settings.sfxVol}%</small></span><input type="range" id="setSfxVol" min="0" max="100" step="5" value="${S.settings.sfxVol == null ? 80 : S.settings.sfxVol}" style="width:150px;accent-color:#e3350d"></label>
-      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:widget} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="openTour">{i:map} Tutorial</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openEvoGuide">{i:sparkle} Evolution guide</button><button class="btn alt" id="openCredits">{i:credits} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
+      <div class="btns">${Online.state.enabled && Game.feature('codes') ? '<button class="btn gold" id="openCode">{i:sparkle} Redeem a code</button>' : ''}<button class="btn alt" id="openBgs">{i:image} Backgrounds</button><button class="btn alt" id="openOnline">{i:friends} Account &amp; friends</button><button class="btn alt" id="openWidget">{i:widget} Home-screen widget</button>${Install.available() ? '<button class="btn gold" id="openInstall">{i:up} Add to Home Screen</button>' : ''}<button class="btn alt" id="openTour">{i:map} Tutorial</button><button class="btn alt" id="openNewTour">{i:sparkle} What's new tour</button><button class="btn alt" id="howTo">{i:book} How to play</button><button class="btn alt" id="openEvoGuide">{i:sparkle} Evolution guide</button><button class="btn alt" id="openCredits">{i:credits} Credits</button><button class="btn alt" id="openCard">{i:card} Stat card</button>${REMOTE_SPRITES ? '' : '<a class="btn alt" href="dashboard.html" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">{i:wrench} Sprite dashboard</a>'}<button class="btn red" id="resetBtn">Reset game</button></div>
       <p class="muted" style="margin-top:12px">Progress is saved in this browser. Add it to your home screen to play it like an app.</p>
       <p class="muted" style="margin-top:6px;text-align:center;font-size:12px;opacity:.75">Pocket Pals · Version ${esc(String(window.APP_VERSION || '?'))}${window.APP_BUILD ? ' · ' + esc(window.APP_BUILD) : ''}</p>`);
     $('#setSound').addEventListener('change', e => { S.settings.sound = e.target.checked; Game.save(); });
@@ -1737,6 +1743,7 @@ if (!code) {
     $('#setPlayer').addEventListener('input', e => { S.settings.player = e.target.value.slice(0, 14); Game.save(); });
     $('#howTo').addEventListener('click', openManual);
     $('#openTour').addEventListener('click', () => { closeSheet(); Tour.start(); });
+    $('#openNewTour').addEventListener('click', () => { closeSheet(); Tour.start({ only: 'new' }); });
     $('#openCredits').addEventListener('click', openCredits);
     $('#openEvoGuide').addEventListener('click', openEvoGuide);
     if ($('#openInstall')) $('#openInstall').addEventListener('click', () => Install.start(openSettings));
@@ -1973,26 +1980,36 @@ if (!code) {
 
   // ======================= guided tour (new players, and Options → Tutorial) =======================
   // A spotlight walks through the home screen one part at a time. The egg step waits for the egg to hatch.
+  // TOUR_VER goes up when the home screen changes; players who saw an older tour get a short "What's new" tour (isNew steps).
+  const TOUR_VER = 2;
   const Tour = (() => {
     const STEPS = [
+      { newOnly: true, title: 'What\'s new in Pocket Pal', text: () => `Caring for your Pokémon has changed! Let's try it together.<br><br>You'll <b>feed</b> it, <b>wash</b> it and <b>rub</b> it, and see how <b>sleep</b> works now.` },
       { title: 'Welcome to Pocket Pal!', text: () => `You're about to raise your very own Pokémon. It lives in <b>real time</b>, even while the app is closed, so check in on it during the day.<br><br>This quick tour shows you around. It takes about a minute.` },
       { target: '#stage', place: 'top', when: () => Game.pet() && Game.pet().egg, wait: 'hatch', title: 'Hatch your egg',
         text: () => `This is your egg! <b>Tap it 3 times</b> to hatch it.` },
       { target: '#stage', place: 'top', when: () => Game.pet() && !Game.pet().egg, afterHatch: true, title: 'Meet your partner',
         text: () => `This is <b>${esc(petName())}</b>! <b>Tap it</b> to pet it. It walks around, chats with you, and grows <b>1 level every hour</b>.` },
-      { target: '#nameBtn', title: 'Its card', text: () => `Its name, type and level. Tap here any time to see its stats, badges and progress.` },
+      { target: '#nameBtn', title: 'Its card', text: () => `Its name, type and level. Tap here any time to see its stats, badges and progress.<br><br>Pokémon can grow up to <b>Lv ${Game.LEVEL_CAP}</b>.` },
       { target: '#bars', title: 'Its 4 needs', text: () => `<b>Food</b>, <b>Happy</b>, <b>Energy</b> and <b>Hygiene</b> slowly go down over time. Keep them up!<br><br>If one drops to 10 or less, that's a <b>slip-up</b>, and evolving takes longer.` },
-      { target: '[data-act="care"]', title: 'Care', text: () => `Feed it berries, give it a bath, and put it to bed when it's tired.<br><br>Every Pokémon has a hidden <b>favourite berry</b>. Try them all!` },
+      { target: '#quickCare', isNew: true, handson: true, afterHatch: true, when: () => Game.pet() && !Game.pet().egg && !Game.pet().asleep, wait: 'fed', skippable: true, done: 'Yum! {i:heart}', waitText: 'Waiting for you to feed it…', title: 'Feed it',
+        text: () => `Tap <b>Feed</b> (top left) to open your berries. Then <b>hold a berry</b> and drag it onto <b>${esc(petName())}</b>.<br><br>It jumps when it sees food, and eats it when you let go on it. Every Pokémon has a hidden <b>favourite berry</b>!` },
+      { target: '#washBtn', isNew: true, handson: true, afterHatch: true, when: () => Game.pet() && !Game.pet().egg, wait: 'washed', skippable: true, done: 'Squeaky clean! {i:sparkle}', waitText: 'Waiting for you to wash it…', title: 'Wash it',
+        text: () => `<b>Hold the Water</b> and drag it onto ${esc(petName())} to wash it. It cleans up any poop too and fills <b>Hygiene</b>.` },
+      { target: '#stage', place: 'top', isNew: true, handson: true, afterHatch: true, when: () => Game.pet() && !Game.pet().egg && !Game.pet().asleep, wait: 'rubbed', skippable: true, done: 'It loves you! {i:heart}', waitText: 'Waiting for you to rub it…', title: 'Rub it',
+        text: () => `Put your finger on ${esc(petName())} and <b>move it back and forth</b> to rub it.<br><br>You get <b>${Game.RUBS_PER_DAY} rubs a day</b>, and each one builds your bond.` },
+      { target: '#bars [data-k="ene"]', isNew: true, title: 'Sleep', text: () => `When <b>Energy</b> drops below ${Game.AUTO_SLEEP}, it gets tired and <b>falls asleep by itself</b>.<br><br>While it sleeps, <b>double-tap it</b> to wake it up.` },
       { target: '[data-act="bag"]', title: 'Bag', text: () => `Your items and the <b>Poké Mart</b>. Potions heal in dungeons, balls help you catch, and treasure sells for Pokécoins.${Game.itemCount('mysteryEgg') ? '<br><br>{i:egg_legend_0} There\'s a <b>bonus Mystery Egg</b> waiting in there!' : ''}` },
       { target: '[data-act="explore"]', title: 'Explore', text: () => `Go on adventures!<br>• <b>Dungeons</b>: battle wild Pokémon, find treasure, and try to catch the boss at the bottom.<br>• <b>Training</b>: mini-games that make it stronger.<br><br>Both use some energy.` },
       { target: '[data-act="party"]', title: 'Party', text: () => `Keep up to 6 Pokémon. Choose which one is your main, bring a Backup when exploring, and store extras in the PC Box.` },
       { target: '[data-act="dex"]', title: 'Pokédex', text: () => `Every Pokémon you hatch, catch or evolve is recorded here. Can you collect them all, shinies too?` },
-      { target: '#friendsBtn', title: 'Friends', text: () => `Sign in to save your progress online, add friends, trade Pokémon, and borrow a friend's Pokémon for exploring.` },
-      { target: '#settingsBtn', title: 'Options', text: () => `Sound, backgrounds, <b>How to play</b>, and this tour again, any time.` },
+      { target: '#friendsBtn', isNew: true, title: 'Friends', text: () => `${newMode ? 'Friends has moved down here, where Care used to be. ' : ''}Sign in to save your progress online, add friends, trade Pokémon, and borrow a friend's Pokémon for exploring.` },
+      { target: '#settingsBtn', isNew: true, title: 'Options', text: () => `Sound, backgrounds, <b>How to play</b>, and this tour again, any time.` },
       { target: '#mailBtn', title: 'Updates', text: () => `News and new features arrive here. When the envelope glows, there's something new to read.` },
+      { newOnly: true, title: 'That\'s everything new!', text: () => `Have fun with ${Game.pet() && !Game.pet().egg ? `<b>${esc(petName())}</b>` : 'your Pokémon'}!<br><br>You can replay the full tour any time from <b>Options → Tutorial</b>.`, last: true },
       { title: 'You\'re all set!', text: () => `Take good care of ${Game.pet() && !Game.pet().egg ? `<b>${esc(petName())}</b>` : 'your Pokémon'}!<br><br>Tip: swipe <b>← →</b> for the Pokédex, <b>↑</b> for its card and <b>↓</b> for Options.`, last: true },
     ];
-    let root = null, hole = null, card = null, blocker = null, list = [], i = 0, raf = 0, onEnd = null, waiting = false;
+    let root = null, hole = null, card = null, blocker = null, list = [], i = 0, raf = 0, onEnd = null, waiting = false, newMode = false;
     function build() {
       root = document.createElement('div'); root.id = 'tour';
       root.innerHTML = '<div class="tr-block"></div><div class="tr-hole"></div><div class="tr-card" role="dialog" aria-live="polite"></div>';
@@ -2023,13 +2040,15 @@ if (!code) {
       const st = list[i];
       waiting = !!st.wait;
       root.classList.toggle('dim', !st.target);
+      root.classList.toggle('handson', !!st.handson);
       blocker.style.pointerEvents = waiting ? 'none' : 'auto';          // the egg step lets your taps through
       const dots = list.map((_, k) => `<i class="${k === i ? 'on' : k < i ? 'done' : ''}"></i>`).join('');
       card.innerHTML = icons(`<div class="tr-dots">${dots}</div><h3>${st.title}</h3><p>${st.text()}</p>
-        ${waiting ? '<div class="tr-wait"><span class="tr-tap"></span>Waiting for you to tap the egg…</div>' : ''}
+        ${waiting ? `<div class="tr-wait"><span class="tr-tap"></span>${st.waitText || 'Waiting for you to tap the egg…'}</div>` : ''}
         <div class="tr-btns">${st.last ? '' : '<button class="tr-skip" data-tr="skip">Skip tour</button>'}<span class="tr-sp"></span>
         ${i > 0 && !waiting && !st.last ? '<button class="btn alt" data-tr="back">Back</button>' : ''}
-        ${waiting ? '' : `<button class="btn red" data-tr="next">${st.last ? 'Let\'s play!' : i === 0 ? 'Show me around' : 'Next'}</button>`}</div>`);
+        ${waiting && st.skippable ? '<button class="btn alt" data-tr="next">Skip step</button>' : ''}
+        ${waiting ? '' : `<button class="btn red" data-tr="next">${st.last ? 'Let\'s play!' : i === 0 ? (newMode ? 'Let\'s go' : 'Show me around') : 'Next'}</button>`}</div>`);
       card.querySelectorAll('[data-tr]').forEach(b => b.addEventListener('click', () => {
         Sound.play('tap');
         const a = b.dataset.tr;
@@ -2049,29 +2068,41 @@ if (!code) {
       closeSheet(); Talk.clear();
       onEnd = opts.onEnd || null;
       const egg = Game.pet() && Game.pet().egg;
-      list = STEPS.filter(st => !st.when || st.when() || (st.afterHatch && egg)); build();   // only the steps that will show
+      newMode = opts.only === 'new';
+      // the full tour, or (for players who've seen it) just what's new; only the steps that will show
+      list = STEPS.filter(st => (newMode ? st.isNew || st.newOnly : !st.newOnly) && (!st.when || st.when() || (st.afterHatch && egg))); build();
       go(0); cancelAnimationFrame(raf); place();
     }
     function finish() {
       if (!root) return;
       cancelAnimationFrame(raf); root.remove(); root = null;
-      ST().settings.tourSeen = true; Game.save();
+      ST().settings.tourSeen = true; ST().settings.tourVer = TOUR_VER; Game.save();
       const f = onEnd; onEnd = null; if (f) f();
     }
     /** game events: the hatch finishes the egg step */
     function event(ev) {
       if (!root || !waiting || list[i].wait !== ev) return;
-      waiting = false; card.innerHTML = icons(`<h3>It hatched! {i:sparkle}</h3><p>Say hello to your new partner!</p>`);
-      setTimeout(() => { if (root) go(i + 1); }, 2600);
+      waiting = false;
+      const st = list[i];
+      card.innerHTML = icons(st.done ? `<h3>${st.done}</h3><p>Nice work!</p>` : `<h3>It hatched! {i:sparkle}</h3><p>Say hello to your new partner!</p>`);
+      setTimeout(() => { if (root && list[i] === st) go(i + 1); }, st.done ? 1600 : 2600);
     }
     return { start, event, active: () => !!root };
   })();
   /** existing players who never saw the tour: offer it once, when nothing else is on screen */
   function offerTour() {
-    if (ST().settings.tourSeen || !ST().player.starterPicked || Tour.active()) return;
+    const set = ST().settings;
+    if (!ST().player.starterPicked || Tour.active()) return;
+    if (set.tourSeen && (set.tourVer || 1) >= TOUR_VER) return;
     if (!sheet.classList.contains('hidden') || !arena.classList.contains('hidden') || V.photo || V.visit) return setTimeout(offerTour, 8000);
+    if (set.tourSeen) {          // they know the game: show just what changed
+      return dialog('New ways to care for your Pokémon', `Feeding, washing and sleep work differently now, and you can rub your Pokémon to build your bond. Want a quick hands-on look?`, [
+        { label: 'Not now', cls: 'alt', fn: () => { set.tourVer = TOUR_VER; Game.save(); } },
+        { label: 'Show me', cls: 'red', fn: () => Tour.start({ only: 'new' }) },
+      ]);
+    }
     dialog('New: a quick tour', 'Want a one-minute tour of Pocket Pal? It shows what every button does. You can always find it later in Options → Tutorial.', [
-      { label: 'Not now', cls: 'alt', fn: () => { ST().settings.tourSeen = true; Game.save(); } },
+      { label: 'Not now', cls: 'alt', fn: () => { ST().settings.tourSeen = true; ST().settings.tourVer = TOUR_VER; Game.save(); } },
       { label: 'Show me', cls: 'red', fn: () => Tour.start() },
     ]);
   }
@@ -2081,13 +2112,13 @@ if (!code) {
     openSheet(head('How to play') + `<div class="manual">
       <p class="mintro">Raise a Pokémon that lives on your phone in real time. Keep it happy, help it grow and evolve, explore dungeons, and fill your Pokédex.</p>
       <div class="btns" style="margin:0 0 14px"><button class="btn red" id="manTour">{i:map} Take the guided tour</button></div>
-      ${sec('egg_legend_0', 'Getting started', `<ul><li>Pick a starter. It arrives as an egg: <b>tap it 3 times</b> to hatch it.</li><li>Your Pokémon lives in real time. It keeps going while the app is closed (up to 2 weeks).</li><li>It grows <b>1 level every hour</b>.</li></ul>`)}
-      ${sec('heart', 'Keeping it happy', `<ul><li>It has 4 needs: <b>Food, Happy, Energy, Hygiene</b>. They slowly go down.</li><li>{i:pecha} <b>Care → Feed</b>: berries fill it up. One is its hidden favourite (extra food, happiness and bond).</li><li>{i:bath} <b>Bath</b> cleans it and its poops. {i:sleep} <b>Sleep</b> restores energy.</li><li>{i:hand} <b>Tap it</b> to pet it and build your bond.</li><li>{i:warning} If a need drops to 10 or less, that's a <b>slip-up</b>: evolving takes a level longer.</li></ul>`)}
+      ${sec('egg_legend_0', 'Getting started', `<ul><li>Pick a starter. It arrives as an egg: <b>tap it 3 times</b> to hatch it.</li><li>Your Pokémon lives in real time. It keeps going while the app is closed (up to 2 weeks).</li><li>It grows <b>1 level every hour</b>, up to <b>Lv ${Game.LEVEL_CAP}</b>.</li></ul>`)}
+      ${sec('heart', 'Keeping it happy', `<ul><li>It has 4 needs: <b>Food, Happy, Energy, Hygiene</b>. They slowly go down.</li><li>{i:pecha} <b>Feed</b> (top left): tap it, then <b>hold a berry and drag it onto your Pokémon</b>. One berry is its hidden favourite (extra food, happiness and bond).</li><li>{i:bath} <b>Water</b>: hold it and drag it onto your Pokémon to wash it and clean up its poops.</li><li>{i:sleep} It <b>falls asleep by itself</b> when Energy drops below ${Game.AUTO_SLEEP}. <b>Double-tap it</b> to wake it up.</li><li>{i:hand} <b>Tap it</b> to pet it. <b>Rub it</b> (finger back and forth) up to ${Game.RUBS_PER_DAY} times a day to build your bond.</li><li>{i:warning} If a need drops to 10 or less, that's a <b>slip-up</b>: evolving takes a level longer.</li></ul>`)}
       ${sec('up', 'Growing and evolving', `<ul><li>When it reaches its evolution level and every need is at least 40, an <b>Evolve</b> button appears. You choose to evolve or stay as you are.</li><li>Some Pokémon evolve with an item from the Bag instead, or at a certain time of day.</li><li>{i:sword} <b>Training</b> mini-games raise ATTACK, DEFENCE and SPEED.</li></ul>`)}
       ${sec('map', 'Exploring dungeons', `<ul><li><b>Explore → Explore a dungeon</b>, then choose a map. Each map has its own Pokémon types and a rare legendary.</li><li>Pick a <b>Main</b> and a <b>Backup</b>. If your Main faints, the Backup jumps in.</li><li>Each floor can hold a wild battle, treasure, or nothing. Go deeper, or head home whenever you like.</li><li>Beat the <b>boss</b> on the last floor, then spin the catch wheel for one throw to catch it.</li><li>{i:oran} Only items in your Bag can be used in a dungeon, so pack Potions before you go!</li></ul>`)}
       ${sec('pokeball', 'Your team and the Pokédex', `<ul><li><b>Party</b>: up to 6 Pokémon. Tap one to make it your main or move it to the PC Box.</li><li><b>Pokédex</b>: everything you hatch, catch or evolve is recorded here.</li><li>Raise your main to Lv ${Game.NEW_EGG_LEVEL} to get a new egg.</li></ul>`)}
       ${sec('coin', 'Bag and Poké Mart', `<ul><li>Treasure from dungeons sells for <b>Pokécoins</b>.</li><li>Spend them on Potions, balls, evolution items and backgrounds.</li><li>{i:egg_legend_0} A <b>Mystery Egg</b> hatches into a random Pokémon.</li></ul>`)}
-      ${sec('friends', 'Friends', `<ul><li>Sign in (top right) to save online and play on any device.</li><li>Add friends, trade Pokémon, and lend each other a Pokémon for exploring.</li></ul>`)}
+      ${sec('friends', 'Friends', `<ul><li>Tap <b>Friends</b> in the bottom bar and sign in to save online and play on any device.</li><li>Add friends, trade Pokémon, and lend each other a Pokémon for exploring.</li></ul>`)}
       ${sec('sparkle', 'Shinies and legendaries', `<ul><li>Shiny Pokémon are rare colour variants. Daily care streaks and a strong bond make shiny eggs more likely.</li><li>Legendaries appear very rarely as dungeon bosses. Didn't catch one? It leaves a <b>fragment</b>; collect ${Game.FRAGMENTS_TO_SUMMON} to summon it.</li></ul>`)}
       ${sec('hand', 'Gestures', `<ul><li>Swipe <b>← →</b>: Pokédex · <b>↑</b>: its card · <b>↓</b>: Options.</li><li>Hold your finger on your Pokémon for 3 seconds to say goodbye (release it).</li></ul>`)}
       </div>`);
@@ -2103,22 +2134,50 @@ if (!code) {
   }
   let pressTimer = null;
   stage.addEventListener('pointerdown', e => {
-    if (V.photo || V.visit || e.target.closest('#cerBtns button, #mailBtn, #sceneUi')) return;
+    if (V.photo || V.visit || e.target.closest('#cerBtns button, #mailBtn, #sceneUi, #quickCare')) return;
+    QC.closeTray();
     const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     const onPet = hitPet(x, y);
     const p = Game.pet();
-    V.press = { x, y, t0: now(), onPet: onPet && p && !p.egg && !V.anim, id: e.pointerId };
+    V.press = { x, y, t0: now(), onPet: onPet && p && !p.egg && !V.anim, id: e.pointerId, rub: onPet && p && !p.egg && !V.anim ? { lx: x, dir: 0, flips: 0, run: 0 } : null };
     if (V.press.onPet) pressTimer = setTimeout(() => { V.press = null; askRelease(); }, 3000);
   });
   stage.addEventListener('pointermove', e => {
     if (!V.press) return;
     const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     if (Math.hypot(x - V.press.x, y - V.press.y) > 14 && pressTimer) { clearTimeout(pressTimer); pressTimer = null; V.press.onPet = false; }
+    // rubbing: the finger goes back and forth across it (a few changes of direction) = one rub
+    const R = V.press.rub;
+    if (R && hitPet(x, y)) {
+      const dx = x - R.lx;
+      if (Math.abs(dx) >= 6) {
+        const d = Math.sign(dx);
+        if (R.dir && d !== R.dir) R.flips++;
+        R.dir = d; R.run += Math.abs(dx); R.lx = x;
+        if (R.flips >= 3 && R.run > 110) { R.flips = 0; R.run = 0; V.press.rubbed = true; doRub(x, y); }
+      }
+    }
   });
+  let rubFullShown = false;
+  function doRub(x, y) {
+    const p = Game.pet(); if (!p || p.egg) return;
+    if (p.asleep) { if (!rubFullShown) { rubFullShown = true; toast('Shh… it\'s sleeping. Double-tap it to wake it up.'); } return; }
+    const r = Game.rub();
+    if (r.error === 'max') { if (!rubFullShown) { rubFullShown = true; toast(`{i:heart} ${petName()} loved the rubs! You can rub it again tomorrow.`); } return; }
+    if (r.error) return;
+    addHearts(5); Sound.play('pet'); V.hopAt = now(); V.blinkUntil = now() / 1000 + .4;
+    for (let i = 0; i < 6; i++) V.fx.push({ kind: 'spark', x: x + (Math.random() - .5) * 40, y: y + (Math.random() - .5) * 30, vx: (Math.random() - .5) * 80, vy: -40 - Math.random() * 40, life: .7, age: 0, col: '#ffd86b' });
+    toast(r.left ? `{i:heart} Bond up! ${r.left} rub${r.left > 1 ? 's' : ''} left today` : '{i:heart} Bond up! That was the last rub for today');
+    if (Math.random() < .7) Talk.say('pet');
+    Tour.event('rubbed');
+  }
+  let sleepTapAt = 0, sleepTapTimer = null, sleepHintAt = 0;
   const endPress = e => {
     if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
     const P = V.press; V.press = null;
+    rubFullShown = false;
     if (!P || V.anim || V.photo || V.visit || !ST().player.starterPicked) return;
+    if (P.rubbed) return;               // that was a rub, not a tap or a swipe
     const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     const dx = x - P.x, dy = y - P.y;
     if (Math.max(Math.abs(dx), Math.abs(dy)) > 50) {
@@ -2136,7 +2195,21 @@ if (!code) {
         V.eggWobbleUntil = now() + 400; Sound.play('tap');
         const r2 = Game.eggTap();
         if (r2 !== 'hatched') Talk.say('eggTap'); // hatching itself is handled by the 'hatch' event
-      } else if (p.asleep) { Talk.say('petAsleep'); }
+      } else if (p.asleep) {
+        // double-tap a sleeping Pokémon to wake it up (one tap just checks on it)
+        if (now() - sleepTapAt < 380) {
+          clearTimeout(sleepTapTimer); sleepTapAt = 0;
+          const r = Game.wake();
+          if (!r.error) { Sound.play('wake'); V.hopAt = now(); Talk.say(Game.pet().ene < 50 ? 'wakeTired' : 'wake'); }
+        } else {
+          sleepTapAt = now();
+          clearTimeout(sleepTapTimer);
+          sleepTapTimer = setTimeout(() => {
+            Talk.say('petAsleep');
+            if (now() - sleepHintAt > 8000) { sleepHintAt = now(); toast('Double-tap it to wake it up'); }
+          }, 400);
+        }
+      }
       else {
         const sad = Game.lowest() < 25;
         const r3 = Game.caress();
@@ -2145,7 +2218,7 @@ if (!code) {
     } else {
       const p = Game.pet();
       if (p && !p.egg && p.poops) {
-        for (let i = 0; i < p.poops; i++) if (Math.abs(x - POOP_X[i] * W) < 30 && Math.abs(y - feetY()) < 50) { toast('Eww! Give it a bath {i:bath}'); break; }
+        for (let i = 0; i < p.poops; i++) if (Math.abs(x - POOP_X[i] * W) < 30 && Math.abs(y - feetY()) < 50) { toast('Eww! Drag the water onto it to clean up {i:bath}'); break; }
       }
     }
   };
@@ -2165,43 +2238,96 @@ if (!code) {
     if (!ST().player.starterPicked) return;
     if (!b.classList.contains('off')) { document.querySelectorAll('#actions button.cur').forEach(x => x.classList.remove('cur')); b.classList.add('cur'); curUntil = performance.now() + 700; }
     const a = b.dataset.act;
+    if (a === 'friends') return;        // its own listener (it also works before you pick a starter)
     if (a === 'dex') return openDex();
     if (a === 'party') return openParty();
     if (V.anim) return;
     if (a === 'bag') { if (!guard(false)) return; return openFeed('items'); }
-    if (a === 'care') return openCare();
     if (a === 'explore') return openAdventure();
   }));
   function doBath() {
     if (!guard(false)) return;
-    if (now() < V.bathUntil) return;
+    if (now() < V.bathUntil) return false;
     V.bathUntil = now() + 2400; Sound.play('bath');
     const stinky = Game.pet().poops >= 2 || Game.pet().hyg < 30;
     setTimeout(() => { Game.clean(); if (!Game.pet().asleep) Talk.say(stinky ? 'bathStinky' : 'bath'); }, 1800);
-  }
-  function doLight() {
-    if (!guard(false)) return;
-    const r = Game.toggleSleep(); if (r.error) return;
-    Sound.play(r.asleep ? 'sleep' : 'wake');
-    Talk.say(r.asleep ? 'sleep' : Game.pet().ene < 50 ? 'wakeTired' : 'wake');
+    return true;
   }
   const optCard = (data, icon, title, desc, off) => `<button class="food${off ? ' dim' : ''}" ${data} style="grid-column:1/-1">${ic(icon).replace('class="ic"', 'class="px"')}<span><b>${title}</b><small>${desc}</small></span></button>`;
-  // ---------- Care: feed, bath and sleep in one place ----------
-  function openCare() {
-    if (!guard(false)) return;
-    const p = Game.pet(), asleep = p.asleep, v = k => Math.round(p[k]);
-    openSheet(head('Care') + `<div class="foods">
-      ${optCard('data-care="feed"', 'oran', 'Feed', asleep ? 'It\'s asleep — wake it up first' : `Berries &amp; Poffins · Food ${v('food')}`, asleep)}
-      ${optCard('data-care="bath"', 'bath', 'Bath', `Wash up and clean the area · Hygiene ${v('hyg')}`)}
-      ${optCard('data-care="light"', asleep ? 'wake' : 'sleep', asleep ? 'Wake up' : 'Sleep', asleep ? `Rise and shine · Energy ${v('ene')}` : `Lights out to refill energy · Energy ${v('ene')}`)}
-      </div>`);
-    sheet.querySelectorAll('[data-care]').forEach(b => b.addEventListener('click', () => {
-      const a = b.dataset.care;
-      if (a === 'feed') { if (Game.pet().asleep) { toast(blockedMsg.asleep); Sound.play('no'); return; } return openFeed('berries'); }
-      closeSheet();
-      if (a === 'bath') doBath(); else doLight();
-    }));
-  }
+  // ======================= quick care: drag a berry or the water onto your Pokémon =======================
+  // Top-left of the scene. Feed opens a tray of berries: hold one and drag it onto your Pokémon (it hops
+  // excitedly while you hold food, then eats it when you let go on it). Water is held and dragged on the same way.
+  const QC = (() => {
+    const tray = $('#feedTray'), ghost = $('#dragGhost'), feedBtn = $('#feedBtn'), washBtn = $('#washBtn');
+    document.body.appendChild(ghost);                     // fixed position, above everything
+    const WATER = washBtn.querySelector('svg').outerHTML;
+    const pxIc = n => ic(n).replace('class="ic"', 'class="px"');
+    let trayTimer = null;
+    function closeTray() { tray.classList.add('hidden'); feedBtn.classList.remove('on'); clearTimeout(trayTimer); }
+    function bumpTray() { clearTimeout(trayTimer); trayTimer = setTimeout(() => { if (!V.drag) closeTray(); }, 12000); }
+    function openTray() {
+      if (!ST().player.starterPicked || !guard()) return;
+      const p = Game.pet(), s = Game.sp(), favI = p.berryKnown ? s.fav : -1;
+      tray.innerHTML = icons(FLAVORS.map((f, i) => `<button class="tb" data-f="${i}" aria-label="${f.label}">${pxIc(f.icon)}<small>${f.label.split(' ')[0]}</small>${favI === i ? '<span class="fav">{i:heart}</span>' : ''}</button>`).join('')
+        + `<button class="tb" data-f="candy" aria-label="Poffin">${pxIc('poffin')}<small>Poffin</small></button>`);
+      tray.classList.remove('hidden'); feedBtn.classList.add('on');
+      tray.querySelectorAll('[data-f]').forEach(b => b.addEventListener('pointerdown', e => startDrag(e, 'food', b)));
+      if ((ST().settings.dragFeeds || 0) < 2) toast(`Hold a berry and drag it onto ${petName()}!`);
+      bumpTray();
+    }
+    feedBtn.addEventListener('click', () => {
+      Sound.play('tap');
+      if (!tray.classList.contains('hidden')) return closeTray();
+      openTray();
+    });
+    washBtn.addEventListener('pointerdown', e => startDrag(e, 'water', washBtn));
+    washBtn.addEventListener('click', e => e.preventDefault());
+
+    const overPet = (cX, cY) => { const r = stage.getBoundingClientRect(); return hitPet(cX - r.left, cY - r.top); };
+    function moveGhost(x, y) { ghost.style.left = x + 'px'; ghost.style.top = y + 'px'; if (V.drag) V.drag.sx = x - stage.getBoundingClientRect().left; }
+    function startDrag(e, kind, el) {
+      if ((e.button || 0) > 0 || V.drag || V.photo || V.visit) return;
+      e.preventDefault(); e.stopPropagation();
+      if (!ST().player.starterPicked || !(kind === 'food' ? guard() : guard(false))) return;
+      const f = kind === 'food' ? el.dataset.f : null;
+      V.drag = { kind, f, el, id: e.pointerId, x0: e.clientX, y0: e.clientY, moved: false, sx: 0, hopNext: 0 };
+      ghost.className = kind === 'water' ? 'water' : '';
+      ghost.innerHTML = kind === 'water' ? WATER : pxIc(f === 'candy' ? 'poffin' : FLAVORS[+f].icon);
+      moveGhost(e.clientX, e.clientY); el.classList.add('lifted');
+      clearTimeout(trayTimer); Sound.play('tap');
+    }
+    window.addEventListener('pointermove', e => {
+      const d = V.drag; if (!d || e.pointerId !== d.id) return;
+      if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 10) d.moved = true;
+      moveGhost(e.clientX, e.clientY);
+      ghost.classList.toggle('over', overPet(e.clientX, e.clientY));
+    });
+    function endDrag(e, cancelled) {
+      const d = V.drag; if (!d || e.pointerId !== d.id) return;
+      V.drag = null; d.el.classList.remove('lifted'); ghost.className = 'hidden';
+      if (!cancelled && overPet(e.clientX, e.clientY)) {
+        if (d.kind === 'water') { if (doBath()) Tour.event('washed'); }
+        else if (feedItem(d.f)) { ST().settings.dragFeeds = (ST().settings.dragFeeds || 0) + 1; Game.save(); }
+      } else if (!cancelled && !d.moved) {
+        toast(d.kind === 'water' ? `Hold the water and drag it onto ${petName()} to wash it {i:bath}` : `Hold it and drag it onto ${petName()}`);
+      }
+      if (d.kind === 'food') bumpTray();
+    }
+    window.addEventListener('pointerup', e => endDrag(e, false));
+    window.addEventListener('pointercancel', e => endDrag(e, true));
+    /** every frame: while you hold food it can't stop jumping; the buttons dim when they can't be used */
+    function step(ms) {
+      const p = Game.pet(), d = V.drag;
+      if (d && d.kind === 'food' && p && !p.egg && !p.asleep && !V.anim && ms > d.hopNext) {
+        V.hopAt = ms; d.hopNext = ms + Math.max(.45, animLength(p.sp, 'Hop')) * 1000 + 120;
+      }
+      const noPet = !p || p.egg || !ST().player.starterPicked;
+      feedBtn.classList.toggle('off', noPet || !!p.asleep);
+      washBtn.classList.toggle('off', noPet);
+      if ((noPet || p.asleep) && !tray.classList.contains('hidden') && !d) closeTray();
+    }
+    return { closeTray, step, dragging: () => !!V.drag };
+  })();
   // ---------- Explore: dungeon or training ----------
   function openAdventure() {
     if (!guard()) return;
@@ -3962,6 +4088,8 @@ if (!code) {
   }
 
   // ======================= game events =======================
+  // it won't doze off in the middle of a dungeon, a mini-game, a visit, a photo or an evolution
+  Game.setSleepHold(() => !!arenaGame || !!V.anim || !!V.photo || !!V.visit || !!V.drag);
   Game.on((ev, d) => {
     if (ev === 'config') { setTimeout(showAnnouncement, 1500); updateMailDot(); return; }
     if (ev === 'level') { toast(`{i:up} Level up! Lv ${d}`); Sound.play('level'); if (!Game.pet().asleep) Talk.say('level', { vars: { lv: d } }); }
@@ -3971,6 +4099,10 @@ if (!code) {
     else if (ev === 'slip') { toast('{i:warning} Slip-up! A need hit rock bottom — evolution delayed.', 3500); Sound.play('sad'); Talk.say('slip', { prio: 2 }); }
     else if (ev === 'def') { toast('{i:shield} 12 h of great care: DEF +1'); }
     else if (ev === 'hatch') { onHatched(); Tour.event('hatch'); }
+    else if (ev === 'autosleep') {
+      Sound.play('sleep'); Talk.clear();
+      toast(`{i:sleep} ${petName()} was worn out and fell asleep. Double-tap it to wake it up.`, 4500);
+    }
     else if (ev === 'away') {
       const a = d.before, b = d.after;
       let msg = `While you were away (${fmtDur(d.minutes)})`;
@@ -4044,7 +4176,7 @@ if (!code) {
       // what it could evolve into: just the idle pose (for the evolution animation), a little later
       const evoTo = [...new Set(Game.evoMethods(cp.sp).map(m => m.to))];
       setTimeout(() => evoTo.forEach(n => preloadSpecies(n, cp.shiny, ['Idle'])), 4000); }
-    if (!arenaGame) { stepView(t, dt); draw(t, ms); }
+    if (!arenaGame) { stepView(t, dt); draw(t, ms); QC.step(ms); }
     if (ms - hudAt > 250) { hudAt = ms; hud(); chatter(ms); }
   }
   // show (once) what went wrong, so it can be reported — the game keeps running regardless

@@ -500,7 +500,7 @@ const spName = id => (SP[id] ? SP[id].name : `#${id}`);
 const collab = id => SP[id] && SP[id].of ? `${pad(SP[id].of)}/${SP[id].fr}` : pad(id);
 const face = (id, shiny) => `https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/portrait/${collab(id)}/${shiny ? (SP[id] && SP[id].of ? '0001/' : '0000/0001/') : ''}Normal.png`;
 const dexNo = id => pad(SP[id] && SP[id].of ? SP[id].of : id);
-const lvOf = m => 1 + Math.floor((m.ageMin || 0) / MIN_PER_LEVEL);
+const lvOf = m => Math.min(100, 1 + Math.floor((m.ageMin || 0) / MIN_PER_LEVEL));   // the game caps levels at 100
 function toast(msg, ms = 2800) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
 const status = html => { $('#status').hidden = !html; $('#status').innerHTML = html || ''; };
 $('#spList').innerHTML = Object.values(SP).map(s => `<option value="${pad(s.id)} ${esc(s.name)}">`).join('');

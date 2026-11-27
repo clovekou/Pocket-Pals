@@ -15,6 +15,11 @@ const MEDALS = [
 const Game = (() => {
   const SAVE_KEY = typeof window !== 'undefined' && window.PP_PREVIEW ? 'pocketpal.preview.v1' : 'pocketpal.save.v1';
   const MIN_PER_LEVEL = 60;
+  const LEVEL_CAP = 100;                // highest level a Pokémon can reach
+  const AUTO_SLEEP = 30;                // energy below this: it falls asleep by itself
+  const WAKE_GRACE = 30;                // minutes it stays up after you wake it, even when tired
+  const RUBS_PER_DAY = 3;               // rubs that build the bond each day
+  const lvOf = ageMin => Math.min(LEVEL_CAP, 1 + Math.floor((ageMin || 0) / MIN_PER_LEVEL));
   const FAREWELL_AGE = 3 * 24 * 60;     // final form + 3 days
   const RUNAWAY_TICKS = 60;             // all four stats at 0 for 1 h
   const OFFLINE_CAP = 14 * 24 * 60;     // catch up at most 2 weeks
@@ -161,7 +166,7 @@ const Game = (() => {
   const msPerMin = () => (S.settings.fast ? 1000 : 60000);
   const pet = () => S.pet;
   const sp = () => (S.pet ? SPECIES_BY_ID[S.pet.sp] : null);
-  const level = () => (S.pet && !S.pet.egg ? 1 + Math.floor(S.pet.ageMin / MIN_PER_LEVEL) : 0);
+  const level = () => (S.pet && !S.pet.egg ? lvOf(S.pet.ageMin) : 0);
   const lowest = () => { const p = S.pet; return Math.min(p.food, p.joy, p.ene, p.hyg); };
   const isFinal = id => SPECIES_BY_ID[id].next.length === 0;
   const registered = id => !!S.player.dex[id];
@@ -217,7 +222,7 @@ const Game = (() => {
     const p = S.pet; if (!p) return;
     p.ageMin++;
     if (p.egg) { if (p.ageMin >= EGG_AUTO_HATCH) hatch(); return; }
-    const levelUp = p.ageMin % MIN_PER_LEVEL === 0;
+    const levelUp = p.ageMin % MIN_PER_LEVEL === 0 && p.ageMin <= (LEVEL_CAP - 1) * MIN_PER_LEVEL;   // no level-ups past the cap
 
     if (p.asleep) {
       p.ene = clamp(p.ene + 6); restMins++;
@@ -255,7 +260,15 @@ const Game = (() => {
 
     if (p.food === 0 && p.joy === 0 && p.ene === 0 && p.hyg === 0) { if (p.neglect < RUNAWAY_TICKS) p.neglect++; }
     else p.neglect = 0;
+
+    // worn out: it dozes off by itself (not mid-adventure, and not straight after you woke it up)
+    if (p.ene < AUTO_SLEEP && !S.ceremony && !sleepHold() && (p.wokeAtMin == null || p.ageMin - p.wokeAtMin >= WAKE_GRACE)) {
+      p.asleep = true; emit('autosleep');
+    }
   }
+  let sleepHold = () => false;
+  /** the UI says when it mustn't nod off (a dungeon or mini-game is running, a visit, a photo) */
+  function setSleepHold(f) { sleepHold = typeof f === 'function' ? f : () => false; }
 
   // ---------------- eggs ----------------
   function careBonus() {
@@ -424,9 +437,32 @@ const Game = (() => {
   }
   function toggleSleep() {
     const b = blocked(false); if (b) return { error: b };
-    S.pet.asleep = !S.pet.asleep; save(); emit('change');
+    S.pet.asleep = !S.pet.asleep;
+    if (!S.pet.asleep) S.pet.wokeAtMin = S.pet.ageMin;
+    save(); emit('change');
     return { asleep: S.pet.asleep };
   }
+  /** double-tap a sleeping Pokémon: it wakes up (and stays up a while even if it's still tired) */
+  function wake() {
+    const b = blocked(false); if (b) return { error: b };
+    const p = S.pet; if (!p.asleep) return { error: 'awake' };
+    p.asleep = false; p.wokeAtMin = p.ageMin;
+    save(); emit('change');
+    return { ok: true };
+  }
+  /** rub it (finger back and forth): up to RUBS_PER_DAY a day, each one builds the bond */
+  function rub() {
+    const b = blocked(); if (b) return { error: b };
+    const p = S.pet, d = dayNum();
+    if (p.rubDay !== d) { p.rubDay = d; p.rubs = 0; }
+    if (p.rubs >= RUBS_PER_DAY) return { error: 'max', left: 0 };
+    registerCare();
+    p.rubs++;
+    p.bond = clamp(p.bond + 2);              // its own daily limit, so it always counts
+    p.joy = clamp(p.joy + 4);
+    afterCare(); return { ok: true, left: RUBS_PER_DAY - p.rubs };
+  }
+  function rubsLeft() { const p = S.pet; if (!p || p.egg) return 0; return p.rubDay === dayNum() ? Math.max(0, RUBS_PER_DAY - (p.rubs || 0)) : RUBS_PER_DAY; }
   /** player left (phone locked, app switched or closed): settle the time so far, then it dozes off straight away */
   function sleepNow() {
     const p = S.pet;
@@ -634,13 +670,13 @@ const Game = (() => {
   }
   function releaseMember(i) {
     const m = S.player.party[i]; if (!m || m.locked) return false;
-    S.player.history.unshift({ sp: m.sp, shiny: m.shiny, name: m.name, level: 1 + Math.floor(m.ageMin / MIN_PER_LEVEL), ageMin: m.ageMin, end: 'release', date: Date.now(), medals: (m.medals || []).length });
+    S.player.history.unshift({ sp: m.sp, shiny: m.shiny, name: m.name, level: lvOf(m.ageMin), ageMin: m.ageMin, end: 'release', date: Date.now(), medals: (m.medals || []).length });
     S.player.history = S.player.history.slice(0, 60);
     S.player.party.splice(i, 1);
     save(); emit('party');
     return true;
   }
-  const memberLevel = m => 1 + Math.floor(m.ageMin / MIN_PER_LEVEL);
+  const memberLevel = m => lvOf(m.ageMin);
 
   // ---------------- explore ----------------
   // every item (items.js); which Pokémon evolve how is in evodata.js / evolution.js
@@ -890,6 +926,7 @@ const Game = (() => {
       return { egg: true, boxed: full };
     }
     const b = blocked(false); if (b) return { error: b === 'egg' ? 'Hatch your egg first.' : 'Not right now.' };
+    if (k === 'rareCandy' && level() >= LEVEL_CAP) return { error: `It's already at the max level (Lv ${LEVEL_CAP}).` };
     S.player.bag[k]--;
     if (k === 'oran') { p.food = clamp(p.food + 25); p.joy = clamp(p.joy + 25); p.ene = clamp(p.ene + 25); p.hyg = clamp(p.hyg + 25); }
     if (k === 'rareCandy') { p.ageMin += MIN_PER_LEVEL - (p.ageMin % MIN_PER_LEVEL); emit('level', level()); }
@@ -910,7 +947,7 @@ const Game = (() => {
   function makeCaught(id, lv, shiny) {
     register(id, shiny);
     return {
-      egg: false, sp: id, shiny: !!shiny, name: '', ageMin: Math.max(0, lv - 1) * MIN_PER_LEVEL,
+      egg: false, sp: id, shiny: !!shiny, name: '', ageMin: Math.max(0, Math.min(LEVEL_CAP, lv) - 1) * MIN_PER_LEVEL,
       food: 80, joy: 80, ene: 80, hyg: 100, poops: 0, weight: 0,
       genes: { atk: 95 + rnd(16), def: 95 + rnd(16), spd: 95 + rnd(16) }, tr: { atk: 0, def: 0, spd: 0 },
       berryKnown: false, bond: 0, bondToday: 0, bondDay: dayNum(), medals: [], mistakes: 0, mistakeCd: 0, goodTicks: 0,
@@ -1095,7 +1132,7 @@ const Game = (() => {
   return {
     load, save, reset, update, setFast, widgetToken, on: f => listeners.push(f),
     get state() { return S; }, pet, sp, level, lowest, msPerMin,
-    pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, sleepNow, clean, caress, rename,
+    pickStarter, eggTap, feedBerry, feedCandy, playResult, trainStrength, trainDefense, toggleSleep, sleepNow, wake, rub, rubsLeft, RUBS_PER_DAY, LEVEL_CAP, AUTO_SLEEP, setSleepHold, clean, caress, rename,
     canEvolve, evolve, declineEvolve, evoLevel,
     party, eggCheck, takeEgg, switchMain, releaseMember, memberLevel, PARTY_MAX, NEW_EGG_LEVEL,
     ITEMS, EXPLORE_MAPS, applyMaps, ENDURE_BOND, get EXPLORE_MAX_FLOOR() { return CFG.exploreFloors; }, get FRAGMENTS_TO_SUMMON() { return CFG.fragments; }, isSpecial,
